@@ -20,7 +20,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -63,12 +63,17 @@ Login qilingandan so'ng olingan tokenni `Authorization: Bearer <token>` headerid
     redoc_url="/redoc",
 )
 
+# Vergul bilan ajratilgan aniq originlar; "*" ruxsat etilmaydi (credentials bilan xavfli)
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5180").split(",") if o.strip()]
+if "*" in CORS_ORIGINS:
+    raise RuntimeError("CORS_ORIGINS ichida '*' ishlatib bo'lmaydi; aniq originlarni ko'rsating.")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 security = HTTPBearer(auto_error=False)
