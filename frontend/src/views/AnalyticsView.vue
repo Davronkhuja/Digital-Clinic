@@ -168,13 +168,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Users, Calendar, TrendingUp, Activity, Bot, X } from 'lucide-vue-next'
+import api from '@/composables/useApi'
 import { useThemeStore } from '@/stores/theme'
 
 const theme  = useThemeStore()
 const dark   = computed(() => theme.isDark)
 const period = ref('month')
 
-// TODO: AI tahlili backend (/api/ai/analyze) orqali amalga oshiriladi (1-bosqich)
 
 const aiLoading = ref(false)
 const aiInsight = ref('')
@@ -242,10 +242,12 @@ Klinika statistikasi (${period.value}):
 `
 
   try {
-    throw new Error('AI xizmati vaqtincha o\'chirilgan')
+    const { data } = await api.post('/ai/analyze', { period: period.value, stats: statsText })
+    aiInsight.value = data.analysis || 'Tahlil natijasi olinmadi.'
+
   } catch (e) {
     console.error('Analytics AI error:', e)
-    aiInsight.value = `⚠️ AI tahlili vaqtincha mavjud emas: ${e.message}`
+    aiInsight.value = `⚠️ AI tahlili vaqtincha mavjud emas: ${e.response?.data?.detail || e.message}`
   } finally {
     aiLoading.value = false
   }

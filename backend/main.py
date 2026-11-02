@@ -13,6 +13,13 @@ from datetime import datetime, date
 from enum import Enum
 import random
 import hashlib
+import os
+import logging
+
+import httpx
+
+__version__ = "1.1.0"
+logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
 #  App initialization
@@ -42,7 +49,7 @@ Barcha endpointlar haqida to'liq ma'lumot ushbu sahifada mavjud.
 Ko'pgina endpointlar **Bearer Token** talab qiladi.
 Login qilingandan so'ng olingan tokenni `Authorization: Bearer <token>` headerida yuboring.
     """,
-    version="1.0.0",
+    version=__version__,
     contact={
         "name": "Digital Clinic Support",
         "email": "support@digitalclinic.uz",
@@ -198,9 +205,22 @@ class StaffMember(StaffCreate):
     patients_count: int = 0
 
 # AI
+class ChatTurn(BaseModel):
+    role: str = Field(..., pattern="^(user|assistant)$")
+    content: str = Field(..., max_length=4000)
+
 class AIMessage(BaseModel):
-    message: str = Field(..., example="Bemorning qon bosimi ko'tarilgan. Nima qilish kerak?")
-    context: Optional[str] = Field(None, example="Bemor 54 yoshli, qandli diabet bilan")
+    message: str = Field(..., max_length=4000, example="Bemorning qon bosimi ko'tarilgan. Nima qilish kerak?")
+    context: Optional[str] = Field(None, max_length=2000, example="Bemor 54 yoshli, qandli diabet bilan")
+    history: List[ChatTurn] = Field(default_factory=list, max_length=20)
+
+class AnalyzeRequest(BaseModel):
+    period: str = Field("month", pattern="^(week|month|year)$")
+    stats: str = Field(..., max_length=6000, description="Klinika statistikasi (matn)")
+
+class AnalyzeResponse(BaseModel):
+    analysis: str
+    disclaimer: str
 
 class AIResponse(BaseModel):
     response: str
@@ -310,6 +330,50 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if not credentials:
         raise HTTPException(status_code=401, detail="Authentication required")
     return {"id": "1", "name": "Admin", "email": "admin@clinic.uz"}
+
+# ─────────────────────────────────────────────
+#  LLM client (OpenAI-mos API: Groq, vLLM, ...)
+# ─────────────────────────────────────────────
+
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30"))
+
+AI_DISCLAIMER = ("Bu AI yordamchi faqat ma'lumot maqsadida. "
+                 "Professional tibbiy maslahat uchun shifokorga murojaat qiling.")
+CHAT_SYSTEM_PROMPT = (
+    "Sen Digital Clinic tizimining tibbiy AI yordamchisisan. O'zbek tilida qisqa, aniq va professional javob ber. "
+    "Tibbiy terminologiyadan foydalanishing mumkin, lekin oddiy til bilan tushuntir. "
+    "Har doim \"shifokorga murojaat qiling\" deb ta'kidla.")
+ANALYZE_SYSTEM_PROMPT = (
+    "Sen tibbiy klinika uchun analitik AI yordamchisisan. Berilgan statistika asosida qisqa (200-250 so'z) "
+    "va amaliy tavsiyalar ber. O'zbek tilida yoz. Raqamli ma'lumotlarga asoslan.")
+
+def call_llm(messages: list, temperature: float, max_tokens: int) -> str:
+    """LLM'ga so'rov yuboradi; xatolarni mos HTTP statuslarga o'giradi."""
+    if not LLM_API_KEY:
+        raise HTTPException(status_code=503, detail="AI xizmati sozlanmagan (LLM_API_KEY)")
+    try:
+        res = httpx.post(
+            f"{LLM_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {LLM_API_KEY}"},
+            json={"model": LLM_MODEL, "messages": messages,
+                  "temperature": temperature, "max_tokens": max_tokens, "stream": False},
+            timeout=LLM_TIMEOUT,
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="AI xizmati javob bermadi (timeout)")
+    except httpx.HTTPError as e:
+        logger.error("LLM ulanish xatosi: %s", e)
+        raise HTTPException(status_code=502, detail="AI xizmatiga ulanib bo'lmadi")
+    if res.status_code != 200:
+        logger.error("LLM xatosi %s: %s", res.status_code, res.text[:300])
+        raise HTTPException(status_code=502, detail=f"AI xizmati xatosi (HTTP {res.status_code})")
+    try:
+        return res.json()["choices"][0]["message"]["content"] or "Javob olinmadi."
+    except (KeyError, IndexError, ValueError):
+        raise HTTPException(status_code=502, detail="AI xizmati noto'g'ri javob qaytardi")
 
 # ─────────────────────────────────────────────
 #  ROUTES
@@ -570,27 +634,25 @@ Faqat ma'lumot olish maqsadida foydalaning.
           """,
           response_model=AIResponse)
 def ai_chat(data: AIMessage, _=Depends(get_current_user)):
-    responses = {
-        "qon": "Qon bosimi ko'tarilganda: darhol shifokorga murojaat qiling. Amlodipine yoki boshqa antihipertenziv dorilar buyurilishi mumkin.",
-        "diabet": "Qandli diabetda qon shakarini nazorat qilish juda muhim. Metformin va diet terapiyasi ko'p qo'llaniladi.",
-        "dori": "Dori buyurish uchun shifokor konsultatsiyasi zarur. Bemor anamnezini tekshiring.",
-    }
-    
-    response_text = "Bemorning holati kuzatuv ostida bo'lishi tavsiya etiladi. Qo'shimcha tekshiruvlar o'tkazish kerak bo'lishi mumkin."
-    for key, val in responses.items():
-        if key in data.message.lower():
-            response_text = val
-            break
-    
-    return AIResponse(
-        response=response_text,
-        suggestions=[
-            "Qo'shimcha qon tahlili buyuring",
-            "Blood pressure monitoring tavsiya eting",
-            "Ovqatlanish rejimini ko'rib chiqing",
-        ],
-        disclaimer="Bu AI yordamchi faqat ma'lumot maqsadida. Professional tibbiy maslahat uchun shifokorga murojaat qiling."
-    )
+    messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+    if data.context:
+        messages.append({"role": "system", "content": f"Kontekst: {data.context}"})
+    messages += [t.model_dump() for t in data.history[-10:]]
+    messages.append({"role": "user", "content": data.message})
+    text = call_llm(messages, temperature=0.7, max_tokens=1024)
+    return AIResponse(response=text, suggestions=[], disclaimer=AI_DISCLAIMER)
+
+@app.post("/ai/analyze", tags=["🤖 AI Assistant"], response_model=AnalyzeResponse,
+          summary="Klinika statistikasini AI bilan tahlil qilish")
+def ai_analyze(data: AnalyzeRequest, _=Depends(get_current_user)):
+    messages = [
+        {"role": "system", "content": ANALYZE_SYSTEM_PROMPT},
+        {"role": "user", "content": (
+            f"Quyidagi klinika statistikasini ({data.period}) tahlil qil va amaliy tavsiyalar ber:\n"
+            f"{data.stats}\n\nQuyidagilarni ko'rsat: 1) Asosiy xulosalar 2) Muammoli joylar 3) Konkret tavsiyalar")},
+    ]
+    text = call_llm(messages, temperature=0.6, max_tokens=600)
+    return AnalyzeResponse(analysis=text, disclaimer=AI_DISCLAIMER)
 
 @app.get("/ai/insights", tags=["🤖 AI Assistant"],
          summary="AI tahliliy ma'lumotlar",

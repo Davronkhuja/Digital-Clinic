@@ -165,6 +165,7 @@
 <script setup>
 import { ref, computed, nextTick, reactive } from 'vue'
 import { Bot, Send, RotateCcw, AlertCircle, Cpu } from 'lucide-vue-next'
+import api from '@/composables/useApi'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore }  from '@/stores/auth'
 
@@ -173,9 +174,6 @@ const auth  = useAuthStore()
 const dark  = computed(() => theme.isDark)
 const userInitial = computed(() => (auth.user?.name || 'A')[0].toUpperCase())
 
-// TODO: AI so'rovlari backend (/api/ai/chat) orqali amalga oshiriladi (1-bosqich)
-
-const SYSTEM_PROMPT = `Sen Digital Clinic tizimining tibbiy AI yordamchisisanman. O'zbek tilida qisqa, aniq va professional javob ber. Tibbiy terminologiyadan foydalanishingiz mumkin, lekin oddiy til bilan tushuntir. Har doim "shifokorga murojaat qiling" deb ta'kidla.`
 
 const messages  = ref([])
 const inputText = ref('')
@@ -185,7 +183,7 @@ const messagesEl = ref(null)
 const inputEl   = ref(null)
 
 const modelStats = [
-  { label: 'Provider',    value: 'Groq Cloud' },
+  { label: 'Provider',    value: 'Backend LLM' },
   { label: 'Til',         value: "O'zbek" },
   { label: 'Temperature', value: '0.7' },
   { label: 'Max tokens',  value: '1024' },
@@ -229,17 +227,17 @@ async function send() {
   scrollBottom()
   typing.value = true
 
-  // Build messages for API (keep last 10 for context)
-  const apiMessages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...messages.value.slice(-10).map(m => ({ role: m.role, content: m.content }))
-  ]
+  // Oxirgi 10 ta xabar kontekst sifatida (joriy savolsiz) yuboriladi
+  const history = messages.value.slice(-11, -1).map(m => ({ role: m.role, content: m.content }))
 
   try {
-    throw new Error('AI xizmati vaqtincha o\'chirilgan')
+    const { data } = await api.post('/ai/chat', { message: text, history })
+    const content = data.response || 'Javob olinmadi.'
+    messages.value.push({ id: Date.now() + 1, role: 'assistant', content, time: now() })
+
   } catch (e) {
-    console.error('Groq API error:', e)
-    error.value = `Xatolik: ${e.message}. Iltimos qayta urinib ko'ring.`
+    console.error('AI chat error:', e)
+    error.value = `Xatolik: ${e.response?.data?.detail || e.message}. Iltimos qayta urinib ko'ring.`
     messages.value.push({
       id: Date.now() + 1, role: 'assistant',
       content: '⚠️ Kechirasiz, hozirda javob bera olmayapman. Iltimos qayta urinib ko\'ring.',
