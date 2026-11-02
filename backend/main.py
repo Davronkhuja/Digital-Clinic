@@ -17,8 +17,10 @@ import os
 import logging
 
 import httpx
+import jwt
+from datetime import timedelta, timezone
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -326,10 +328,34 @@ clinic_settings = ClinicSettings(
 #  Auth helpers
 # ─────────────────────────────────────────────
 
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+if len(JWT_SECRET) < 32:
+    raise RuntimeError("JWT_SECRET o'rnatilmagan yoki juda qisqa (kamida 32 belgi). .env faylini tekshiring.")
+
+def create_access_token(user: dict) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {"sub": user["email"], "uid": user["id"], "role": user["role"],
+               "iat": now, "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    unauthorized = HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
+                                 headers={"WWW-Authenticate": "Bearer"})
     if not credentials:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return {"id": "1", "name": "Admin", "email": "admin@clinic.uz"}
+        raise HTTPException(status_code=401, detail="Authentication required",
+                            headers={"WWW-Authenticate": "Bearer"})
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+                             options={"require": ["exp", "sub"]})
+    except jwt.PyJWTError:
+        raise unauthorized
+    user = fake_users.get(payload["sub"])
+    if not user:
+        raise unauthorized
+    return {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}
 
 # ─────────────────────────────────────────────
 #  LLM client (OpenAI-mos API: Groq, vLLM, ...)
@@ -391,7 +417,7 @@ def login(data: LoginRequest):
     user = fake_users.get(data.email)
     if not user or user["password_hash"] != hashlib.md5(data.password.encode()).hexdigest():
         raise HTTPException(status_code=401, detail="Email yoki parol noto'g'ri")
-    token = hashlib.sha256(f"{data.email}:secret_key".encode()).hexdigest()
+    token = create_access_token(user)
     return TokenResponse(access_token=token, user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
 
 @app.post("/auth/register", tags=["🔐 Auth"], status_code=status.HTTP_201_CREATED,
