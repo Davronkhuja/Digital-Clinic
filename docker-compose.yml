@@ -1,0 +1,17 @@
+services:
+  backend:
+    build: ./backend
+    container_name: digital-clinic-backend
+    restart: unless-stopped
+    ports:
+      - "8010:8000"   # Swagger: http://localhost:8010/docs
+
+  frontend:
+    build: ./frontend
+    container_name: digital-clinic-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5180:80"     # Ilova: http://localhost:5180
