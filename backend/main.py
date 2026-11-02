@@ -12,15 +12,15 @@ from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
 import random
-import hashlib
 import os
 import logging
 
 import httpx
+import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -240,12 +240,26 @@ class ClinicSettings(BaseModel):
     language: str = Field(default="uz", example="uz")
 
 # ─────────────────────────────────────────────
+#  Password hashing (bcrypt)
+# ─────────────────────────────────────────────
+
+def hash_password(password: str) -> str:
+    # bcrypt faqat birinchi 72 baytni hisobga oladi
+    return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt()).decode()
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode()[:72], password_hash.encode())
+    except ValueError:
+        return False
+
+# ─────────────────────────────────────────────
 #  Fake Database
 # ─────────────────────────────────────────────
 
 fake_users = {
     "admin@clinic.uz": {"id": "1", "name": "Admin User", "email": "admin@clinic.uz",
-                         "password_hash": hashlib.md5(b"password123").hexdigest(), "role": "admin"}
+                         "password_hash": hash_password("password123"), "role": "admin"}
 }
 
 fake_patients = [
@@ -415,7 +429,7 @@ def root():
           summary="Tizimga kirish", description="Email va parol orqali tizimga kiring va JWT token oling.")
 def login(data: LoginRequest):
     user = fake_users.get(data.email)
-    if not user or user["password_hash"] != hashlib.md5(data.password.encode()).hexdigest():
+    if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Email yoki parol noto'g'ri")
     token = create_access_token(user)
     return TokenResponse(access_token=token, user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
@@ -427,7 +441,7 @@ def register(data: RegisterRequest):
         raise HTTPException(status_code=400, detail="Bu email allaqachon ro'yxatdan o'tgan")
     fake_users[data.email] = {
         "id": str(len(fake_users) + 1), "name": data.name, "email": data.email,
-        "password_hash": hashlib.md5(data.password.encode()).hexdigest(), "role": "admin"
+        "password_hash": hash_password(data.password), "role": "admin"
     }
     return {"message": "Muvaffaqiyatli ro'yxatdan o'tdingiz", "email": data.email}
 
