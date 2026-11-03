@@ -19,7 +19,7 @@
     </div>
 
     <div v-if="loading && !loaded" :class="['text-sm py-12 text-center', dark ? 'text-slate-400' : 'text-slate-500']">Yuklanmoqda...</div>
-    <EmptyState v-else-if="error && !loaded" title="Ma'lumotni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi." actionLabel="Qayta urinish" @action="load" />
+    <EmptyState v-else-if="error && !loaded" title="Ma'lumotni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi." action-label="Qayta urinish" @action="load" />
 
     <template v-else-if="loaded">
     <!-- KPI cards -->

@@ -16,7 +16,7 @@
 
     <div v-else-if="loading && !data" :class="['text-sm py-12 text-center', dark ? 'text-slate-400' : 'text-slate-500']">{{ lang.t('common.loading') }}</div>
 
-    <EmptyState v-else-if="error && !data" title="Ma'lumotni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi." actionLabel="Qayta urinish" @action="load" />
+    <EmptyState v-else-if="error && !data" title="Ma'lumotni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi." action-label="Qayta urinish" @action="load" />
 
     <template v-else-if="data">
       <!-- Stat cards -->

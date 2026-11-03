@@ -27,9 +27,9 @@
         <p class="text-slate-400 text-sm">Yuklanmoqda...</p>
       </div>
 
-      <EmptyState v-else-if="loadError" title="Xodimlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchStaff" />
+      <EmptyState v-else-if="loadError" title="Xodimlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." action-label="Qayta urinish" @action="fetchStaff" />
 
-      <EmptyState v-else-if="staff.length === 0" title="Hali xodimlar yo'q" description="Birinchi xodimni qo'shing" actionLabel="Add Staff" @action="openAdd" />
+      <EmptyState v-else-if="staff.length === 0" title="Hali xodimlar yo'q" description="Birinchi xodimni qo'shing" action-label="Add Staff" @action="openAdd" />
 
       <div v-else class="overflow-x-auto">
         <table class="table">

@@ -29,7 +29,7 @@
 
       <div v-if="auditLoading && !audit.items.length" :class="['text-sm py-10 text-center', sub]">Yuklanmoqda...</div>
       <EmptyState v-else-if="auditError" title="Audit jurnalini yuklab bo'lmadi"
-        description="Serverga ulanishda xatolik yuz berdi." actionLabel="Qayta urinish" @action="loadAudit" />
+        description="Serverga ulanishda xatolik yuz berdi." action-label="Qayta urinish" @action="loadAudit" />
       <EmptyState v-else-if="!audit.items.length" title="Yozuvlar topilmadi"
         description="Tanlangan filtrlar bo'yicha audit yozuvlari yo'q." />
       <template v-else>
@@ -74,7 +74,7 @@
       </div>
       <div v-if="allLoading" :class="['text-sm py-8 text-center', sub]">Yuklanmoqda...</div>
       <EmptyState v-else-if="allError" title="Sessiyalarni yuklab bo'lmadi"
-        description="Serverga ulanishda xatolik yuz berdi." actionLabel="Qayta urinish" @action="loadAll" />
+        description="Serverga ulanishda xatolik yuz berdi." action-label="Qayta urinish" @action="loadAll" />
       <EmptyState v-else-if="!allSessions.length" title="Faol sessiyalar yo'q" />
       <div v-else class="space-y-1">
         <div v-for="s in allSessions" :key="s.id"
@@ -110,7 +110,7 @@
         </div>
         <div v-if="myLoading" :class="['text-sm py-8 text-center', sub]">Yuklanmoqda...</div>
         <EmptyState v-else-if="myError" title="Sessiyalarni yuklab bo'lmadi"
-          description="Serverga ulanishda xatolik yuz berdi." actionLabel="Qayta urinish" @action="loadMy" />
+          description="Serverga ulanishda xatolik yuz berdi." action-label="Qayta urinish" @action="loadMy" />
         <EmptyState v-else-if="!mySessions.length" title="Faol sessiyalar yo'q" />
         <div v-else class="space-y-1">
           <div v-for="s in mySessions" :key="s.id"

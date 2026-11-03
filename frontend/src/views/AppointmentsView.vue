@@ -35,9 +35,9 @@
         <p class="text-slate-400 text-sm">Yuklanmoqda...</p>
       </div>
 
-      <EmptyState v-else-if="loadError" title="Uchrashuvlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchAppointments" />
+      <EmptyState v-else-if="loadError" title="Uchrashuvlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." action-label="Qayta urinish" @action="fetchAppointments" />
 
-      <EmptyState v-else-if="appointments.length === 0" title="Hali uchrashuvlar yo'q" description="Birinchi uchrashuvni rejalashtiring" actionLabel="Uchrashuv qo'shish" @action="showModal = true" />
+      <EmptyState v-else-if="appointments.length === 0" title="Hali uchrashuvlar yo'q" description="Birinchi uchrashuvni rejalashtiring" action-label="Uchrashuv qo'shish" @action="showModal = true" />
 
       <div v-else class="table-container border-0">
         <table class="table">

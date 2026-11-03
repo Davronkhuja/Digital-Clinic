@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.15] - 2026-11-03
+### Added
+- Frontend: eslint (`npm run lint`, flat config + eslint-plugin-vue); kod lintdan o'tdi.
+- GitHub Actions (`.github/workflows/ci.yml`): lint (ruff + eslint) -> pytest (PostgreSQL service) -> frontend build -> docker build.
+- README yangilandi: ishga tushirish, env, portlar, rollar, testlar, versiyalash (1-bosqich, band 10 oxiri).
+
 ## [1.5.14] - 2026-11-03
 ### Fixed
 - nginx: `index.html` `Cache-Control: no-cache` bilan beriladi; avval brauzer eski `index.html` ni keshlab, yangi deploydan keyin eski sahifa ko'rinardi. Hash'li `assets/` uzoq keshlanishda qoladi.

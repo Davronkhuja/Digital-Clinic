@@ -129,8 +129,8 @@
           <!-- Dark/Light toggle -->
           <button @click="theme.toggle()" :class="['p-2 rounded-xl transition-all duration-200', isDark ? 'text-amber-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100']">
             <Transition name="icon-flip" mode="out-in">
-              <Sun  v-if="isDark" key="sun"  class="w-5 h-5" />
-              <Moon v-else        key="moon" class="w-5 h-5" />
+              <Sun v-if="isDark" key="sun" class="w-5 h-5" />
+              <Moon v-else key="moon" class="w-5 h-5" />
             </Transition>
           </button>
 

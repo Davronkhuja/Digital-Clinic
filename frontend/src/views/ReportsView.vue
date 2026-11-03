@@ -6,7 +6,7 @@
     </div>
 
     <div v-if="loadError" class="card">
-      <EmptyState title="Hisobotlar ro'yxatini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" actionLabel="Qayta urinish" @action="loadReports" />
+      <EmptyState title="Hisobotlar ro'yxatini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" action-label="Qayta urinish" @action="loadReports" />
     </div>
     <div v-else-if="loading" class="text-sm text-slate-500">Yuklanmoqda...</div>
     <div v-else-if="reports.length === 0" class="card">

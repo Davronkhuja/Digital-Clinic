@@ -15,7 +15,7 @@
       </button>
     </div>
 
-    <EmptyState v-if="loadError" title="Moliya ma'lumotlarini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" actionLabel="Qayta urinish" @action="loadAll" />
+    <EmptyState v-if="loadError" title="Moliya ma'lumotlarini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" action-label="Qayta urinish" @action="loadAll" />
     <template v-else>
 
     <!-- 4 stat cards -->
@@ -140,7 +140,7 @@
           </tbody>
         </table>
       </div>
-      <EmptyState v-if="!loading && transactions.length === 0" title="Hali tranzaksiyalar yo'q" description="Birinchi daromad yoki xarajatni qo'shing" actionLabel="Tranzaksiya qo'shish" @action="openModal" />
+      <EmptyState v-if="!loading && transactions.length === 0" title="Hali tranzaksiyalar yo'q" description="Birinchi daromad yoki xarajatni qo'shing" action-label="Tranzaksiya qo'shish" @action="openModal" />
       <p v-else-if="!loading && filteredTx.length === 0" :class="['py-10 text-center text-sm', dark ? 'text-slate-500' : 'text-slate-400']">No transactions found</p>
     </div>
 

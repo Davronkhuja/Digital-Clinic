@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 // ── Theme definitions ──────────────────────────────────────────────────────
 export const THEMES = [

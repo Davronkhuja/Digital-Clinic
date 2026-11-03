@@ -96,7 +96,7 @@
     </div>
 
     <div v-else-if="loadError" class="card">
-      <EmptyState title="Bemorni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="load" />
+      <EmptyState title="Bemorni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." action-label="Qayta urinish" @action="load" />
     </div>
 
     <div v-else class="flex items-center justify-center h-64">

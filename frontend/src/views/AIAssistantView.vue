@@ -164,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, reactive, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { Bot, Send, RotateCcw, AlertCircle, Cpu } from 'lucide-vue-next'
 import api from '@/composables/useApi'
 import { useThemeStore } from '@/stores/theme'

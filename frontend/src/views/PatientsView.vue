@@ -30,10 +30,10 @@
       </div>
 
       <div v-else-if="loadError" class="p-4">
-        <EmptyState title="Bemorlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchPatients" />
+        <EmptyState title="Bemorlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." action-label="Qayta urinish" @action="fetchPatients" />
       </div>
 
-      <EmptyState v-else-if="patients.length === 0" title="Hali bemorlar yo'q" description="Birinchi bemorni qo'shing" actionLabel="Bemor qo'shish" @action="openAdd" />
+      <EmptyState v-else-if="patients.length === 0" title="Hali bemorlar yo'q" description="Birinchi bemorni qo'shing" action-label="Bemor qo'shish" @action="openAdd" />
 
       <div v-else class="table-container rounded-none border-0">
         <table class="table">

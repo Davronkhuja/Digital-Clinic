@@ -80,9 +80,9 @@
           </div>
         </div>
 
-        <EmptyState v-if="loadError" title="Tibbiy yozuvlarni yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" actionLabel="Qayta urinish" @action="loadRecords" />
+        <EmptyState v-if="loadError" title="Tibbiy yozuvlarni yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" action-label="Qayta urinish" @action="loadRecords" />
         <div v-else-if="loading" :class="['py-16 text-center text-sm', dark ? 'text-slate-500' : 'text-slate-400']">Yuklanmoqda...</div>
-        <EmptyState v-else-if="records.length === 0" title="Hali tibbiy yozuvlar yo'q" description="Birinchi tibbiy yozuvni yaratish uchun tugmani bosing" actionLabel="Yangi yozuv" @action="openNew" />
+        <EmptyState v-else-if="records.length === 0" title="Hali tibbiy yozuvlar yo'q" description="Birinchi tibbiy yozuvni yaratish uchun tugmani bosing" action-label="Yangi yozuv" @action="openNew" />
         <div v-else-if="filtered.length === 0" class="py-16 text-center">
           <FileText :class="['w-12 h-12 mx-auto mb-3', dark ? 'text-slate-700' : 'text-slate-300']" />
           <p :class="['text-sm', dark ? 'text-slate-500' : 'text-slate-400']">No records found</p>
