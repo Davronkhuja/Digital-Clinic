@@ -2,6 +2,7 @@
   <div class="space-y-5 animate-fade-in">
     <div>
       <h2 :class="['text-2xl font-heading font-bold', dark ? 'text-white' : 'text-slate-900']">AI Yordamchi</h2>
+      <span v-if="aiDemo" class="mt-1 inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Demo rejim</span>
       <p :class="['text-sm mt-1', dark ? 'text-slate-400' : 'text-slate-500']">Tibbiy savollarga AI yordamida javob oling</p>
     </div>
 
@@ -21,7 +22,7 @@
             </div>
             <h3 :class="['font-heading font-bold text-xl', dark ? 'text-white' : 'text-slate-900']">Digital Clinic AI</h3>
             <p :class="['text-sm mt-2 max-w-xs leading-relaxed', dark ? 'text-slate-400' : 'text-slate-500']">
-              Tibbiy savollaringizni bering. Groq LLaMA 3.1 modeli asosida ishlaydi.
+              Tibbiy savollaringizni bering. {{ aiDemo ? 'Demo rejim: javoblar tayyor shablonlardan olinadi.' : 'AI model asosida ishlaydi.' }}
             </p>
             <div class="mt-5 flex flex-wrap gap-2 justify-center">
               <button v-for="q in quickQuestions" :key="q"
@@ -163,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, reactive } from 'vue'
+import { ref, computed, nextTick, reactive, onMounted } from 'vue'
 import { Bot, Send, RotateCcw, AlertCircle, Cpu } from 'lucide-vue-next'
 import api from '@/composables/useApi'
 import { useThemeStore } from '@/stores/theme'
@@ -175,6 +176,11 @@ const dark  = computed(() => theme.isDark)
 const userInitial = computed(() => (auth.user?.name || 'A')[0].toUpperCase())
 
 
+const aiDemo    = ref(false)
+onMounted(async () => {
+  try { aiDemo.value = (await api.get('/ai/status')).data.demo } catch { /* holat ko'rsatilmaydi */ }
+})
+
 const messages  = ref([])
 const inputText = ref('')
 const typing    = ref(false)
@@ -183,7 +189,7 @@ const messagesEl = ref(null)
 const inputEl   = ref(null)
 
 const modelStats = [
-  { label: 'Provider',    value: 'Backend LLM' },
+  { label: 'Rejim',       value: 'Backend (demo yoki LLM)' },
   { label: 'Til',         value: "O'zbek" },
   { label: 'Temperature', value: '0.7' },
   { label: 'Max tokens',  value: '1024' },
@@ -232,6 +238,7 @@ async function send() {
 
   try {
     const { data } = await api.post('/ai/chat', { message: text, history })
+    aiDemo.value = !!data.demo
     const content = data.response || 'Javob olinmadi.'
     messages.value.push({ id: Date.now() + 1, role: 'assistant', content, time: now() })
 

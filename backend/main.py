@@ -20,7 +20,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -227,10 +227,12 @@ class AnalyzeRequest(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     analysis: str
+    demo: bool = False
     disclaimer: str
 
 class AIResponse(BaseModel):
     response: str
+    demo: bool = False
     suggestions: List[str]
     disclaimer: str
 
@@ -380,6 +382,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 #  LLM client (OpenAI-mos API: Groq, vLLM, ...)
 # ─────────────────────────────────────────────
 
+# false bo'lsa LLM'ga hech qanday tashqi so'rov yuborilmaydi, statik demo javoblar qaytariladi
+AI_ENABLED = os.getenv("AI_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
@@ -394,6 +398,23 @@ CHAT_SYSTEM_PROMPT = (
 ANALYZE_SYSTEM_PROMPT = (
     "Sen tibbiy klinika uchun analitik AI yordamchisisan. Berilgan statistika asosida qisqa (200-250 so'z) "
     "va amaliy tavsiyalar ber. O'zbek tilida yoz. Raqamli ma'lumotlarga asoslan.")
+
+DEMO_CHAT_RESPONSES = {
+    "qon": "Qon bosimi ko'tarilganda: darhol shifokorga murojaat qiling. Amlodipine yoki boshqa antihipertenziv dorilar buyurilishi mumkin.",
+    "diabet": "Qandli diabetda qon shakarini nazorat qilish juda muhim. Metformin va diet terapiyasi ko'p qo'llaniladi.",
+    "dori": "Dori buyurish uchun shifokor konsultatsiyasi zarur. Bemor anamnezini tekshiring.",
+}
+DEMO_CHAT_DEFAULT = "Bemorning holati kuzatuv ostida bo'lishi tavsiya etiladi. Qo'shimcha tekshiruvlar o'tkazish kerak bo'lishi mumkin."
+DEMO_CHAT_SUGGESTIONS = [
+    "Qo'shimcha qon tahlili buyuring",
+    "Blood pressure monitoring tavsiya eting",
+    "Ovqatlanish rejimini ko'rib chiqing",
+]
+DEMO_ANALYSIS = (
+    "1) Asosiy xulosalar: bemorlar oqimi va daromad o'sish tendensiyasida.\n"
+    "2) Muammoli joylar: uchrashuvlarning bekor qilinish ulushi yuqori.\n"
+    "3) Tavsiyalar: SMS eslatmalar yuborish, eng band kunlarda qabul jadvalini kengaytirish, "
+    "eng ko'p uchraydigan tashxislar bo'yicha profilaktika dasturini ishga tushirish.")
 
 def call_llm(messages: list, temperature: float, max_tokens: int) -> str:
     """LLM'ga so'rov yuboradi; xatolarni mos HTTP statuslarga o'giradi."""
@@ -679,6 +700,9 @@ Faqat ma'lumot olish maqsadida foydalaning.
           """,
           response_model=AIResponse)
 def ai_chat(data: AIMessage, _=Depends(get_current_user)):
+    if not AI_ENABLED:
+        text = next((v for k, v in DEMO_CHAT_RESPONSES.items() if k in data.message.lower()), DEMO_CHAT_DEFAULT)
+        return AIResponse(response=text, demo=True, suggestions=DEMO_CHAT_SUGGESTIONS, disclaimer=AI_DISCLAIMER)
     messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
     if data.context:
         messages.append({"role": "system", "content": f"Kontekst: {data.context}"})
@@ -687,9 +711,15 @@ def ai_chat(data: AIMessage, _=Depends(get_current_user)):
     text = call_llm(messages, temperature=0.7, max_tokens=1024)
     return AIResponse(response=text, suggestions=[], disclaimer=AI_DISCLAIMER)
 
+@app.get("/ai/status", tags=["🤖 AI Assistant"], summary="AI rejimi (demo yoki LLM)")
+def ai_status(_=Depends(get_current_user)):
+    return {"enabled": AI_ENABLED, "demo": not AI_ENABLED}
+
 @app.post("/ai/analyze", tags=["🤖 AI Assistant"], response_model=AnalyzeResponse,
           summary="Klinika statistikasini AI bilan tahlil qilish")
 def ai_analyze(data: AnalyzeRequest, _=Depends(get_current_user)):
+    if not AI_ENABLED:
+        return AnalyzeResponse(analysis=DEMO_ANALYSIS, demo=True, disclaimer=AI_DISCLAIMER)
     messages = [
         {"role": "system", "content": ANALYZE_SYSTEM_PROMPT},
         {"role": "user", "content": (

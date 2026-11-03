@@ -146,7 +146,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-2">
               <p :class="['font-semibold text-sm', dark ? 'text-white' : 'text-slate-900']">AI Tahlil natijasi</p>
-              <span class="text-[10px] px-2 py-0.5 rounded-full text-white font-semibold" :style="`background:rgb(var(--c-primary))`">Groq LLaMA 3.1</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full text-white font-semibold" :style="`background:rgb(var(--c-primary))`">{{ aiDemo ? 'Demo rejim' : 'AI' }}</span>
             </div>
             <div v-if="aiLoading" class="flex gap-1 items-center">
               <span class="w-2 h-2 rounded-full animate-bounce" :style="`background:rgb(var(--c-primary))`" style="animation-delay:0ms"></span>
@@ -178,6 +178,7 @@ const period = ref('month')
 
 const aiLoading = ref(false)
 const aiInsight = ref('')
+const aiDemo = ref(false)
 
 const kpiCards = [
   { label: 'Jami bemorlar',   value: '1,247', change: '12%',  upward: true,  icon: Users,      bg: 'bg-blue-50 dark:bg-blue-900/20',    color: 'text-blue-500',    spark: [40,55,45,60,50,70,85] },
@@ -243,6 +244,7 @@ Klinika statistikasi (${period.value}):
 
   try {
     const { data } = await api.post('/ai/analyze', { period: period.value, stats: statsText })
+    aiDemo.value = !!data.demo
     aiInsight.value = data.analysis || 'Tahlil natijasi olinmadi.'
 
   } catch (e) {
