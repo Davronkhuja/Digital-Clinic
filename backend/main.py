@@ -13,6 +13,7 @@ from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
 import random
+import uuid
 import csv
 import io
 import os
@@ -23,7 +24,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.5"
+__version__ = "1.4.6"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -266,6 +267,10 @@ class ClinicSettings(BaseModel):
 #  Password hashing (bcrypt)
 # ─────────────────────────────────────────────
 
+def new_id() -> str:
+    """Vaqtincha UUID (DB kelguncha). len()+1 o'chirishdan keyin ID'lar to'qnashardi."""
+    return str(uuid.uuid4())
+
 def hash_password(password: str) -> str:
     # bcrypt faqat birinchi 72 baytni hisobga oladi
     return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt()).decode()
@@ -507,7 +512,7 @@ def register(data: RegisterRequest):
     if data.email in fake_users:
         raise HTTPException(status_code=400, detail="Bu email allaqachon ro'yxatdan o'tgan")
     fake_users[data.email] = {
-        "id": str(len(fake_users) + 1), "name": data.name, "email": data.email,
+        "id": new_id(), "name": data.name, "email": data.email,
         "password_hash": hash_password(data.password), "role": "admin"
     }
     return {"message": "Muvaffaqiyatli ro'yxatdan o'tdingiz", "email": data.email}
@@ -540,7 +545,7 @@ def get_patients(
           status_code=status.HTTP_201_CREATED,
           summary="Yangi bemor qo'shish", description="Yangi bemor ma'lumotlarini tizimga kiritish.")
 def create_patient(data: PatientCreate, _=Depends(get_current_user)):
-    patient = Patient(**data.model_dump(), id=str(len(fake_patients) + 1),
+    patient = Patient(**data.model_dump(), id=new_id(),
                       created_at=datetime.now().isoformat()[:10])
     fake_patients.append(patient)
     return patient
@@ -598,7 +603,7 @@ def get_appointments(
 @app.post("/appointments", tags=["📅 Appointments"], response_model=Appointment,
           status_code=201, summary="Uchrashuv rejalashtirish")
 def create_appointment(data: AppointmentCreate, _=Depends(get_current_user)):
-    appt = Appointment(**data.model_dump(), id=str(len(fake_appointments) + 1),
+    appt = Appointment(**data.model_dump(), id=new_id(),
                        created_at=datetime.now().isoformat()[:10])
     fake_appointments.append(appt)
     return appt
@@ -630,7 +635,7 @@ def get_emr(patient_id: Optional[str] = Query(None), _=Depends(get_current_user)
 @app.post("/emr", tags=["📋 EMR"], response_model=EMRRecord, status_code=201,
           summary="Yangi tibbiy yozuv qo'shish")
 def create_emr(data: EMRCreate, _=Depends(get_current_user)):
-    record = EMRRecord(**data.model_dump(), id=str(len(fake_emr) + 1),
+    record = EMRRecord(**data.model_dump(), id=new_id(),
                        created_at=datetime.now().isoformat()[:10])
     fake_emr.append(record)
     return record
@@ -661,7 +666,7 @@ def get_transactions(
 @app.post("/finance/transactions", tags=["💰 Finance"], response_model=Transaction, status_code=201,
           summary="Yangi tranzaksiya qo'shish")
 def create_transaction(data: TransactionCreate, _=Depends(get_current_user)):
-    tx = Transaction(**data.model_dump(), id=str(len(fake_transactions) + 1),
+    tx = Transaction(**data.model_dump(), id=new_id(),
                      created_at=datetime.now().isoformat()[:10])
     fake_transactions.append(tx)
     return tx
@@ -797,7 +802,7 @@ def get_staff(role: Optional[StaffRole] = None, _=Depends(get_current_user)):
 @app.post("/staff", tags=["👔 Staff"], response_model=StaffMember, status_code=201,
           summary="Yangi xodim qo'shish")
 def create_staff(data: StaffCreate, _=Depends(get_current_user)):
-    member = StaffMember(**data.model_dump(), id=str(len(fake_staff) + 1),
+    member = StaffMember(**data.model_dump(), id=new_id(),
                          joined_date=datetime.now().isoformat()[:10])
     fake_staff.append(member)
     return member
