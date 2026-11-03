@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.3"
+__version__ = "1.4.4"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -581,9 +581,12 @@ def get_appointments(
     date: Optional[str] = Query(None, description="Sana bo'yicha filter (YYYY-MM-DD)"),
     doctor: Optional[str] = Query(None, description="Shifokor bo'yicha filter"),
     status: Optional[AppointmentStatus] = Query(None, description="Status bo'yicha filter"),
+    patient_id: Optional[str] = Query(None, description="Bemor ID bo'yicha filter"),
     _=Depends(get_current_user)
 ):
     results = fake_appointments
+    if patient_id:
+        results = [a for a in results if a.patient_id == patient_id]
     if date:
         results = [a for a in results if a.date == date]
     if doctor:
