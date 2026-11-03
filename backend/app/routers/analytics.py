@@ -1,0 +1,67 @@
+import csv  # noqa: F401
+import io  # noqa: F401
+from datetime import date, datetime  # noqa: F401
+from typing import List, Optional  # noqa: F401
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: F401
+from fastapi.responses import Response  # noqa: F401
+
+from app.core.config import settings  # noqa: F401
+from app.core.security import *  # noqa: F401,F403
+from app.db import fake  # noqa: F401
+from app.schemas import *  # noqa: F401,F403
+
+router = APIRouter()
+
+# ── ANALYTICS ─────────────────────────────────
+@router.get("/analytics/dashboard", tags=["📊 Analytics"],
+         summary="Dashboard statistikasi",
+         description="Asosiy dashboard ko'rsatkichlari: bemorlar, uchrashuvlar, daromad.")
+def get_dashboard_stats(_=Depends(get_current_user)):
+    return {
+        "total_patients": 1284,
+        "total_appointments_today": 42,
+        "monthly_revenue": 48250000,
+        "active_doctors": 18,
+        "revenue_change": "+12.5%",
+        "patients_change": "+3.2%",
+        "appointments_change": "-5.1%",
+        "doctors_change": "+2",
+        "revenue_chart": [
+            {"month": "Sep", "value": 35000000},
+            {"month": "Oct", "value": 42000000},
+            {"month": "Nov", "value": 38000000},
+            {"month": "Dec", "value": 45000000},
+            {"month": "Jan", "value": 41000000},
+            {"month": "Feb", "value": 48250000},
+        ],
+        "patient_flow": [
+            {"day": "Du", "new": 12, "returning": 28},
+            {"day": "Se", "new": 8, "returning": 32},
+            {"day": "Ch", "new": 15, "returning": 25},
+            {"day": "Pa", "new": 10, "returning": 30},
+            {"day": "Ju", "new": 18, "returning": 22},
+        ]
+    }
+
+@router.get("/analytics/reports", tags=["📊 Analytics"],
+         summary="Tahliliy hisobotlar",
+         description="Bemorlar, daromad, shifokorlar bo'yicha tahliliy ma'lumotlar.")
+def get_analytics(_=Depends(get_current_user)):
+    return {
+        "top_diagnoses": [
+            {"name": "Gipertenziya", "count": 234},
+            {"name": "Qandli diabet", "count": 187},
+            {"name": "Ortopedik muammolar", "count": 143},
+            {"name": "Nafas yo'llari kasalliklari", "count": 98},
+        ],
+        "top_doctors": [
+            {"name": "Dr. Rustamov", "patients": 124, "rating": 4.9},
+            {"name": "Dr. Karimov", "patients": 98, "rating": 4.8},
+            {"name": "Dr. Yusupov", "patients": 87, "rating": 4.7},
+        ],
+        "patient_demographics": {
+            "male": 48, "female": 52,
+            "age_groups": {"0-18": 12, "19-35": 28, "36-55": 38, "55+": 22}
+        }
+    }
