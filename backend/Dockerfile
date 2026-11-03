@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -10,6 +10,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# --- test: pytest va ruff bilan (docker compose --profile test run --rm test) ---
+FROM base AS test
+RUN pip install --no-cache-dir -r requirements-dev.txt
+CMD ["pytest"]
+
+# --- runtime (standart; compose target: runtime) ---
+FROM base AS runtime
 RUN useradd -r -u 1001 appuser && chown -R appuser /app
 USER appuser
 

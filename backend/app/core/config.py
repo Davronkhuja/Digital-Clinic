@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # Auth
     jwt_secret: str
     jwt_algorithm: str = "HS256"
+    bcrypt_rounds: int = 12  # testlarda kamaytiriladi
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 

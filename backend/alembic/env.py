@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import create_engine
 
 import app.models  # noqa: F401  (barcha modellarni metadata'ga yuklaydi)
+from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -12,7 +12,7 @@ UNAUTHORIZED_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 def hash_password(password: str) -> str:
     # bcrypt faqat birinchi 72 baytni hisobga oladi
-    return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt(rounds=settings.bcrypt_rounds)).decode()
 
 
 def verify_password(password: str, password_hash: str) -> bool:
@@ -23,7 +23,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(user_id: uuid.UUID, role: str) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
         "role": role,
@@ -36,7 +36,7 @@ def create_access_token(user_id: uuid.UUID, role: str) -> str:
 
 def create_refresh_token(user_id: uuid.UUID) -> tuple[str, uuid.UUID, datetime]:
     """(token, jti, expires_at). jti bazada saqlanadi va bekor qilinishi mumkin."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     jti = uuid.uuid4()
     expires_at = now + timedelta(days=settings.refresh_token_expire_days)
     payload = {"sub": str(user_id), "jti": str(jti), "type": "refresh", "iat": now, "exp": expires_at}

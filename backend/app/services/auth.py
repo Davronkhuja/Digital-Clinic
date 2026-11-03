@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Request
 from sqlalchemy import select, update
@@ -33,7 +33,7 @@ def revoke_all(db: Session, user_id: uuid.UUID) -> None:
     db.execute(
         update(RefreshToken)
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
-        .values(revoked_at=datetime.now(timezone.utc))
+        .values(revoked_at=datetime.now(UTC))
     )
 
 
@@ -50,7 +50,7 @@ def rotate_refresh(db: Session, token: str, request: Request) -> dict:
     user = load_current_user(db, row.user_id)
     if not user:
         raise HTTPException(401, "Token yaroqsiz yoki muddati tugagan")
-    row.revoked_at = datetime.now(timezone.utc)
+    row.revoked_at = datetime.now(UTC)
     return issue_tokens(db, user, request)
 
 
@@ -61,5 +61,5 @@ def revoke_refresh(db: Session, token: str, user_id: uuid.UUID) -> None:
         return  # yaroqsiz token allaqachon foydasiz
     row = db.scalar(select(RefreshToken).where(RefreshToken.jti == uuid.UUID(payload["jti"])))
     if row and row.user_id == user_id and row.revoked_at is None:
-        row.revoked_at = datetime.now(timezone.utc)
+        row.revoked_at = datetime.now(UTC)
         db.commit()

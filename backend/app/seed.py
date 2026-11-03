@@ -4,7 +4,7 @@
 - Demo ma'lumotlar faqat SEED_DEMO=true va baza bo'sh bo'lganda yuklanadi.
 """
 import logging
-from datetime import date, time, timedelta
+from datetime import UTC, date, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -15,7 +15,17 @@ from app.core.permissions import PERMISSIONS, ROLES
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import (
-    Appointment, Branch, ClinicSettings, Encounter, Patient, Permission, Prescription, Role, Staff, Transaction, User,
+    Appointment,
+    Branch,
+    ClinicSettings,
+    Encounter,
+    Patient,
+    Permission,
+    Prescription,
+    Role,
+    Staff,
+    Transaction,
+    User,
 )
 from app.schemas.enums import AppointmentStatus, GenderEnum, StaffRole, StatusEnum, TransactionType
 
@@ -100,8 +110,8 @@ def seed_demo(db: Session, branch: Branch) -> None:
         db.add(p)
         return p
 
-    from datetime import datetime, timezone
-    ts = lambda y, m, dd: datetime(y, m, dd, 9, 0, tzinfo=timezone.utc)  # noqa: E731
+    from datetime import datetime
+    ts = lambda y, m, dd: datetime(y, m, dd, 9, 0, tzinfo=UTC)  # noqa: E731
     aziza = patient("Aziza Karimova", "+998 90 123 4567", 34, GenderEnum.female, rustamov, "A+", "Toshkent, Yunusobod", StatusEnum.active, ts(2025, 1, 10))
     bobur = patient("Bobur Aliyev", "+998 91 234 5678", 45, GenderEnum.male, karimova, "O+", "Toshkent, Chilonzor", StatusEnum.active, ts(2025, 2, 15))
     dilnoza = patient("Dilnoza Rahimova", "+998 93 345 6789", 28, GenderEnum.female, yusupov, "B-", "Samarqand", StatusEnum.inactive, ts(2025, 3, 20))

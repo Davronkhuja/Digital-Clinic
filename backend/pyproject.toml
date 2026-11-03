@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "B904",  # HTTPException'ga o'girishda asl istisno zanjiri kerak emas
+    "UP042",  # (str, Enum): SQLAlchemy Enum va Pydantic bilan mos
+    "B008",  # FastAPI: Depends()/Query() argument default sifatida
+    "UP006", "UP007", "UP035", "UP045",  # schemas'da typing.Optional/List ishlatilgan (Pydantic v2 bilan mos)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"app/seed.py" = ["E501"]  # demo ma'lumotlar jadvali
+"app/services/llm.py" = ["E501"]  # matnli konstantalar
+"app/routers/ai.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

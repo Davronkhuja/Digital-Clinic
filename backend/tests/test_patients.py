@@ -1,0 +1,121 @@
+from tests.conftest import reset_data
+
+NEW = {"name": "Test Bemor", "phone": "+998 90 000 0000", "age": 30, "gender": "male"}
+
+
+def test_patient_crud(client, auth):
+    h = auth("receptionist")
+    created = client.post("/patients", json={**NEW, "doctor": "Dr. Behruz Rustamov"}, headers=h)
+    assert created.status_code == 201
+    p = created.json()
+    assert p["age"] == 30 and p["doctor"] == "Dr. Behruz Rustamov"
+
+    assert client.get(f"/patients/{p['id']}", headers=h).json()["name"] == "Test Bemor"
+    upd = client.put(f"/patients/{p['id']}", json={"phone": "+998 91 111 1111", "blood_type": "A+"}, headers=h)
+    assert upd.status_code == 200 and upd.json()["phone"] == "+998 91 111 1111"
+    assert upd.json()["name"] == "Test Bemor"  # yuborilmagan maydonlar o'zgarmaydi
+
+    assert client.delete(f"/patients/{p['id']}", headers=auth("admin")).status_code == 200
+    assert client.get(f"/patients/{p['id']}", headers=h).status_code == 404
+
+
+def test_pinfl_validation_422(client, auth):
+    h = auth("admin")
+    for bad in ("123", "1234567890123a", "123456789012345"):
+        assert client.post("/patients", json={**NEW, "pinfl": bad}, headers=h).status_code == 422, bad
+
+
+def test_pinfl_unique_409_and_null_allowed_many_times(client, auth):
+    h = auth("admin")
+    assert client.post("/patients", json={**NEW, "pinfl": "12345678901234"}, headers=h).status_code == 201
+    dup = client.post("/patients", json={**NEW, "name": "Boshqa Bemor", "pinfl": "12345678901234"}, headers=h)
+    assert dup.status_code == 409
+    # pinfl bo'lmagan bemorlar ko'p bo'lishi mumkin
+    assert client.post("/patients", json={**NEW, "name": "Pinflsiz Bir"}, headers=h).status_code == 201
+    assert client.post("/patients", json={**NEW, "name": "Pinflsiz Ikki"}, headers=h).status_code == 201
+
+
+def test_pinfl_dup_on_update_409(client, auth):
+    h = auth("admin")
+    a = client.post("/patients", json={**NEW, "name": "A Bemor", "pinfl": "11111111111111"}, headers=h).json()
+    b = client.post("/patients", json={**NEW, "name": "B Bemor", "pinfl": "22222222222222"}, headers=h).json()
+    assert client.put(f"/patients/{b['id']}", json={"pinfl": a["pinfl"]}, headers=h).status_code == 409
+
+
+def test_age_or_birth_date_required(client, auth):
+    body = {k: v for k, v in NEW.items() if k != "age"}
+    assert client.post("/patients", json=body, headers=auth("admin")).status_code == 422
+
+
+def test_unknown_doctor_is_422(client, auth):
+    res = client.post("/patients", json={**NEW, "doctor": "Dr. Yo'q"}, headers=auth("admin"))
+    assert res.status_code == 422
+
+
+def test_search_by_name_phone_and_pinfl(client, auth):
+    h = auth("admin")
+    client.post("/patients", json={**NEW, "pinfl": "98765432109876", "phone": "+998 77 777 7777"}, headers=h)
+    for q in ("Aziza", "777 7777", "98765432109876"):
+        assert client.get("/patients", params={"search": q}, headers=h).json(), q
+    assert client.get("/patients", params={"search": "yo'qbunaqa"}, headers=h).json() == []
+
+
+def test_limit_is_capped_at_100(client, auth):
+    assert client.get("/patients", params={"limit": 200}, headers=auth("admin")).status_code == 422
+
+
+def test_patient_with_records_cannot_be_deleted(client, auth):
+    h = auth("admin")
+    aziza = next(p for p in client.get("/patients", params={"limit": 100}, headers=h).json() if p["name"] == "Aziza Karimova")
+    assert client.delete(f"/patients/{aziza['id']}", headers=h).status_code == 409
+
+
+def test_invalid_uuid_in_path_is_422(client, auth):
+    assert client.get("/patients/1", headers=auth("admin")).status_code == 422
+
+
+def test_appointments_filter_by_patient_and_doctor_name_join(client, auth):
+    h = auth("admin")
+    aziza = next(p for p in client.get("/patients", params={"limit": 100}, headers=h).json() if p["name"] == "Aziza Karimova")
+    appts = client.get("/appointments", params={"patient_id": aziza["id"]}, headers=h).json()
+    assert appts and all(a["patient_id"] == aziza["id"] for a in appts)
+    assert all(a["patient_name"] == "Aziza Karimova" and a["doctor"].startswith("Dr.") for a in appts)
+
+
+def test_create_appointment_encounter_and_transaction_use_joins(client, auth):
+    admin = auth("admin")
+    p = client.post("/patients", json=NEW, headers=admin).json()
+    appt = client.post("/appointments", headers=admin, json={
+        "patient_id": p["id"], "doctor": "Dr. Behruz Rustamov", "date": "2026-12-01", "time": "10:00", "type": "Konsultatsiya"})
+    assert appt.status_code == 201 and appt.json()["patient_name"] == "Test Bemor"
+    emr = client.post("/emr", headers=auth("doctor"), json={
+        "patient_id": p["id"], "doctor": "Dr. Behruz Rustamov", "diagnosis": "Test", "prescription": "Aspirin",
+        "visit_date": "2026-11-03"})
+    assert emr.status_code == 201 and emr.json()["prescription"] == "Aspirin"
+    tx = client.post("/finance/transactions", headers=auth("cashier"), json={
+        "type": "income", "amount": 123456.78, "description": "t", "category": "Lab", "date": "2026-11-03",
+        "patient_name": "Test Bemor"})
+    assert tx.status_code == 201 and tx.json()["amount"] == 123456.78
+
+
+def test_data_survives_restart_and_seed_is_idempotent(client, auth):
+    """'Restart': ulanishlar yopiladi, seed qayta ishga tushadi; yozilgan ma'lumot saqlanib qoladi, dublikat yo'q."""
+    from app.db.session import engine
+    from app.seed import main as seed_main
+
+    h = auth("admin")
+    created = client.post("/patients", json={**NEW, "name": "Restart Bemor"}, headers=h).json()
+    before = len(client.get("/patients", params={"limit": 100}, headers=h).json())
+    users_before = len(client.get("/users", headers=h).json())
+
+    engine.dispose()
+    seed_main()  # konteyner startidagi seed
+
+    h = auth("admin")
+    after = client.get("/patients", params={"limit": 100}, headers=h).json()
+    assert len(after) == before and created["id"] in {p["id"] for p in after}
+    assert len(client.get("/users", headers=h).json()) == users_before
+
+
+def test_reset_helper_gives_clean_slate():
+    reset_data()

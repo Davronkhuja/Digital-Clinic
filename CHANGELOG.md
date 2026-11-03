@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.4] - 2026-11-03
+### Added
+- pytest + httpx testlari (128 ta), alohida `<POSTGRES_DB>_test` bazasi (Alembic migratsiyalari bilan yaratiladi): auth va token oqimi, refresh aylantirish va oilani bekor qilish, RBAC matritsasi (5 rol x asosiy endpointlar), PINFL (422/409), restartdan keyin ma'lumot saqlanishi va seed idempotentligi, AI (mock), CSV, CORS.
+- `docker compose --profile test run --rm test` (Dockerfile `test` bosqichi), `requirements-dev.txt`.
+- ruff (`backend/pyproject.toml`); kod ruff'dan o'tdi (1-bosqich, band 10, backend qismi).
+- `BCRYPT_ROUNDS` sozlamasi (testlarda kamaytiriladi).
+
 ## [1.5.3] - 2026-11-03
 ### Added
 - Backend ruxsat tekshiruvi: har endpoint `require("<ruxsat>")` dependency'si orqali (403, token yo'q bo'lsa 401). Standart matritsa: EMR yozish faqat doctor/admin; moliya admin/cashier; xodimlar yozish va sozlamalar yozish faqat admin.
