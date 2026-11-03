@@ -105,6 +105,9 @@ import { ref, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import api from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const route = useRoute()
 const patient = ref(null)
@@ -121,14 +124,16 @@ onMounted(async () => {
   try {
     const { data } = await api.get(`/patients/${id}`)
     patient.value = data
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     patient.value = demoPatients[id] || demoPatients['1']
   }
 
   try {
     const { data } = await api.get('/emr', { params: { patient_id: id } })
     emrRecords.value = data
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     emrRecords.value = [
       { id: '1', diagnosis: 'Gipertenziya 2-darajali', prescription: 'Amlodipine 5mg kuniga 1 marta', doctor: 'Dr. Rustamov', visit_date: '2026-02-20' },
     ]
@@ -137,7 +142,8 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/appointments', { params: { patient_id: id } })
     appointments.value = data
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     appointments.value = [
       { id: '1', type: 'Konsultatsiya', doctor: 'Dr. Rustamov', date: '2026-02-25', time: '10:00', status: 'Scheduled' },
     ]

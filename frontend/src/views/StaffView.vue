@@ -201,6 +201,7 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { Plus, X, Pencil, Trash2, Check, Camera, Search, MoreHorizontal, Shield } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
@@ -217,6 +218,7 @@ const saving = ref(false)
 const photoInput = ref(null)
 const staff = ref([])
 
+const toast = useToast()
 const roleOptions = ['Doctor', 'Nurse', 'Receptionist', 'Admin', 'Lab Technician']
 const defaultForm = () => ({ name: '', role: 'Doctor', department: '', phone: '', email: '', schedule: '', status: 'Active', avatar: '', last_active: 'Just now' })
 const form = reactive(defaultForm())
@@ -257,23 +259,36 @@ function onPhoto(e) {
 
 async function saveStaff() {
   saving.value = true
-  const payload = { name: form.name, role: form.role, department: form.department, phone: form.phone, email: form.email, schedule: form.schedule, status: form.status, avatar: form.avatar, last_active: 'Just now', patients_count: 0 }
-  await new Promise(r => setTimeout(r, 400))
-  if (editingId.value) {
-    const i = staff.value.findIndex(s => s.id === editingId.value)
-    if (i >= 0) staff.value[i] = { ...staff.value[i], ...payload }
-    api.put(`/staff/${editingId.value}`, payload).catch(() => {})
-  } else {
-    staff.value.push({ ...payload, id: Date.now().toString() })
-    api.post('/staff', payload).catch(() => {})
+  const payload = { name: form.name, role: form.role, department: form.department, phone: form.phone,
+                    email: form.email, schedule: form.schedule || null, status: form.status }
+  try {
+    if (editingId.value) {
+      const { data } = await api.put(`/staff/${editingId.value}`, payload)
+      const i = staff.value.findIndex(s => s.id === editingId.value)
+      if (i >= 0) staff.value[i] = { ...staff.value[i], ...data, avatar: form.avatar || staff.value[i].avatar }
+      toast.success("Xodim ma'lumotlari yangilandi")
+    } else {
+      const { data } = await api.post('/staff', payload)
+      staff.value.push({ ...data, avatar: form.avatar })
+      toast.success("Xodim qo'shildi")
+    }
+    closeModal()
+  } catch (e) {
+    toast.error(e, "Xodimni saqlab bo'lmadi")
+  } finally {
+    saving.value = false
   }
-  saving.value = false; closeModal()
 }
 
 async function deleteStaff(id) {
   if (!confirm('Delete this staff member?')) return
-  staff.value = staff.value.filter(s => s.id !== id)
-  api.delete(`/staff/${id}`).catch(() => {})
+  try {
+    await api.delete(`/staff/${id}`)
+    staff.value = staff.value.filter(s => s.id !== id)
+    toast.success("Xodim o'chirildi")
+  } catch (e) {
+    toast.error(e, "Xodimni o'chirib bo'lmadi")
+  }
 }
 
 const roleList = [
@@ -294,7 +309,8 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/staff')
     staff.value = data.map(s => ({ ...s, avatar: s.avatar || '', last_active: s.last_active || 'Unknown' }))
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     staff.value = [
       { id: '1', name: 'Dr. Rustamov', role: 'Doctor', department: 'General', phone: '+998 90 111 2233', email: 'rustamov@clinic.uz', status: 'Active', avatar: '', last_active: '2 min ago', patients_count: 124, schedule: 'Mon-Fri 09:00-17:00' },
       { id: '2', name: 'Dr. Karimov', role: 'Doctor', department: 'Cardiology', phone: '+998 91 222 3344', email: 'karimov@clinic.uz', status: 'Active', avatar: '', last_active: '5 min ago', patients_count: 98, schedule: '' },

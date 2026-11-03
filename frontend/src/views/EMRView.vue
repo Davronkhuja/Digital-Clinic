@@ -288,7 +288,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus, Search, X, Pencil, Trash2, Save, Printer, Paperclip, FileText, Check,
   Stethoscope, FlaskConical, Pill, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
-import api from '@/composables/useApi'
+import api, { fetchAll } from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
@@ -305,7 +306,9 @@ const dragLabOver = ref(false)
 const dragAttOver = ref(false)
 
 const allSymptoms = ['Fever', 'Headache', 'Cough', 'Fatigue', 'Chest Pain', 'Shortness of Breath', 'Nausea', 'Dizziness', 'Joint Pain', 'Sore Throat']
-const patientList = ['Aziza Karimova', 'Bobur Aliyev', 'Dilnoza Rahimova', 'Eldor Toshmatov', 'Feruza Umarova']
+const toast = useToast()
+const patientRows = ref([])
+const patientList = computed(() => patientRows.value.map(p => p.name))
 
 const defaultForm = () => ({
   patient_name: '', doctor: 'Dr. Rustamov', visit_date: new Date().toISOString().slice(0, 10),
@@ -353,20 +356,23 @@ function saveDraft() {
 
 async function saveRecord() {
   if (!form.patient_name || !form.diagnosis) return
+  const patient = patientRows.value.find(p => p.name === form.patient_name)
+  if (!patient) { toast.error('Bemor topilmadi'); return }
   saving.value = true
-  await new Promise(r => setTimeout(r, 400))
-  const record = {
-    ...JSON.parse(JSON.stringify(form)),
-    id: editingId.value || Date.now().toString(),
+  try {
+    const payload = { patient_id: patient.id, patient_name: patient.name, doctor: form.doctor,
+                      diagnosis: form.diagnosis, prescription: form.prescription || '-',
+                      notes: form.notes || null, visit_date: form.visit_date }
+    const { data } = await api.post('/emr', payload)
+    // Backend saqlamaydigan maydonlar (simptomlar, dorilar, fayllar) faqat ekranda qoladi
+    records.value.unshift({ ...JSON.parse(JSON.stringify(form)), ...data })
+    toast.success('Yozuv saqlandi')
+    closeForm()
+  } catch (e) {
+    toast.error(e, "Yozuvni saqlab bo'lmadi")
+  } finally {
+    saving.value = false
   }
-  if (editingId.value) {
-    const i = records.value.findIndex(r => r.id === editingId.value)
-    if (i >= 0) records.value[i] = record
-  } else {
-    records.value.unshift(record)
-  }
-  saving.value = false; closeForm()
-  api.post('/emr', form).catch(() => {})
 }
 
 function deleteRecord(id) {
@@ -417,10 +423,12 @@ function exportExcel() {
 }
 
 onMounted(async () => {
+  try { patientRows.value = await fetchAll('/patients') } catch (e) { toast.error(e, "Bemorlar ro'yxatini yuklab bo'lmadi") }
   try {
     const { data } = await api.get('/emr')
     records.value = data
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     records.value = [
       { id: '1', patient_name: 'Aziza Karimova', doctor: 'Dr. Rustamov', visit_date: '2026-02-22', icd_code: 'I10', diagnosis: 'Gipertenziya 2-darajali', prescription: 'Amlodipine 5mg kuniga bir marta, 3 oy', notes: 'Tuz iste\'molini kamaytirish', symptoms: ['Headache', 'Dizziness'], medications: [{ name: 'Amlodipine 5mg', dose: '1x daily', days: '90 days' }], labFiles: [], attachments: [] },
       { id: '2', patient_name: 'Bobur Aliyev', doctor: 'Dr. Karimov', visit_date: '2026-02-20', icd_code: 'E11', diagnosis: 'Qandli diabet 2-tur', prescription: 'Metformin 500mg 2 marta kuniga, parhez', notes: "Qon glyukozasini nazorat qilish", symptoms: ['Fatigue', 'Nausea'], medications: [{ name: 'Metformin 500mg', dose: '2x daily', days: '30 days' }], labFiles: [{ name: 'blood_test.pdf' }], attachments: [] },

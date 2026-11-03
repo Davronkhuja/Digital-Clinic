@@ -176,6 +176,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Plus, Search, Download, X, Check, Pencil, Trash2 } from 'lucide-vue-next'
 import api, { fetchAll } from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
 import { usePhoneMask } from '@/composables/usePhoneMask'
@@ -198,6 +199,8 @@ const editingId   = ref(null)
 const doctorList = ref([])
 
 const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
+
+const toast = useToast()
 
 const defaultForm = () => ({
   name: '', phone: '', age: '', birth_date: '', gender: 'female',
@@ -235,7 +238,8 @@ async function fetchPatients() {
   try {
     const data = await fetchAll('/patients')
     patients.value = data.map((p, i) => ({ ...p, patient_id: p.patient_id || generateId(i) }))
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     patients.value = [
       { id: '1', patient_id: 'B-20260224-001', name: 'Aziza Karimova',  phone: '+998 90 123-45-67', age: 34, gender: 'female', last_visit: '2026-02-20', status: 'Active',   doctor: 'Dr. Rustamov',  blood_type: 'A+' },
       { id: '2', patient_id: 'B-20260224-002', name: 'Bobur Aliyev',    phone: '+998 91 234-56-78', age: 45, gender: 'male',   last_visit: '2026-02-18', status: 'Active',   doctor: 'Dr. Karimov',   blood_type: 'O+' },
@@ -250,7 +254,8 @@ async function fetchDoctors() {
   try {
     const { data } = await api.get('/staff')
     doctorList.value = data.filter(s => s.role === 'Doctor').map(s => s.name)
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     doctorList.value = ['Dr. Rustamov', 'Dr. Karimov', 'Dr. Yusupov']
   }
 }
@@ -263,7 +268,8 @@ async function fetchPayments() {
       map[t.patient_name] = (map[t.patient_name] || 0) + t.amount
     })
     patientPayments.value = map
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     // demo: Aziza Karimova paid
     patientPayments.value = { 'Aziza Karimova': 700000, 'Bobur Aliyev': 450000, 'Eldor Toshmatov': 250000 }
   }
@@ -287,29 +293,37 @@ function closeModal() { showModal.value = false; editingId.value = null }
 async function savePatient() {
   if (!form.name) return
   saving.value = true
-  await new Promise(r => setTimeout(r, 400))
-  if (editingId.value) {
-    const i = patients.value.findIndex(p => p.id === editingId.value)
-    if (i >= 0) patients.value[i] = { ...patients.value[i], ...form }
-    api.put(`/patients/${editingId.value}`, form).catch(() => {})
-  } else {
-    const newP = {
-      ...form,
-      id: Date.now().toString(),
-      patient_id: generateId(patients.value.length),
-      status: 'Active',
-      last_visit: new Date().toISOString().slice(0, 10)
+  // Backend age: int, bo'sh satrlar -> null
+  const payload = { ...form, age: Number(form.age), blood_type: form.blood_type || null,
+                    doctor: form.doctor || null, address: form.address || null, allergies: form.allergies || null }
+  try {
+    if (editingId.value) {
+      const { data } = await api.put(`/patients/${editingId.value}`, payload)
+      const i = patients.value.findIndex(p => p.id === editingId.value)
+      if (i >= 0) patients.value[i] = { ...patients.value[i], ...data }
+      toast.success("Bemor ma'lumotlari yangilandi")
+    } else {
+      const { data } = await api.post('/patients', payload)
+      patients.value.push({ ...data, patient_id: data.patient_id || generateId(patients.value.length) })
+      toast.success("Bemor qo'shildi")
     }
-    patients.value.push(newP)
-    api.post('/patients', form).catch(() => {})
+    closeModal()
+  } catch (e) {
+    toast.error(e, "Bemorni saqlab bo'lmadi")
+  } finally {
+    saving.value = false
   }
-  saving.value = false; closeModal()
 }
 
 async function deletePatient(id) {
   if (!confirm('Bemorni o\'chirishni tasdiqlaysizmi?')) return
-  patients.value = patients.value.filter(p => p.id !== id)
-  api.delete(`/patients/${id}`).catch(() => {})
+  try {
+    await api.delete(`/patients/${id}`)
+    patients.value = patients.value.filter(p => p.id !== id)
+    toast.success("Bemor o'chirildi")
+  } catch (e) {
+    toast.error(e, "Bemorni o'chirib bo'lmadi")
+  }
 }
 
 function exportCSV() {

@@ -277,6 +277,9 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { Plus, Search, X, TrendingUp, TrendingDown, DollarSign, BarChart3, CreditCard, Trash2, Check, Filter, Download } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api, { fetchAll } from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const theme = useThemeStore()
 const dark  = computed(() => theme.isDark)
@@ -385,7 +388,8 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/finance/transactions')
     transactions.value = data.map((t,i) => ({ ...t, txn_id: t.txn_id || `TXN-${String(i+1).padStart(3,'0')}`, method: t.method||'Cash', status: t.status||'Paid' }))
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     transactions.value = [
       { id:'1', txn_id:'TXN-001', type:'income',  amount:150000,  description:'General Checkup',  patient_name:'Aziza Karimova',  method:'Card',     status:'Paid',    date:'2026-02-23', category:'Consultation' },
       { id:'2', txn_id:'TXN-002', type:'income',  amount:350000,  description:'Cardiology',       patient_name:'Bobur Aliyev',    method:'Cash',     status:'Paid',    date:'2026-02-22', category:'Consultation' },
@@ -397,7 +401,8 @@ onMounted(async () => {
   try {
     const patients = await fetchAll('/patients')
     patientList.value = patients.map(p => p.name)
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     patientList.value = ['Aziza Karimova', 'Bobur Aliyev', 'Dilnoza Rahimova', 'Eldor Toshmatov', 'Feruza Umarova']
   }
 })

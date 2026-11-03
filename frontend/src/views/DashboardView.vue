@@ -109,6 +109,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
 import api from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const auth = useAuthStore()
 const lang = useLanguageStore()
@@ -155,6 +158,6 @@ onMounted(async () => {
     const { data } = await api.get('/analytics/dashboard')
     if (data.revenue_chart) revenueData.value = data.revenue_chart
     if (data.patient_flow) patientFlow.value = data.patient_flow
-  } catch {}
+  } catch (e) { toast.error(e, "Ma'lumotni yuklab bo'lmadi") }
 })
 </script>

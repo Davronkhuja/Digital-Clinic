@@ -128,7 +128,8 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
-import api from '@/composables/useApi'
+import api, { fetchAll } from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
 
 const appointments = ref([])
 const filterDate = ref('')
@@ -161,7 +162,8 @@ async function fetchAppointments() {
   try {
     const { data } = await api.get('/appointments')
     appointments.value = data
-  } catch {
+  } catch (e) {
+    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
     appointments.value = [
       { id: '1', patient_name: 'Aziza Karimova', doctor: 'Dr. Rustamov', date: '2026-02-25', time: '10:00', type: 'Konsultatsiya', status: 'Scheduled' },
       { id: '2', patient_name: 'Bobur Aliyev', doctor: 'Dr. Karimov', date: '2026-02-25', time: '11:30', type: 'Tekshiruv', status: 'Scheduled' },
@@ -170,19 +172,35 @@ async function fetchAppointments() {
   }
 }
 
+const toast = useToast()
+
 async function addAppointment() {
   try {
-    const { data } = await api.post('/appointments', form)
+    // Bemor nomi bo'yicha haqiqiy patient_id topiladi (avval har doim '1' ketardi)
+    const patients = await fetchAll('/patients', { search: form.patient_name })
+    const patient = patients.find(p => p.name.toLowerCase() === form.patient_name.trim().toLowerCase())
+    if (!patient) {
+      toast.error(`"${form.patient_name}" nomli bemor topilmadi`)
+      return
+    }
+    const { data } = await api.post('/appointments', { ...form, patient_id: patient.id, patient_name: patient.name })
     appointments.value.push(data)
-  } catch {
-    appointments.value.push({ ...form, id: Date.now().toString(), status: 'Scheduled' })
+    toast.success('Uchrashuv rejalashtirildi')
+    showModal.value = false
+  } catch (e) {
+    toast.error(e, "Uchrashuvni saqlab bo'lmadi")
   }
-  showModal.value = false
 }
 
-function updateStatus(appt, status) {
+async function updateStatus(appt, status) {
+  const previous = appt.status
   appt.status = status
-  api.patch(`/appointments/${appt.id}/status`, null, { params: { status } }).catch(() => {})
+  try {
+    await api.patch(`/appointments/${appt.id}/status`, null, { params: { status } })
+  } catch (e) {
+    appt.status = previous // xato bo'lsa rollback
+    toast.error(e, "Statusni o'zgartirib bo'lmadi")
+  }
 }
 
 onMounted(fetchAppointments)

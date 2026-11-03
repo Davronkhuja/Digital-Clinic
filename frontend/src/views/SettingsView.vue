@@ -178,6 +178,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Building2, Shield, Bell, Check, Save, Plus, X, Pencil, Trash2, CheckCircle, Mail, Smartphone, Monitor } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
@@ -191,16 +192,23 @@ const tabs = [
 ]
 
 // Clinic
+const toast = useToast()
 const saving = ref(false), saved = ref(false)
 const settings = reactive({ clinic_name: 'Digital Clinic', phone: '+998 71 200 0000', email: 'info@digitalclinic.uz', address: "Toshkent, Amir Temur ko'chasi 1", website: '', license: '' })
 
 async function saveSettings() {
   saving.value = true
-  try { await api.put('/settings', settings) } catch {}
-  saved.value = true; saving.value = false
-  setTimeout(() => saved.value = false, 2500)
+  try {
+    await api.put('/settings', settings)
+    saved.value = true
+    setTimeout(() => saved.value = false, 2500)
+  } catch (e) {
+    toast.error(e, "Sozlamalarni saqlab bo'lmadi")
+  } finally {
+    saving.value = false
+  }
 }
-onMounted(async () => { try { const { data } = await api.get('/settings'); Object.assign(settings, data) } catch {} })
+onMounted(async () => { try { const { data } = await api.get('/settings'); Object.assign(settings, data) } catch (e) { toast.error(e, "Sozlamalarni yuklab bo'lmadi") } })
 
 // Roles
 const showRoleModal = ref(false), editingRole = ref(null)
