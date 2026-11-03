@@ -6,12 +6,15 @@ API Documentation available at: /docs (Swagger UI) or /redoc (ReDoc)
 
 from fastapi import FastAPI, HTTPException, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
 import random
+import csv
+import io
 import os
 import logging
 
@@ -20,7 +23,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -501,9 +504,10 @@ def register(data: RegisterRequest):
     return {"message": "Muvaffaqiyatli ro'yxatdan o'tdingiz", "email": data.email}
 
 @app.post("/auth/forgot-password", tags=["🔐 Auth"],
-          summary="Parolni tiklash", description="Parolni tiklash uchun emailga havola yuboring.")
+          summary="Parolni tiklash (hozircha mavjud emas)", description="Email orqali tiklash hali amalga oshirilmagan; 501 qaytaradi.")
 def forgot_password(data: ForgotPasswordRequest):
-    return {"message": f"{data.email} manziliga tiklash havolasi yuborildi"}
+    # Email yuborish hozircha yo'q: yolg'on "yuborildi" javobi o'rniga halol 501
+    raise HTTPException(status_code=501, detail="Parolni tiklash uchun administratorga murojaat qiling")
 
 # ── PATIENTS ──────────────────────────────────
 @app.get("/patients", tags=["👥 Patients"], response_model=List[Patient],
@@ -828,8 +832,41 @@ def generate_report(report_id: str, _=Depends(get_current_user)):
         "report_id": report_id,
         "download_url": f"/reports/download/{report_id}",
         "generated_at": datetime.now().isoformat(),
-        "format": "PDF"
+        "format": "CSV"
     }
+
+REPORT_SOURCES = {
+    "1": ("moliyaviy_hisobot", lambda: fake_transactions),
+    "2": ("bemorlar_statistikasi", lambda: fake_patients),
+    "3": ("xodimlar_faoliyati", lambda: fake_staff),
+    "4": ("uchrashuvlar_tahlili", lambda: fake_appointments),
+}
+
+def _csv_cell(value):
+    # CSV/formula injection'dan himoya: =, +, -, @ bilan boshlanuvchi matnlar
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+@app.get("/reports/download/{report_id}", tags=["📝 Reports"],
+         summary="Hisobotni CSV sifatida yuklab olish",
+         description="UTF-8 BOM bilan CSV (Excel to'g'ri ochadi). Authorization header talab qilinadi.")
+def download_report(report_id: str, _=Depends(get_current_user)):
+    if report_id not in REPORT_SOURCES:
+        raise HTTPException(status_code=404, detail="Hisobot topilmadi")
+    name, source = REPORT_SOURCES[report_id]
+    rows = [r.model_dump(mode="json") for r in source()]
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    if rows:
+        writer.writerow(rows[0].keys())
+        for r in rows:
+            writer.writerow([_csv_cell(v) for v in r.values()])
+    content = "\ufeff" + buf.getvalue()
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}_{date.today().isoformat()}.csv"'},
+    )
 
 if __name__ == "__main__":
     import uvicorn
