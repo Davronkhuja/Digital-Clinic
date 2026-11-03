@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email, password) {
     const { data } = await api.post('/auth/login', { email, password })
+    meLoaded = false
     token.value = data.access_token
     user.value = data.user
     localStorage.setItem('token', data.access_token)
@@ -18,7 +19,32 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  function logout() {
+  function can(perm) {
+    return !!user.value?.permissions?.includes(perm)
+  }
+
+  // Rol/ruxsatlar o'zgargan bo'lishi mumkin: serverdan yangilaymiz (401 ni useApi hal qiladi)
+  let meLoaded = false
+  async function fetchMe(force = false) {
+    if (!token.value || (meLoaded && !force)) return
+    try {
+      const { data } = await api.get('/auth/me')
+      user.value = data
+      localStorage.setItem('user', JSON.stringify(data))
+      meLoaded = true
+    } catch (e) {
+      console.error('GET /auth/me xatosi', e)
+    }
+  }
+
+  async function logout() {
+    const refreshToken = localStorage.getItem('refresh_token')
+    try {
+      if (token.value) await api.post('/auth/logout', { refresh_token: refreshToken })
+    } catch (e) {
+      console.error('Logout so\'rovi xatosi', e)
+    }
+    meLoaded = false
     token.value = null
     user.value = null
     localStorage.removeItem('token')
@@ -26,5 +52,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  return { user, token, isAuthenticated, login, logout }
+  return { user, token, isAuthenticated, login, logout, can, fetchMe }
 })

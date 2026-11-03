@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.10] - 2026-11-03
+### Added
+- Frontend: menyu va marshrutlar ruxsatga qarab (`auth.can(perm)`, router `meta.perm`; ruxsatsiz URL birinchi ruxsat etilgan sahifaga yo'naltiriladi). Ruxsatlar `GET /auth/me` bilan yangilanadi; `logout` refresh tokenni bekor qiladi.
+- Sozlamalar: Klinika (`/settings`), Rollar (`/roles`, `/permissions`: ruxsatlarni bazaga yozish; administrator roli o'zgarmaydi), Foydalanuvchilar (`/users`: xodim qo'shish, rol, faollashtirish) (1-bosqich, band 6, frontend qismi).
+### Removed
+- Login sahifasidagi demo hisob ma'lumotlari bloki va oldindan to'ldirilgan email/parol; Sozlamalardagi qattiq yozilgan rollar va bildirishnomalar.
+
 ## [1.5.9] - 2026-11-03
 ### Changed
 - `/analytics/dashboard` va `/analytics/reports` (`period=week|month|year|all`) qattiq yozilgan raqamlar o'rniga bazadan hisoblanadi: jami/yangi bemorlar, bugungi va davr uchrashuvlari, daromad/xarajat, oldingi teng davr bilan o'zgarish foizi, 6 oylik daromad grafigi, 7 kunlik bemor oqimi, eng ko'p tashxislar, shifokorlar yuklamasi, bo'limlar, demografiya (jins, yosh guruhlari). Javob shakli yangilandi (API'ni buzadi: `monthly_revenue` -> `revenue`, `*_change` satrlari -> `changes` raqamlari, `rating` olib tashlandi: ma'lumot yo'q).

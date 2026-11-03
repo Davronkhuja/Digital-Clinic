@@ -59,7 +59,7 @@
 
       <!-- Nav -->
       <div class="flex-1 overflow-y-auto py-4 px-3">
-        <div class="mb-3">
+        <div v-if="mainNav.length" class="mb-3">
           <p v-if="!sidebarCollapsed" :class="['px-3 text-[10px] uppercase tracking-widest font-semibold mb-2', isDark ? 'text-slate-600' : 'text-slate-400']">{{ lang.t('nav.main') }}</p>
           <nav class="space-y-0.5">
             <RouterLink v-for="item in mainNav" :key="item.to" :to="item.to"
@@ -73,7 +73,7 @@
             </RouterLink>
           </nav>
         </div>
-        <div :class="['pt-3 border-t', isDark ? 'border-slate-800' : 'border-slate-200']">
+        <div v-if="systemNav.length" :class="['pt-3 border-t', isDark ? 'border-slate-800' : 'border-slate-200']">
           <p v-if="!sidebarCollapsed" :class="['px-3 text-[10px] uppercase tracking-widest font-semibold mb-2', isDark ? 'text-slate-600' : 'text-slate-400']">{{ lang.t('nav.system') }}</p>
           <nav class="space-y-0.5">
             <RouterLink v-for="item in systemNav" :key="item.to" :to="item.to"
@@ -243,7 +243,7 @@
                 <button @click="openUserEdit" :class="['flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left transition-colors', isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50']">
                   <Pencil class="w-4 h-4" /> Profilni tahrirlash
                 </button>
-                <RouterLink to="/security" @click="userOpen=false" :class="['flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors', isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50']">
+                <RouterLink v-if="auth.can('audit:read')" to="/security" @click="userOpen=false" :class="['flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors', isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50']">
                   <Shield class="w-4 h-4" /> Xavfsizlik
                 </RouterLink>
                 <div :class="['border-t my-1', isDark ? 'border-slate-700' : 'border-slate-100']"></div>
@@ -409,23 +409,26 @@ async function saveUser() {
 }
 
 // Nav
-const mainNav = [
+const allMainNav = [
   { to: '/',             key: 'nav.dashboard',    icon: LayoutDashboard, exact: true },
-  { to: '/patients',     key: 'nav.patients',     icon: Users },
-  { to: '/appointments', key: 'nav.appointments', icon: Calendar },
-  { to: '/emr',          key: 'nav.emr',          icon: FileText },
-  { to: '/finance',      key: 'nav.finance',      icon: DollarSign },
-  { to: '/analytics',    key: 'nav.analytics',    icon: BarChart3 },
-  { to: '/ai',           key: 'nav.ai',           icon: Bot },
-  { to: '/reports',      key: 'nav.reports',      icon: FileBarChart },
+  { to: '/patients',     key: 'nav.patients',     icon: Users, perm: 'patients:read' },
+  { to: '/appointments', key: 'nav.appointments', icon: Calendar, perm: 'appointments:read' },
+  { to: '/emr',          key: 'nav.emr',          icon: FileText, perm: 'emr:read' },
+  { to: '/finance',      key: 'nav.finance',      icon: DollarSign, perm: 'finance:read' },
+  { to: '/analytics',    key: 'nav.analytics',    icon: BarChart3, perm: 'analytics:read' },
+  { to: '/ai',           key: 'nav.ai',           icon: Bot, perm: 'ai:use' },
+  { to: '/reports',      key: 'nav.reports',      icon: FileBarChart, perm: 'reports:read' },
   { to: '/chat',         key: 'nav.chat',         icon: MessageSquare },
 ]
-const systemNav = [
-  { to: '/staff',        key: 'nav.staff',        icon: UserCog },
+const allSystemNav = [
+  { to: '/staff',        key: 'nav.staff',        icon: UserCog, perm: 'staff:read' },
   { to: '/subscription', key: 'nav.subscription', icon: CreditCard },
-  { to: '/security',     key: 'nav.security',     icon: Shield },
-  { to: '/settings',     key: 'nav.settings',     icon: Settings },
+  { to: '/security',     key: 'nav.security',     icon: Shield, perm: 'audit:read' },
+  { to: '/settings',     key: 'nav.settings',     icon: Settings, perm: 'settings:read' },
 ]
+const visible = items => items.filter(i => !i.perm || auth.can(i.perm))
+const mainNav = computed(() => visible(allMainNav))
+const systemNav = computed(() => visible(allSystemNav))
 
 const pageKeyMap = {
   '/': 'page.dashboard', '/patients': 'page.patients', '/appointments': 'page.appointments',
@@ -443,7 +446,7 @@ function isActive(path, exact = false) {
   if (exact) return route.path === path
   return route.path.startsWith(path)
 }
-function logout() { auth.logout(); router.push('/login') }
+async function logout() { await auth.logout(); router.push('/login') }
 </script>
 
 <style scoped>

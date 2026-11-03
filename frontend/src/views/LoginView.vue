@@ -69,12 +69,6 @@
 
         <p class="text-center text-slate-500 text-sm mt-6">Hisob yaratish uchun administratorga murojaat qiling.</p>
 
-        <!-- Demo creds -->
-        <div class="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-          <p class="text-xs text-cyan-400 font-medium mb-2">Demo kirish ma'lumotlari:</p>
-          <p class="text-xs text-slate-400">Email: <span class="text-white font-mono">admin@clinic.uz</span></p>
-          <p class="text-xs text-slate-400">Parol: <span class="text-white font-mono">password123</span></p>
-        </div>
       </div>
     </div>
   </div>
@@ -90,7 +84,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const form = reactive({ email: 'admin@clinic.uz', password: 'password123' })
+const form = reactive({ email: '', password: '' })
 
 async function handleLogin() {
   loading.value = true
