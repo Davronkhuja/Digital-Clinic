@@ -74,8 +74,6 @@ DEMO_HASH: list[str] = []
 
 
 def seed_admin_from_env(db: Session, branch: Branch) -> None:
-    if db.scalar(select(func.count()).select_from(User)) or not (settings.admin_email and settings.admin_password):
-        return
     role = db.scalar(select(Role).where(Role.code == "admin"))
     staff = Staff(full_name="Administrator", role=StaffRole.admin, email=settings.admin_email.lower(),
                   joined_date=date.today(), branch_id=branch.id)
@@ -168,15 +166,30 @@ def seed_demo(db: Session, branch: Branch) -> None:
     db.flush()
 
 
+class SeedError(SystemExit):
+    """Boshlang'ich sozlash xatosi: konteyner ishga tushmaydi."""
+
+
+MIN_ADMIN_PASSWORD_LENGTH = 10
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     with SessionLocal() as db:
         branch = seed_essentials(db)
-        has_data = db.scalar(select(func.count()).select_from(Patient)) or db.scalar(select(func.count()).select_from(User))
-        if settings.seed_demo and not has_data:
+        users = db.scalar(select(func.count()).select_from(User))
+        patients = db.scalar(select(func.count()).select_from(Patient))
+        if settings.seed_demo and not (users or patients):
             seed_demo(db, branch)
             log.info("Demo ma'lumotlar yuklandi")
-        else:
+        elif not users:
+            # Demo yo'q va bazada foydalanuvchi yo'q: birinchi administrator env'dan majburiy
+            if not (settings.admin_email and settings.admin_password):
+                raise SeedError(
+                    "SEED_DEMO=false va bazada foydalanuvchi yo'q: ADMIN_EMAIL va ADMIN_PASSWORD berilishi shart."
+                )
+            if len(settings.admin_password) < MIN_ADMIN_PASSWORD_LENGTH:
+                raise SeedError(f"ADMIN_PASSWORD kamida {MIN_ADMIN_PASSWORD_LENGTH} belgi bo'lishi kerak.")
             seed_admin_from_env(db, branch)
         db.commit()
 

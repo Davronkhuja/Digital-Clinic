@@ -52,12 +52,18 @@ def _database():
     engine.dispose()
 
 
-def reset_data() -> None:
+def truncate_all() -> None:
     with SessionLocal() as db:
         tables = db.execute(
             text("select tablename from pg_tables where schemaname='public' and tablename <> 'alembic_version'")
         ).scalars().all()
         db.execute(text("TRUNCATE " + ", ".join(f'"{t}"' for t in tables) + " RESTART IDENTITY CASCADE"))
+        db.commit()
+
+
+def reset_data() -> None:
+    truncate_all()
+    with SessionLocal() as db:
         branch = seed_essentials(db)
         seed_demo(db, branch)
         db.commit()
