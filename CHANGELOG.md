@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.5] - 2026-11-03
+### Removed
+- `POST /auth/register`, Register sahifasi va Login'dagi "Ro'yxatdan o'ting" havolasi (API'ni buzadigan o'zgarish: ochiq ro'yxatdan o'tish yo'q).
+### Added
+- `POST /users`: xodim va loginni faqat administrator yaratadi (`roles:manage`).
+
 ## [1.5.4] - 2026-11-03
 ### Added
 - pytest + httpx testlari (128 ta), alohida `<POSTGRES_DB>_test` bazasi (Alembic migratsiyalari bilan yaratiladi): auth va token oqimi, refresh aylantirish va oilani bekor qilish, RBAC matritsasi (5 rol x asosiy endpointlar), PINFL (422/409), restartdan keyin ma'lumot saqlanishi va seed idempotentligi, AI (mock), CSV, CORS.

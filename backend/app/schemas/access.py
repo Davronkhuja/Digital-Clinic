@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RoleOut(BaseModel):
@@ -35,3 +35,12 @@ class UserOut(BaseModel):
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200, examples=["Ahmad Karimov"])
+    email: EmailStr = Field(..., examples=["ahmad@clinic.uz"])
+    password: str = Field(..., min_length=8, max_length=72)
+    role: str = Field(..., examples=["receptionist"])
+    department: Optional[str] = None
+    phone: Optional[str] = None

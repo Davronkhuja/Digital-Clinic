@@ -67,10 +67,7 @@
           <p v-if="error" class="text-red-400 text-sm text-center bg-red-500/10 rounded-lg py-2">{{ error }}</p>
         </form>
 
-        <p class="text-center text-slate-500 text-sm mt-6">
-          Hisob yo'qmi?
-          <RouterLink to="/register" class="text-cyan-400 hover:text-cyan-300 font-medium">Ro'yxatdan o'ting</RouterLink>
-        </p>
+        <p class="text-center text-slate-500 text-sm mt-6">Hisob yaratish uchun administratorga murojaat qiling.</p>
 
         <!-- Demo creds -->
         <div class="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">

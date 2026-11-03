@@ -24,6 +24,7 @@ MATRIX = [
     ("ai", "GET", "/ai/status", {"admin", "doctor", "nurse"}),
     ("roles", "GET", "/roles", {"admin"}),
     ("users", "GET", "/users", {"admin"}),
+    ("users create", "POST", "/users", {"admin"}),
 ]
 
 

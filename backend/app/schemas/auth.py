@@ -6,13 +6,6 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=72, examples=["password123"])
 
 
-class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=2, examples=["Ahmad Karimov"])
-    email: EmailStr = Field(..., examples=["ahmad@clinic.uz"])
-    password: str = Field(..., min_length=8, max_length=72, examples=["securepass123"])
-    clinic_name: str = Field(..., examples=["Hayot Klinikasi"])
-
-
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

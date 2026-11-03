@@ -1,14 +1,17 @@
 import uuid
+from datetime import date
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
+from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import Permission, Role, Staff, User
-from app.schemas import PermissionOut, RoleOut, RoleUpdate, UserOut, UserUpdate
+from app.schemas import PermissionOut, RoleOut, RoleUpdate, StaffRole, UserCreate, UserOut, UserUpdate
 from app.services.auth import revoke_all
 
 router = APIRouter()
@@ -64,6 +67,33 @@ def list_users(db: Session = Depends(get_db), user: CurrentUser = Depends(requir
     rows = db.execute(select(User, Staff, Role).join(Staff, User.staff_id == Staff.id)
                       .join(Role, User.role_id == Role.id).order_by(Staff.full_name)).all()
     return [_user_out(*r) for r in rows]
+
+
+STAFF_ROLE_FOR = {"admin": StaffRole.admin, "doctor": StaffRole.doctor, "nurse": StaffRole.nurse,
+                  "receptionist": StaffRole.receptionist, "cashier": StaffRole.cashier}
+
+
+@router.post("/users", tags=["🛡️ Access"], response_model=UserOut, status_code=201,
+             summary="Xodim va login yaratish (faqat administrator)",
+             description="Ro'yxatdan o'tish yo'q: xodimni va uning loginini faqat administrator qo'shadi.")
+def create_user(data: UserCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(require("roles:manage"))):
+    role = db.scalar(select(Role).where(Role.code == data.role))
+    if not role or role.code not in STAFF_ROLE_FOR:
+        raise HTTPException(422, "Rol topilmadi")
+    email = data.email.lower()
+    staff = Staff(full_name=data.name, role=STAFF_ROLE_FOR[role.code], department=data.department, phone=data.phone,
+                  email=email, joined_date=date.today(), branch_id=user.branch_id, created_by=user.id)
+    db.add(staff)
+    try:
+        db.flush()
+        new_user = User(staff_id=staff.id, role_id=role.id, email=email, password_hash=hash_password(data.password),
+                        is_active=True, branch_id=user.branch_id, created_by=user.id)
+        db.add(new_user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Bu email bilan xodim yoki foydalanuvchi allaqachon mavjud")
+    return _user_out(new_user, staff, role)
 
 
 @router.patch("/users/{user_id}", tags=["🛡️ Access"], response_model=UserOut,

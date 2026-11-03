@@ -93,3 +93,26 @@ def test_inactive_user_cannot_login(client, auth):
 
 def test_forgot_password_is_honest(client):
     assert client.post("/auth/forgot-password", json={"email": DEMO_USERS["admin"]}).status_code == 501
+
+
+def test_public_registration_is_gone(client):
+    res = client.post("/auth/register", json={"name": "Yangi", "email": "yangi@clinic.uz",
+                                              "password": "password123", "clinic_name": "X"})
+    assert res.status_code in (404, 405)
+
+
+def test_admin_creates_user_who_can_login(client, auth):
+    admin = auth("admin")
+    body = {"name": "Yangi Qabul", "email": "yangi@clinic.uz", "password": "password456", "role": "receptionist"}
+    res = client.post("/users", json=body, headers=admin)
+    assert res.status_code == 201 and res.json()["role"] == "receptionist" and res.json()["is_active"]
+    assert client.post("/users", json=body, headers=admin).status_code == 409  # dublikat email
+    assert client.post("/auth/login", json={"email": "yangi@clinic.uz", "password": "password456"}).status_code == 200
+    staff = client.get("/staff", headers=admin).json()
+    assert any(s["email"] == "yangi@clinic.uz" and s["role"] == "Receptionist" for s in staff)
+
+
+def test_only_admin_can_create_users(client, auth):
+    body = {"name": "Yangi Qabul", "email": "yangi@clinic.uz", "password": "password456", "role": "receptionist"}
+    assert client.post("/users", json=body, headers=auth("receptionist")).status_code == 403
+    assert client.post("/users", json={**body, "role": "bogus"}, headers=auth("admin")).status_code == 422

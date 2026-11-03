@@ -1,22 +1,19 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, get_current_user, load_current_user
 from app.core.security import hash_password, verify_password
 from app.db.session import get_db
-from app.models import Branch, Role, Staff, User
+from app.models import User
 from app.schemas import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
-    RegisterRequest,
-    StaffRole,
     TokenResponse,
 )
 from app.services import auth as auth_service
@@ -69,29 +66,6 @@ def change_password(data: ChangePasswordRequest, user: CurrentUser = Depends(get
     auth_service.revoke_all(db, user.id)
     db.commit()
     return {"message": "Parol o'zgartirildi. Barcha qurilmalardan qayta kiring"}
-
-
-@router.post("/auth/register", tags=["🔐 Auth"], status_code=status.HTTP_201_CREATED,
-             summary="Hisob so'rovi",
-             description="Yangi hisob faol bo'lmagan holda yaratiladi; administrator faollashtiradi.")
-def register(data: RegisterRequest, db: Session = Depends(get_db)):
-    branch = db.scalar(select(Branch).where(Branch.is_default.is_(True)))
-    role = db.scalar(select(Role).where(Role.code == "receptionist"))
-    if not branch or not role:
-        raise HTTPException(503, "Tizim hali sozlanmagan")
-    try:
-        staff = Staff(full_name=data.name, role=StaffRole.receptionist, email=data.email.lower(),
-                      branch_id=branch.id)
-        db.add(staff)
-        db.flush()
-        db.add(User(staff_id=staff.id, role_id=role.id, email=data.email.lower(),
-                    password_hash=hash_password(data.password), is_active=False, branch_id=branch.id))
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(400, "Bu email allaqachon ro'yxatdan o'tgan")
-    return {"message": "So'rov qabul qilindi. Administrator hisobni faollashtirgach, kira olasiz",
-            "email": data.email}
 
 
 @router.post("/auth/forgot-password", tags=["🔐 Auth"],
