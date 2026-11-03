@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.2"
+__version__ = "1.4.3"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -211,6 +211,15 @@ class StaffCreate(BaseModel):
     phone: str = Field(..., example="+998 90 111 2233")
     email: EmailStr = Field(..., example="rustamov@clinic.uz")
     schedule: Optional[str] = Field(None, example="Dushanba-Juma, 09:00-17:00")
+
+class StaffUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[StaffRole] = None
+    department: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    schedule: Optional[str] = None
+    status: Optional[StatusEnum] = None
 
 class StaffMember(StaffCreate):
     id: str
@@ -789,6 +798,16 @@ def create_staff(data: StaffCreate, _=Depends(get_current_user)):
                          joined_date=datetime.now().isoformat()[:10])
     fake_staff.append(member)
     return member
+
+@app.put("/staff/{staff_id}", tags=["👔 Staff"], response_model=StaffMember,
+         summary="Xodim ma'lumotlarini yangilash")
+def update_staff(staff_id: str, data: StaffUpdate, _=Depends(get_current_user)):
+    for member in fake_staff:
+        if member.id == staff_id:
+            for key, value in data.model_dump(exclude_unset=True).items():
+                setattr(member, key, value)
+            return member
+    raise HTTPException(404, "Xodim topilmadi")
 
 @app.delete("/staff/{staff_id}", tags=["👔 Staff"], summary="Xodimni o'chirish")
 def delete_staff(staff_id: str, _=Depends(get_current_user)):
