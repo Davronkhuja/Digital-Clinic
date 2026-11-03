@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # Ma'lumotlar bazasi (SQLAlchemy URL)
+    database_url: str
+
     # CORS: vergul bilan ajratilgan aniq originlar
     cors_origins: str = "http://localhost:5180"
 

@@ -25,3 +25,4 @@ class StaffRole(str, Enum):
     receptionist = "Receptionist"
     admin = "Admin"
     lab_tech = "Lab Technician"
+    cashier = "Cashier"
