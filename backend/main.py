@@ -20,7 +20,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -125,8 +125,12 @@ class RegisterRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: dict
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr = Field(..., example="admin@clinic.uz")
@@ -352,30 +356,45 @@ clinic_settings = ClinicSettings(
 JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 if len(JWT_SECRET) < 32:
     raise RuntimeError("JWT_SECRET o'rnatilmagan yoki juda qisqa (kamida 32 belgi). .env faylini tekshiring.")
 
-def create_access_token(user: dict) -> str:
+def _create_token(user: dict, token_type: str, lifetime: timedelta) -> str:
     now = datetime.now(timezone.utc)
-    payload = {"sub": user["email"], "uid": user["id"], "role": user["role"],
-               "iat": now, "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)}
+    payload = {"sub": user["email"], "uid": user["id"], "role": user["role"], "type": token_type,
+               "iat": now, "exp": now + lifetime}
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
+def create_access_token(user: dict) -> str:
+    return _create_token(user, "access", timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+def create_refresh_token(user: dict) -> str:
+    return _create_token(user, "refresh", timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+
+def decode_token(token: str, expected_type: str) -> dict:
+    """Tokenni tekshiradi; yaroqsiz, eskirgan yoki turi noto'g'ri bo'lsa 401."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+                             options={"require": ["exp", "sub"]})
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
+                            headers={"WWW-Authenticate": "Bearer"})
+    if payload.get("type") != expected_type:
+        raise HTTPException(status_code=401, detail="Token turi noto'g'ri",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return payload
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    unauthorized = HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
-                                 headers={"WWW-Authenticate": "Bearer"})
     if not credentials:
         raise HTTPException(status_code=401, detail="Authentication required",
                             headers={"WWW-Authenticate": "Bearer"})
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM],
-                             options={"require": ["exp", "sub"]})
-    except jwt.PyJWTError:
-        raise unauthorized
+    payload = decode_token(credentials.credentials, "access")
     user = fake_users.get(payload["sub"])
     if not user:
-        raise unauthorized
+        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
+                            headers={"WWW-Authenticate": "Bearer"})
     return {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}
 
 # ─────────────────────────────────────────────
@@ -457,8 +476,18 @@ def login(data: LoginRequest):
     user = fake_users.get(data.email)
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Email yoki parol noto'g'ri")
-    token = create_access_token(user)
-    return TokenResponse(access_token=token, user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
+    return TokenResponse(access_token=create_access_token(user), refresh_token=create_refresh_token(user), user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
+
+@app.post("/auth/refresh", tags=["🔐 Auth"], response_model=TokenResponse,
+          summary="Access tokenni yangilash",
+          description="Refresh token (7 kun) bilan yangi access (30 daqiqa) va yangi refresh token oling.")
+def refresh(data: RefreshRequest):
+    payload = decode_token(data.refresh_token, "refresh")
+    user = fake_users.get(payload["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan")
+    return TokenResponse(access_token=create_access_token(user), refresh_token=create_refresh_token(user),
+                         user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
 
 @app.post("/auth/register", tags=["🔐 Auth"], status_code=status.HTTP_201_CREATED,
           summary="Yangi hisob yaratish", description="Yangi klinika uchun admin hisob yarating.")

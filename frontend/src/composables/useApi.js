@@ -11,14 +11,56 @@ api.interceptors.request.use(config => {
   return config
 })
 
+function clearSession() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user')
+}
+
+function redirectToLogin() {
+  clearSession()
+  if (window.location.pathname !== '/login') window.location.href = '/login'
+}
+
+// Bir vaqtda kelgan bir nechta 401 uchun bitta refresh so'rovi
+let refreshing = null
+
+function refreshTokens() {
+  const refreshToken = localStorage.getItem('refresh_token')
+  if (!refreshToken) return Promise.reject(new Error('no refresh token'))
+  if (!refreshing) {
+    // interceptor'siz toza axios: refresh o'zi 401 bersa sikl bo'lmasin
+    refreshing = axios
+      .post('/api/auth/refresh', { refresh_token: refreshToken })
+      .then(({ data }) => {
+        localStorage.setItem('token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
+        return data.access_token
+      })
+      .finally(() => { refreshing = null })
+  }
+  return refreshing
+}
+
 api.interceptors.response.use(
   res => res,
-  err => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+  async err => {
+    const original = err.config
+    const isAuthCall = original?.url?.startsWith('/auth/')
+    if (err.response?.status !== 401 || !original || original._retried || isAuthCall) {
+      // login/register 401 — oddiy xato (noto'g'ri parol), yo'naltirish kerak emas
+      if (err.response?.status === 401 && !isAuthCall) redirectToLogin()
+      return Promise.reject(err)
     }
-    return Promise.reject(err)
+    original._retried = true
+    try {
+      const token = await refreshTokens()
+      original.headers.Authorization = `Bearer ${token}`
+      return api(original)
+    } catch {
+      redirectToLogin()
+      return Promise.reject(err)
+    }
   }
 )
 
