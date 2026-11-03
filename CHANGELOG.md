@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.14] - 2026-11-03
+### Fixed
+- nginx: `index.html` `Cache-Control: no-cache` bilan beriladi; avval brauzer eski `index.html` ni keshlab, yangi deploydan keyin eski sahifa ko'rinardi. Hash'li `assets/` uzoq keshlanishda qoladi.
+
 ## [1.5.13] - 2026-11-03
 ### Changed
 - Dashboard va Tahlil sahifalari faqat bazadan hisoblangan raqamlarni ko'rsatadi (`period`: hafta/oy/yil/hammasi): kartalar, oldingi davr bilan o'zgarish, daromad va qabul grafiklari, tashxislar, shifokorlar yuklamasi, yosh/jins/bo'lim taqsimoti, qabul statuslari (bekor qilish va kelmay qolish ulushi). AI tahlili uchun statistika matni haqiqiy ma'lumotdan yig'iladi. `analytics:read` yo'q foydalanuvchiga salomlashuv bloki (1-bosqich, band 8, frontend qismi).
