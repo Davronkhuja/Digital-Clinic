@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.12] - 2026-11-03
+### Changed
+- Chat va Obuna sahifalari menyudan yashirildi; URL orqali ham ochilmaydi (`meta.hidden`). Kodlari saqlangan, yoqish uchun `hidden` belgisini olib tashlash kifoya (1-bosqich, band 9).
+
 ## [1.5.11] - 2026-11-03
 ### Added
 - Xavfsizlik sahifasi haqiqiy ma'lumot bilan: audit jurnali (filtr, sahifalash), barcha faol sessiyalar (administrator) va o'z sessiyalari bekor qilish bilan, parolni o'zgartirish (1-bosqich, band 7, frontend qismi).

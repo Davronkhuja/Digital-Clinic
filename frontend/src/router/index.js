@@ -19,9 +19,9 @@ const routes = [
       { path: 'analytics',    name: 'Analytics',    component: () => import('@/views/AnalyticsView.vue'), meta: { perm: 'analytics:read' } },
       { path: 'ai',           name: 'AIAssistant',  component: () => import('@/views/AIAssistantView.vue'), meta: { perm: 'ai:use' } },
       { path: 'reports',      name: 'Reports',      component: () => import('@/views/ReportsView.vue'), meta: { perm: 'reports:read' } },
-      { path: 'chat',         name: 'Chat',         component: () => import('@/views/ChatView.vue') },
+      { path: 'chat',         name: 'Chat',         component: () => import('@/views/ChatView.vue'), meta: { hidden: true } },
       { path: 'staff',        name: 'Staff',        component: () => import('@/views/StaffView.vue'), meta: { perm: 'staff:read' } },
-      { path: 'subscription', name: 'Subscription', component: () => import('@/views/SubscriptionView.vue') },
+      { path: 'subscription', name: 'Subscription', component: () => import('@/views/SubscriptionView.vue'), meta: { hidden: true } },
       { path: 'security',     name: 'Security',     component: () => import('@/views/SecurityView.vue'), meta: { perm: 'audit:read' } },
       { path: 'settings',     name: 'Settings',     component: () => import('@/views/SettingsView.vue'), meta: { perm: 'settings:read' } },
     ]
@@ -46,6 +46,8 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.isAuthenticated) return { name: 'Login' }
   if (to.meta.guest && auth.isAuthenticated) return { name: 'Dashboard' }
+  // Menyudan yashirilgan (hozircha ishlatilmaydigan) sahifalarga URL orqali ham kirib bo'lmaydi
+  if (to.meta.hidden) return '/'
   if (auth.isAuthenticated) {
     await auth.fetchMe()
     const perm = to.meta.perm

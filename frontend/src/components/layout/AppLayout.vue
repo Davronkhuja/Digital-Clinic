@@ -418,15 +418,15 @@ const allMainNav = [
   { to: '/analytics',    key: 'nav.analytics',    icon: BarChart3, perm: 'analytics:read' },
   { to: '/ai',           key: 'nav.ai',           icon: Bot, perm: 'ai:use' },
   { to: '/reports',      key: 'nav.reports',      icon: FileBarChart, perm: 'reports:read' },
-  { to: '/chat',         key: 'nav.chat',         icon: MessageSquare },
+  { to: '/chat',         key: 'nav.chat',         icon: MessageSquare, hidden: true },  // hozircha yashirilgan (kod saqlangan)
 ]
 const allSystemNav = [
   { to: '/staff',        key: 'nav.staff',        icon: UserCog, perm: 'staff:read' },
-  { to: '/subscription', key: 'nav.subscription', icon: CreditCard },
+  { to: '/subscription', key: 'nav.subscription', icon: CreditCard, hidden: true },  // hozircha yashirilgan (kod saqlangan)
   { to: '/security',     key: 'nav.security',     icon: Shield, perm: 'audit:read' },
   { to: '/settings',     key: 'nav.settings',     icon: Settings, perm: 'settings:read' },
 ]
-const visible = items => items.filter(i => !i.perm || auth.can(i.perm))
+const visible = items => items.filter(i => !i.hidden && (!i.perm || auth.can(i.perm)))
 const mainNav = computed(() => visible(allMainNav))
 const systemNav = computed(() => visible(allSystemNav))
 
