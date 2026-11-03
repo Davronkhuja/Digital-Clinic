@@ -276,7 +276,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { Plus, Search, X, TrendingUp, TrendingDown, DollarSign, BarChart3, CreditCard, Trash2, Check, Filter, Download } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
-import api from '@/composables/useApi'
+import api, { fetchAll } from '@/composables/useApi'
 
 const theme = useThemeStore()
 const dark  = computed(() => theme.isDark)
@@ -395,8 +395,8 @@ onMounted(async () => {
     ]
   }
   try {
-    const { data } = await api.get('/patients', { params: { limit: 200 } })
-    patientList.value = data.map(p => p.name)
+    const patients = await fetchAll('/patients')
+    patientList.value = patients.map(p => p.name)
   } catch {
     patientList.value = ['Aziza Karimova', 'Bobur Aliyev', 'Dilnoza Rahimova', 'Eldor Toshmatov', 'Feruza Umarova']
   }

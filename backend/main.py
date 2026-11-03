@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────

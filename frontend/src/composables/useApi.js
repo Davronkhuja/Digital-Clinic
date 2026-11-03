@@ -64,4 +64,14 @@ api.interceptors.response.use(
   }
 )
 
+// Backend `limit` ni 100 bilan cheklaydi: sahifalab hammasini yig'adi
+export async function fetchAll(url, params = {}, pageSize = 100) {
+  const items = []
+  for (let skip = 0; ; skip += pageSize) {
+    const { data } = await api.get(url, { params: { ...params, skip, limit: pageSize } })
+    items.push(...data)
+    if (data.length < pageSize) return items
+  }
+}
+
 export default api

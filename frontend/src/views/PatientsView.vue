@@ -175,7 +175,7 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Plus, Search, Download, X, Check, Pencil, Trash2 } from 'lucide-vue-next'
-import api from '@/composables/useApi'
+import api, { fetchAll } from '@/composables/useApi'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
 import { usePhoneMask } from '@/composables/usePhoneMask'
@@ -233,7 +233,7 @@ function fmtMoney(v) {
 async function fetchPatients() {
   loading.value = true
   try {
-    const { data } = await api.get('/patients', { params: { limit: 100 } })
+    const data = await fetchAll('/patients')
     patients.value = data.map((p, i) => ({ ...p, patient_id: p.patient_id || generateId(i) }))
   } catch {
     patients.value = [
