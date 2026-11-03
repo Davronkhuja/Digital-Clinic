@@ -52,3 +52,15 @@ def get_current_user(
     if not user:
         raise HTTPException(401, "Token yaroqsiz yoki muddati tugagan", headers=UNAUTHORIZED_HEADERS)
     return user
+
+
+def require(*needed: str):
+    """Ruxsat dependency: foydalanuvchida barcha ko'rsatilgan ruxsatlar bo'lishi shart, aks holda 403."""
+
+    def checker(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        missing = [p for p in needed if p not in user.permissions]
+        if missing:
+            raise HTTPException(403, f"Ruxsat yo'q: {', '.join(missing)}")
+        return user
+
+    return checker

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Staff
 from app.schemas import StaffCreate, StaffMember, StaffRole, StaffUpdate
@@ -16,13 +16,13 @@ router = APIRouter()
 
 @router.get("/staff", tags=["👔 Staff"], response_model=List[StaffMember], summary="Xodimlar ro'yxati")
 def get_staff(role: Optional[StaffRole] = None, db: Session = Depends(get_db),
-              user: CurrentUser = Depends(get_current_user)):
+              user: CurrentUser = Depends(require("staff:read"))):
     return queries.list_staff(db, role)
 
 
 @router.post("/staff", tags=["👔 Staff"], response_model=StaffMember, status_code=201,
              summary="Yangi xodim qo'shish")
-def create_staff(data: StaffCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def create_staff(data: StaffCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(require("staff:write"))):
     from datetime import date
 
     member = Staff(full_name=data.name, role=data.role, department=data.department, phone=data.phone,
@@ -40,7 +40,7 @@ def create_staff(data: StaffCreate, db: Session = Depends(get_db), user: Current
 @router.put("/staff/{staff_id}", tags=["👔 Staff"], response_model=StaffMember,
             summary="Xodim ma'lumotlarini yangilash")
 def update_staff(staff_id: uuid.UUID, data: StaffUpdate, db: Session = Depends(get_db),
-                 user: CurrentUser = Depends(get_current_user)):
+                 user: CurrentUser = Depends(require("staff:write"))):
     member = db.get(Staff, staff_id)
     if not member:
         raise HTTPException(404, "Xodim topilmadi")
@@ -63,7 +63,7 @@ def update_staff(staff_id: uuid.UUID, data: StaffUpdate, db: Session = Depends(g
 
 @router.delete("/staff/{staff_id}", tags=["👔 Staff"], summary="Xodimni o'chirish",
                description="Yozuvlari (uchrashuv, EMR) bor xodimni o'chirib bo'lmaydi (409): faolsizlantiring.")
-def delete_staff(staff_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def delete_staff(staff_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("staff:write"))):
     member = db.get(Staff, staff_id)
     if not member:
         raise HTTPException(404, "Xodim topilmadi")

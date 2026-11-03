@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.core.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import CurrentUser, require
 from app.schemas import AIMessage, AIResponse, AnalyzeRequest, AnalyzeResponse
 from app.services.llm import (
     AI_DISCLAIMER,
@@ -26,7 +26,7 @@ Tibbiy savollarga AI yordamchidan javob oling.
 Faqat ma'lumot olish maqsadida foydalaning.
           """,
           response_model=AIResponse)
-def ai_chat(data: AIMessage, _=Depends(get_current_user)):
+def ai_chat(data: AIMessage, user: CurrentUser = Depends(require("ai:use"))):
     if not settings.ai_enabled:
         text = next((v for k, v in DEMO_CHAT_RESPONSES.items() if k in data.message.lower()), DEMO_CHAT_DEFAULT)
         return AIResponse(response=text, demo=True, suggestions=DEMO_CHAT_SUGGESTIONS, disclaimer=AI_DISCLAIMER)
@@ -39,12 +39,12 @@ def ai_chat(data: AIMessage, _=Depends(get_current_user)):
     return AIResponse(response=text, suggestions=[], disclaimer=AI_DISCLAIMER)
 
 @router.get("/ai/status", tags=["🤖 AI Assistant"], summary="AI rejimi (demo yoki LLM)")
-def ai_status(_=Depends(get_current_user)):
+def ai_status(user: CurrentUser = Depends(require("ai:use"))):
     return {"enabled": settings.ai_enabled, "demo": not settings.ai_enabled}
 
 @router.post("/ai/analyze", tags=["🤖 AI Assistant"], response_model=AnalyzeResponse,
           summary="Klinika statistikasini AI bilan tahlil qilish")
-def ai_analyze(data: AnalyzeRequest, _=Depends(get_current_user)):
+def ai_analyze(data: AnalyzeRequest, user: CurrentUser = Depends(require("ai:use"))):
     if not settings.ai_enabled:
         return AnalyzeResponse(analysis=DEMO_ANALYSIS, demo=True, disclaimer=AI_DISCLAIMER)
     messages = [
@@ -59,7 +59,7 @@ def ai_analyze(data: AnalyzeRequest, _=Depends(get_current_user)):
 @router.get("/ai/insights", tags=["🤖 AI Assistant"],
          summary="AI tahliliy ma'lumotlar",
          description="Klinika ma'lumotlari asosida AI tavsiyalari.")
-def get_ai_insights(_=Depends(get_current_user)):
+def get_ai_insights(user: CurrentUser = Depends(require("ai:use"))):
     return {
         "insights": [
             {"type": "warning", "title": "Yuqori bekor qilishlar", "message": "Bu oyda 23% uchrashuvlar bekor qilindi. SMS eslatmalar yuborish tavsiya etiladi."},

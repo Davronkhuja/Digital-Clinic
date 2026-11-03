@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.services import queries
 
@@ -34,12 +34,12 @@ def _csv_cell(value):
 
 
 @router.get("/reports", tags=["📝 Reports"], summary="Hisobotlar ro'yxati")
-def get_reports(user: CurrentUser = Depends(get_current_user)):
+def get_reports(user: CurrentUser = Depends(require("reports:read"))):
     return {"reports": REPORTS}
 
 
 @router.post("/reports/generate/{report_id}", tags=["📝 Reports"], summary="Hisobot generatsiya qilish")
-def generate_report(report_id: str, user: CurrentUser = Depends(get_current_user)):
+def generate_report(report_id: str, user: CurrentUser = Depends(require("reports:read"))):
     if report_id not in SOURCES:
         raise HTTPException(404, "Hisobot topilmadi")
     return {"status": "generated", "report_id": report_id, "download_url": f"/reports/download/{report_id}",
@@ -49,7 +49,7 @@ def generate_report(report_id: str, user: CurrentUser = Depends(get_current_user
 @router.get("/reports/download/{report_id}", tags=["📝 Reports"],
             summary="Hisobotni CSV sifatida yuklab olish",
             description="UTF-8 BOM bilan CSV (Excel to'g'ri ochadi). Authorization header talab qilinadi.")
-def download_report(report_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def download_report(report_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require("reports:read"))):
     if report_id not in SOURCES:
         raise HTTPException(404, "Hisobot topilmadi")
     name, source = SOURCES[report_id]

@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Appointment
 from app.schemas import Appointment as AppointmentOut
@@ -24,7 +24,7 @@ def get_appointments(
     status: Optional[AppointmentStatus] = Query(None, description="Status bo'yicha filter"),
     patient_id: Optional[uuid.UUID] = Query(None, description="Bemor ID bo'yicha filter"),
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require("appointments:read")),
 ):
     try:
         return queries.list_appointments(db, date, doctor, status, patient_id)
@@ -35,7 +35,7 @@ def get_appointments(
 @router.post("/appointments", tags=["📅 Appointments"], response_model=AppointmentOut, status_code=201,
              summary="Uchrashuv rejalashtirish")
 def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db),
-                       user: CurrentUser = Depends(get_current_user)):
+                       user: CurrentUser = Depends(require("appointments:write"))):
     patient = get_patient_or_404(db, data.patient_id)
     doctor = resolve_doctor(db, data.doctor_id, data.doctor)
     try:
@@ -54,7 +54,7 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db),
 @router.patch("/appointments/{appt_id}/status", tags=["📅 Appointments"], response_model=AppointmentOut,
               summary="Uchrashuv statusini o'zgartirish")
 def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db: Session = Depends(get_db),
-                              user: CurrentUser = Depends(get_current_user)):
+                              user: CurrentUser = Depends(require("appointments:write"))):
     appt = db.get(Appointment, appt_id)
     if not appt:
         raise HTTPException(404, "Uchrashuv topilmadi")
@@ -65,7 +65,7 @@ def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db:
 
 @router.delete("/appointments/{appt_id}", tags=["📅 Appointments"], summary="Uchrashuvni bekor qilish")
 def delete_appointment(appt_id: uuid.UUID, db: Session = Depends(get_db),
-                       user: CurrentUser = Depends(get_current_user)):
+                       user: CurrentUser = Depends(require("appointments:write"))):
     appt = db.get(Appointment, appt_id)
     if not appt:
         raise HTTPException(404, "Uchrashuv topilmadi")

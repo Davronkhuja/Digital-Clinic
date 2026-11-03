@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.3] - 2026-11-03
+### Added
+- Backend ruxsat tekshiruvi: har endpoint `require("<ruxsat>")` dependency'si orqali (403, token yo'q bo'lsa 401). Standart matritsa: EMR yozish faqat doctor/admin; moliya admin/cashier; xodimlar yozish va sozlamalar yozish faqat admin.
+- `GET /permissions`, `GET/PUT /roles` (ruxsatlarni bazaga yozish; admin roli o'zgarmaydi), `GET/PATCH /users` (rol, faollashtirish; sessiyalar bekor qilinadi). Ruxsat: `roles:manage`.
+- `cashier` roli (1-bosqich, band 6, backend qismi).
+
 ## [1.5.2] - 2026-11-03
 ### Changed
 - Barcha routerlar PostgreSQL'ga o'tdi (xotiradagi `fake` ma'lumotlar olib tashlandi). `doctor` va `patient_name` matnlari saqlanmaydi: API javobida join orqali qaytariladi (frontend uchun javob shakli o'zgarmadi). ID lar UUID (1-bosqich, band 3).

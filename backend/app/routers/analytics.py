@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.core.deps import get_current_user
+from app.core.deps import CurrentUser, require
 
 router = APIRouter()
 
@@ -8,7 +8,7 @@ router = APIRouter()
 @router.get("/analytics/dashboard", tags=["📊 Analytics"],
          summary="Dashboard statistikasi",
          description="Asosiy dashboard ko'rsatkichlari: bemorlar, uchrashuvlar, daromad.")
-def get_dashboard_stats(_=Depends(get_current_user)):
+def get_dashboard_stats(user: CurrentUser = Depends(require("analytics:read"))):
     return {
         "total_patients": 1284,
         "total_appointments_today": 42,
@@ -38,7 +38,7 @@ def get_dashboard_stats(_=Depends(get_current_user)):
 @router.get("/analytics/reports", tags=["📊 Analytics"],
          summary="Tahliliy hisobotlar",
          description="Bemorlar, daromad, shifokorlar bo'yicha tahliliy ma'lumotlar.")
-def get_analytics(_=Depends(get_current_user)):
+def get_analytics(user: CurrentUser = Depends(require("analytics:read"))):
     return {
         "top_diagnoses": [
             {"name": "Gipertenziya", "count": 234},

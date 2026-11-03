@@ -8,3 +8,4 @@ from app.schemas.finance import *  # noqa: F401,F403
 from app.schemas.staff import *  # noqa: F401,F403
 from app.schemas.ai import *  # noqa: F401,F403
 from app.schemas.settings import *  # noqa: F401,F403
+from app.schemas.access import *  # noqa: F401,F403

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Transaction
 from app.schemas import Transaction as TransactionOut
@@ -26,14 +26,14 @@ def period_start(period: str, today: date | None = None) -> date | None:
 @router.get("/finance/transactions", tags=["💰 Finance"], response_model=List[TransactionOut],
             summary="Moliyaviy tranzaksiyalar")
 def get_transactions(type: Optional[TransactionType] = Query(None), category: Optional[str] = Query(None),
-                     db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+                     db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
     return queries.list_transactions(db, type, category)
 
 
 @router.post("/finance/transactions", tags=["💰 Finance"], response_model=TransactionOut, status_code=201,
              summary="Yangi tranzaksiya qo'shish")
 def create_transaction(data: TransactionCreate, db: Session = Depends(get_db),
-                       user: CurrentUser = Depends(get_current_user)):
+                       user: CurrentUser = Depends(require("finance:write"))):
     if data.patient_id:
         patient = get_patient_or_404(db, data.patient_id)
     else:
@@ -55,7 +55,7 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db),
 @router.get("/finance/summary", tags=["💰 Finance"], summary="Moliyaviy xulosa",
             description="Tanlangan davr uchun daromad, xarajat va foyda (bazadan hisoblanadi).")
 def get_finance_summary(period: str = Query("month", pattern="^(week|month|year|all)$"),
-                        db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+                        db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
     start = period_start(period)
     stmt = select(Transaction.type, func.coalesce(func.sum(Transaction.amount), 0), func.count()).where(
         Transaction.deleted_at.is_(None)

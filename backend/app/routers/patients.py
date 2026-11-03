@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Patient
 from app.schemas import Patient as PatientOut
@@ -35,14 +35,14 @@ def get_patients(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require("patients:read")),
 ):
     return queries.list_patients(db, search, status, skip, limit)
 
 
 @router.post("/patients", tags=["👥 Patients"], response_model=PatientOut, status_code=201,
              summary="Yangi bemor qo'shish")
-def create_patient(data: PatientCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def create_patient(data: PatientCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(require("patients:write"))):
     doctor = resolve_doctor(db, None, data.doctor) if data.doctor else None
     patient = Patient(
         full_name=data.name.strip(), phone=data.phone, birth_date=_birth_date(data.age, data.birth_date),
@@ -60,7 +60,7 @@ def create_patient(data: PatientCreate, db: Session = Depends(get_db), user: Cur
 
 
 @router.get("/patients/{patient_id}", tags=["👥 Patients"], response_model=PatientOut, summary="Bitta bemor")
-def get_patient(patient_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+def get_patient(patient_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("patients:read"))):
     result = queries.get_patient(db, patient_id)
     if not result:
         raise HTTPException(404, "Bemor topilmadi")
@@ -70,7 +70,7 @@ def get_patient(patient_id: uuid.UUID, db: Session = Depends(get_db), user: Curr
 @router.put("/patients/{patient_id}", tags=["👥 Patients"], response_model=PatientOut,
             summary="Bemor ma'lumotlarini yangilash")
 def update_patient(patient_id: uuid.UUID, data: PatientUpdate, db: Session = Depends(get_db),
-                   user: CurrentUser = Depends(get_current_user)):
+                   user: CurrentUser = Depends(require("patients:write"))):
     patient = get_patient_or_404(db, patient_id)
     fields = data.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"]:
@@ -93,7 +93,7 @@ def update_patient(patient_id: uuid.UUID, data: PatientUpdate, db: Session = Dep
 @router.delete("/patients/{patient_id}", tags=["👥 Patients"], summary="Bemorni o'chirish",
                description="Uchrashuv, EMR yoki to'lovi bor bemorni o'chirib bo'lmaydi (409): faolsizlantiring.")
 def delete_patient(patient_id: uuid.UUID, db: Session = Depends(get_db),
-                   user: CurrentUser = Depends(get_current_user)):
+                   user: CurrentUser = Depends(require("patients:delete"))):
     patient = get_patient_or_404(db, patient_id)
     try:
         db.delete(patient)
