@@ -23,7 +23,7 @@ import bcrypt
 import jwt
 from datetime import timedelta, timezone
 
-__version__ = "1.4.4"
+__version__ = "1.4.5"
 logger = logging.getLogger("digital_clinic")
 
 # ─────────────────────────────────────────────
@@ -117,14 +117,14 @@ class StaffRole(str, Enum):
 
 # Auth
 class LoginRequest(BaseModel):
-    email: EmailStr = Field(..., example="admin@clinic.uz")
-    password: str = Field(..., min_length=6, example="password123")
+    email: EmailStr = Field(..., examples=["admin@clinic.uz"])
+    password: str = Field(..., min_length=6, examples=["password123"])
 
 class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=2, example="Ahmad Karimov")
-    email: EmailStr = Field(..., example="ahmad@clinic.uz")
-    password: str = Field(..., min_length=6, example="securepass123")
-    clinic_name: str = Field(..., example="Hayot Klinnikasi")
+    name: str = Field(..., min_length=2, examples=["Ahmad Karimov"])
+    email: EmailStr = Field(..., examples=["ahmad@clinic.uz"])
+    password: str = Field(..., min_length=6, examples=["securepass123"])
+    clinic_name: str = Field(..., examples=["Hayot Klinnikasi"])
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -136,18 +136,18 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr = Field(..., example="admin@clinic.uz")
+    email: EmailStr = Field(..., examples=["admin@clinic.uz"])
 
 # Patient
 class PatientCreate(BaseModel):
-    name: str = Field(..., example="Aziza Karimova")
-    phone: str = Field(..., example="+998 90 123 4567")
-    age: int = Field(..., ge=0, le=150, example=34)
-    gender: GenderEnum = Field(..., example="female")
-    doctor: Optional[str] = Field(None, example="Dr. Rustamov")
-    address: Optional[str] = Field(None, example="Toshkent, Yunusobod")
-    blood_type: Optional[str] = Field(None, example="A+")
-    allergies: Optional[str] = Field(None, example="Penisilin")
+    name: str = Field(..., examples=["Aziza Karimova"])
+    phone: str = Field(..., examples=["+998 90 123 4567"])
+    age: int = Field(..., ge=0, le=150, examples=[34])
+    gender: GenderEnum = Field(..., examples=["female"])
+    doctor: Optional[str] = Field(None, examples=["Dr. Rustamov"])
+    address: Optional[str] = Field(None, examples=["Toshkent, Yunusobod"])
+    blood_type: Optional[str] = Field(None, examples=["A+"])
+    allergies: Optional[str] = Field(None, examples=["Penisilin"])
 
 class PatientUpdate(PatientCreate):
     name: Optional[str] = None
@@ -163,13 +163,13 @@ class Patient(PatientCreate):
 
 # Appointment
 class AppointmentCreate(BaseModel):
-    patient_id: str = Field(..., example="1")
-    patient_name: str = Field(..., example="Aziza Karimova")
-    doctor: str = Field(..., example="Dr. Rustamov")
-    date: str = Field(..., example="2026-02-25")
-    time: str = Field(..., example="10:00")
-    type: str = Field(..., example="Konsultatsiya")
-    notes: Optional[str] = Field(None, example="Qon bosimi tekshiruvi")
+    patient_id: str = Field(..., examples=["1"])
+    patient_name: str = Field(..., examples=["Aziza Karimova"])
+    doctor: str = Field(..., examples=["Dr. Rustamov"])
+    date: str = Field(..., examples=["2026-02-25"])
+    time: str = Field(..., examples=["10:00"])
+    type: str = Field(..., examples=["Konsultatsiya"])
+    notes: Optional[str] = Field(None, examples=["Qon bosimi tekshiruvi"])
 
 class Appointment(AppointmentCreate):
     id: str
@@ -178,13 +178,13 @@ class Appointment(AppointmentCreate):
 
 # EMR
 class EMRCreate(BaseModel):
-    patient_id: str = Field(..., example="1")
-    patient_name: str = Field(..., example="Aziza Karimova")
-    doctor: str = Field(..., example="Dr. Rustamov")
-    diagnosis: str = Field(..., example="Gipertenziya 2-darajali")
-    prescription: str = Field(..., example="Amlodipine 5mg kuniga 1 marta")
-    notes: Optional[str] = Field(None, example="Qon bosimi nazorat ostida")
-    visit_date: str = Field(..., example="2026-02-23")
+    patient_id: str = Field(..., examples=["1"])
+    patient_name: str = Field(..., examples=["Aziza Karimova"])
+    doctor: str = Field(..., examples=["Dr. Rustamov"])
+    diagnosis: str = Field(..., examples=["Gipertenziya 2-darajali"])
+    prescription: str = Field(..., examples=["Amlodipine 5mg kuniga 1 marta"])
+    notes: Optional[str] = Field(None, examples=["Qon bosimi nazorat ostida"])
+    visit_date: str = Field(..., examples=["2026-02-23"])
 
 class EMRRecord(EMRCreate):
     id: str
@@ -192,12 +192,12 @@ class EMRRecord(EMRCreate):
 
 # Finance
 class TransactionCreate(BaseModel):
-    type: TransactionType = Field(..., example="income")
-    amount: float = Field(..., gt=0, example=250000)
-    description: str = Field(..., example="Konsultatsiya to'lovi")
-    patient_name: Optional[str] = Field(None, example="Aziza Karimova")
-    category: str = Field(..., example="Consultation")
-    date: str = Field(..., example="2026-02-23")
+    type: TransactionType = Field(..., examples=["income"])
+    amount: float = Field(..., gt=0, examples=[250000])
+    description: str = Field(..., examples=["Konsultatsiya to'lovi"])
+    patient_name: Optional[str] = Field(None, examples=["Aziza Karimova"])
+    category: str = Field(..., examples=["Consultation"])
+    date: str = Field(..., examples=["2026-02-23"])
 
 class Transaction(TransactionCreate):
     id: str
@@ -205,12 +205,12 @@ class Transaction(TransactionCreate):
 
 # Staff
 class StaffCreate(BaseModel):
-    name: str = Field(..., example="Dr. Behruz Rustamov")
-    role: StaffRole = Field(..., example="Doctor")
-    department: str = Field(..., example="Kardiologiya")
-    phone: str = Field(..., example="+998 90 111 2233")
-    email: EmailStr = Field(..., example="rustamov@clinic.uz")
-    schedule: Optional[str] = Field(None, example="Dushanba-Juma, 09:00-17:00")
+    name: str = Field(..., examples=["Dr. Behruz Rustamov"])
+    role: StaffRole = Field(..., examples=["Doctor"])
+    department: str = Field(..., examples=["Kardiologiya"])
+    phone: str = Field(..., examples=["+998 90 111 2233"])
+    email: EmailStr = Field(..., examples=["rustamov@clinic.uz"])
+    schedule: Optional[str] = Field(None, examples=["Dushanba-Juma, 09:00-17:00"])
 
 class StaffUpdate(BaseModel):
     name: Optional[str] = None
@@ -233,8 +233,8 @@ class ChatTurn(BaseModel):
     content: str = Field(..., max_length=4000)
 
 class AIMessage(BaseModel):
-    message: str = Field(..., max_length=4000, example="Bemorning qon bosimi ko'tarilgan. Nima qilish kerak?")
-    context: Optional[str] = Field(None, max_length=2000, example="Bemor 54 yoshli, qandli diabet bilan")
+    message: str = Field(..., max_length=4000, examples=["Bemorning qon bosimi ko'tarilgan. Nima qilish kerak?"])
+    context: Optional[str] = Field(None, max_length=2000, examples=["Bemor 54 yoshli, qandli diabet bilan"])
     history: List[ChatTurn] = Field(default_factory=list, max_length=20)
 
 class AnalyzeRequest(BaseModel):
@@ -254,13 +254,13 @@ class AIResponse(BaseModel):
 
 # Settings
 class ClinicSettings(BaseModel):
-    clinic_name: str = Field(..., example="Digital Klinika")
-    address: str = Field(..., example="Toshkent, Amir Temur ko'chasi 1")
-    phone: str = Field(..., example="+998 71 200 0000")
-    email: EmailStr = Field(..., example="info@clinic.uz")
-    currency: str = Field(default="UZS", example="UZS")
-    timezone: str = Field(default="Asia/Tashkent", example="Asia/Tashkent")
-    language: str = Field(default="uz", example="uz")
+    clinic_name: str = Field(..., examples=["Digital Klinika"])
+    address: str = Field(..., examples=["Toshkent, Amir Temur ko'chasi 1"])
+    phone: str = Field(..., examples=["+998 71 200 0000"])
+    email: EmailStr = Field(..., examples=["info@clinic.uz"])
+    currency: str = Field(default="UZS", examples=["UZS"])
+    timezone: str = Field(default="Asia/Tashkent", examples=["Asia/Tashkent"])
+    language: str = Field(default="uz", examples=["uz"])
 
 # ─────────────────────────────────────────────
 #  Password hashing (bcrypt)
@@ -540,7 +540,7 @@ def get_patients(
           status_code=status.HTTP_201_CREATED,
           summary="Yangi bemor qo'shish", description="Yangi bemor ma'lumotlarini tizimga kiritish.")
 def create_patient(data: PatientCreate, _=Depends(get_current_user)):
-    patient = Patient(**data.dict(), id=str(len(fake_patients) + 1),
+    patient = Patient(**data.model_dump(), id=str(len(fake_patients) + 1),
                       created_at=datetime.now().isoformat()[:10])
     fake_patients.append(patient)
     return patient
@@ -558,8 +558,8 @@ def get_patient(patient_id: str, _=Depends(get_current_user)):
 def update_patient(patient_id: str, data: PatientUpdate, _=Depends(get_current_user)):
     for i, p in enumerate(fake_patients):
         if p.id == patient_id:
-            updated = p.dict()
-            updated.update({k: v for k, v in data.dict().items() if v is not None})
+            updated = p.model_dump()
+            updated.update({k: v for k, v in data.model_dump().items() if v is not None})
             fake_patients[i] = Patient(**updated)
             return fake_patients[i]
     raise HTTPException(status_code=404, detail="Bemor topilmadi")
@@ -598,7 +598,7 @@ def get_appointments(
 @app.post("/appointments", tags=["📅 Appointments"], response_model=Appointment,
           status_code=201, summary="Uchrashuv rejalashtirish")
 def create_appointment(data: AppointmentCreate, _=Depends(get_current_user)):
-    appt = Appointment(**data.dict(), id=str(len(fake_appointments) + 1),
+    appt = Appointment(**data.model_dump(), id=str(len(fake_appointments) + 1),
                        created_at=datetime.now().isoformat()[:10])
     fake_appointments.append(appt)
     return appt
@@ -630,7 +630,7 @@ def get_emr(patient_id: Optional[str] = Query(None), _=Depends(get_current_user)
 @app.post("/emr", tags=["📋 EMR"], response_model=EMRRecord, status_code=201,
           summary="Yangi tibbiy yozuv qo'shish")
 def create_emr(data: EMRCreate, _=Depends(get_current_user)):
-    record = EMRRecord(**data.dict(), id=str(len(fake_emr) + 1),
+    record = EMRRecord(**data.model_dump(), id=str(len(fake_emr) + 1),
                        created_at=datetime.now().isoformat()[:10])
     fake_emr.append(record)
     return record
@@ -661,7 +661,7 @@ def get_transactions(
 @app.post("/finance/transactions", tags=["💰 Finance"], response_model=Transaction, status_code=201,
           summary="Yangi tranzaksiya qo'shish")
 def create_transaction(data: TransactionCreate, _=Depends(get_current_user)):
-    tx = Transaction(**data.dict(), id=str(len(fake_transactions) + 1),
+    tx = Transaction(**data.model_dump(), id=str(len(fake_transactions) + 1),
                      created_at=datetime.now().isoformat()[:10])
     fake_transactions.append(tx)
     return tx
@@ -797,7 +797,7 @@ def get_staff(role: Optional[StaffRole] = None, _=Depends(get_current_user)):
 @app.post("/staff", tags=["👔 Staff"], response_model=StaffMember, status_code=201,
           summary="Yangi xodim qo'shish")
 def create_staff(data: StaffCreate, _=Depends(get_current_user)):
-    member = StaffMember(**data.dict(), id=str(len(fake_staff) + 1),
+    member = StaffMember(**data.model_dump(), id=str(len(fake_staff) + 1),
                          joined_date=datetime.now().isoformat()[:10])
     fake_staff.append(member)
     return member
