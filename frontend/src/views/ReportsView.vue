@@ -5,7 +5,14 @@
       <p class="text-slate-500 text-sm mt-1">PDF va Excel hisobotlar generatsiyasi</p>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+    <div v-if="loadError" class="card">
+      <EmptyState title="Hisobotlar ro'yxatini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" actionLabel="Qayta urinish" @action="loadReports" />
+    </div>
+    <div v-else-if="loading" class="text-sm text-slate-500">Yuklanmoqda...</div>
+    <div v-else-if="reports.length === 0" class="card">
+      <EmptyState title="Hisobotlar mavjud emas" description="Hozircha yaratish mumkin bo'lgan hisobot turlari yo'q" />
+    </div>
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
       <div v-for="r in reports" :key="r.id" class="card p-5 hover:shadow-card-hover transition-shadow">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-3">
@@ -14,7 +21,6 @@
             </div>
             <div>
               <h3 class="font-semibold text-slate-900 text-sm">{{ r.name }}</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Oxirgi: {{ r.last_generated }}</p>
             </div>
           </div>
           <span class="badge badge-slate text-xs">CSV</span>
@@ -38,20 +44,46 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { FileBarChart, DollarSign, Users, Calendar, FileDown, CheckCircle } from 'lucide-vue-next'
 import api from '@/composables/useApi'
+import { useToast } from '@/composables/useToast'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const generating = ref(null)
 const generated = ref({})
 const errors = ref({})
 
-const reports = [
-  { id: '1', name: 'Oylik moliyaviy hisobot', last_generated: '2026-02-01', desc: 'Daromad, xarajat va sof foyda ko\'rsatkichlari', bg: 'bg-emerald-50', color: 'text-emerald-500', icon: DollarSign },
-  { id: '2', name: 'Bemorlar statistikasi', last_generated: '2026-02-15', desc: 'Yangi va qayta bemorlar, demografiya tahlili', bg: 'bg-blue-50', color: 'text-blue-500', icon: Users },
-  { id: '3', name: 'Xodimlar faoliyati', last_generated: '2026-02-20', desc: 'Shifokorlar ish natijalari va reyting', bg: 'bg-purple-50', color: 'text-purple-500', icon: FileBarChart },
-  { id: '4', name: 'Uchrashuvlar tahlili', last_generated: '2026-02-22', desc: 'Qabul qilingan, bekor qilingan uchrashuvlar', bg: 'bg-amber-50', color: 'text-amber-500', icon: Calendar },
-]
+const toast = useToast()
+const reports = ref([])
+const loading = ref(true)
+const loadError = ref(false)
+
+// Hisobot turi bo'yicha ikonka/rang/tavsif
+const typeMeta = {
+  finance: { bg: 'bg-emerald-50', color: 'text-emerald-500', icon: DollarSign, desc: "Daromad, xarajat va sof foyda ko'rsatkichlari" },
+  patients: { bg: 'bg-blue-50', color: 'text-blue-500', icon: Users, desc: 'Yangi va qayta bemorlar, demografiya tahlili' },
+  staff: { bg: 'bg-purple-50', color: 'text-purple-500', icon: FileBarChart, desc: 'Shifokorlar ish natijalari va reyting' },
+  appointments: { bg: 'bg-amber-50', color: 'text-amber-500', icon: Calendar, desc: "Qabul qilingan, bekor qilingan uchrashuvlar" },
+}
+const defaultMeta = { bg: 'bg-slate-100', color: 'text-slate-500', icon: FileBarChart, desc: '' }
+
+async function loadReports() {
+  loading.value = true
+  loadError.value = false
+  try {
+    const { data } = await api.get('/reports')
+    reports.value = (data.reports || []).map(r => ({ ...r, ...(typeMeta[r.type] || defaultMeta) }))
+  } catch (e) {
+    reports.value = []
+    loadError.value = true
+    toast.error(e, "Hisobotlar ro'yxatini yuklab bo'lmadi")
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadReports)
 
 async function generate(id, name) {
   generating.value = id

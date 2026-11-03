@@ -2,6 +2,16 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.8] - 2026-11-03
+### Removed
+- Frontend demo/zaxira ma'lumotlari: Bemorlar, Bemor profili, Uchrashuvlar, Xodimlar, EMR, Moliya, Hisobotlar sahifalarida qattiq yozilgan ro'yxatlar, shifokor ro'yxatlari, soxta raqamlar, komissiya jadvali, soxta `txn_id`/`method`/`status`, xodimlardagi demo rol va faoliyat tablari (1-bosqich, band 5, qisman).
+### Added
+- Yuklash xatosida toast va "Qayta urinish" holati; bo'sh ro'yxat uchun `EmptyState` komponenti. Bemor profili boshqa bemorning ma'lumotini hech qachon ko'rsatmaydi ("Bemor topilmadi" holati).
+- Shifokorlar `GET /staff?role=Doctor` dan; bemor formasida PINFL; hisobotlar ro'yxati `GET /reports` dan; moliya kartalari `GET /finance/summary?period=` dan.
+### Fixed
+- EMR yozuvidan o'chirish tugmasi olib tashlandi (yozuvlar o'chirilmaydi); EMR `icd_code` yuboriladi.
+- Hali qolgan: Dashboard, Tahlil, Xavfsizlik, Sozlamalar sahifalari (keyingi versiyalarda).
+
 ## [1.5.7] - 2026-11-03
 ### Added
 - Audit jurnali: bemor, EMR, to'lov yozuvlarini o'qish/yozish, hisobot yuklab olish, kirish (muvaffaqiyatli va muvaffaqiyatsiz), chiqish, parol o'zgarishi, rol va foydalanuvchi o'zgarishlari: kim, qachon, nima, IP (`audit_log`; asosiy amal bilan bitta tranzaksiyada). Parol jurnalga tushmaydi.

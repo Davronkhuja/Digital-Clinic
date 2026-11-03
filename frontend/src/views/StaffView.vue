@@ -10,20 +10,8 @@
       <button class="btn-primary flex-shrink-0" @click="openAdd"><Plus class="w-4 h-4" /> Add Staff</button>
     </div>
 
-    <!-- Tabs -->
-    <div :class="['flex gap-1 border-b', dark ? 'border-slate-800' : 'border-slate-200']">
-      <button v-for="tab in tabs" :key="tab"
-        @click="activeTab = tab"
-        :class="['px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px',
-          activeTab === tab
-            ? 'border-blue-500 text-blue-500'
-            : dark ? 'border-transparent text-slate-400 hover:text-slate-300' : 'border-transparent text-slate-500 hover:text-slate-700']">
-        {{ tab }}
-      </button>
-    </div>
-
-    <!-- Staff List tab -->
-    <div v-if="activeTab === 'Staff List'" class="card">
+    <!-- Staff List -->
+    <div class="card">
 
       <!-- Search -->
       <div :class="['p-4 border-b', dark ? 'border-slate-800' : 'border-slate-100']">
@@ -34,7 +22,16 @@
       </div>
 
       <!-- Table -->
-      <div class="overflow-x-auto">
+      <div v-if="loading" class="p-12 text-center">
+        <div class="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+        <p class="text-slate-400 text-sm">Yuklanmoqda...</p>
+      </div>
+
+      <EmptyState v-else-if="loadError" title="Xodimlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchStaff" />
+
+      <EmptyState v-else-if="staff.length === 0" title="Hali xodimlar yo'q" description="Birinchi xodimni qo'shing" actionLabel="Add Staff" @action="openAdd" />
+
+      <div v-else class="overflow-x-auto">
         <table class="table">
           <thead>
             <tr>
@@ -42,7 +39,7 @@
               <th>Role</th>
               <th>Department</th>
               <th>Status</th>
-              <th>Last Active</th>
+              <th>Patients</th>
               <th></th>
             </tr>
           </thead>
@@ -62,11 +59,11 @@
               <td>
                 <span :class="['badge text-xs', roleCls(s.role)]">{{ s.role }}</span>
               </td>
-              <td :class="dark ? 'text-slate-400' : 'text-slate-600'">{{ s.department }}</td>
+              <td :class="dark ? 'text-slate-400' : 'text-slate-600'">{{ s.department || '—' }}</td>
               <td>
                 <span :class="s.status === 'Active' ? 'badge-green' : 'badge-slate'">{{ s.status }}</span>
               </td>
-              <td :class="['text-sm', dark ? 'text-slate-500' : 'text-slate-400']">{{ s.last_active }}</td>
+              <td :class="['text-sm', dark ? 'text-slate-500' : 'text-slate-400']">{{ s.patients_count ?? '—' }}</td>
               <td>
                 <div class="relative" :ref="el => menuRefs[s.id] = el">
                   <button @click.stop="toggleMenu(s.id)"
@@ -93,41 +90,6 @@
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- Roles & Permissions tab -->
-    <div v-if="activeTab === 'Roles & Permissions'" class="space-y-3">
-      <div v-for="r in roleList" :key="r.name" class="card p-5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div :class="['w-9 h-9 rounded-xl flex items-center justify-center', r.bg]">
-              <Shield :class="['w-4 h-4', r.color]" />
-            </div>
-            <div>
-              <p :class="['font-semibold', dark ? 'text-white' : 'text-slate-900']">{{ r.name }}</p>
-              <p :class="['text-xs', dark ? 'text-slate-400' : 'text-slate-500']">{{ r.members }} members</p>
-            </div>
-          </div>
-          <span :class="['badge text-xs', r.badgeCls]">{{ r.key }}</span>
-        </div>
-        <div class="mt-3 flex flex-wrap gap-1.5">
-          <span v-for="p in r.perms" :key="p" :class="['px-2 py-0.5 rounded text-xs font-medium', dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600']">{{ p }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Activity Log tab -->
-    <div v-if="activeTab === 'Activity Log'" class="card divide-y" :class="dark ? 'divide-slate-800' : 'divide-slate-100'">
-      <div v-for="log in activityLogs" :key="log.id" class="p-4 flex items-center gap-4">
-        <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-          <div :class="['w-full h-full flex items-center justify-center text-xs font-bold text-white', avatarBg(log.user)]">{{ log.user[0] }}</div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p :class="['text-sm', dark ? 'text-slate-200' : 'text-slate-800']"><span class="font-medium">{{ log.user }}</span> {{ log.action }}</p>
-          <p :class="['text-xs mt-0.5', dark ? 'text-slate-500' : 'text-slate-400']">{{ log.time }}</p>
-        </div>
-        <span :class="['badge text-xs', log.type === 'create' ? 'badge-green' : log.type === 'delete' ? 'badge-red' : 'badge-blue']">{{ log.type }}</span>
       </div>
     </div>
 
@@ -198,17 +160,16 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
-import { Plus, X, Pencil, Trash2, Check, Camera, Search, MoreHorizontal, Shield } from 'lucide-vue-next'
+import { Plus, X, Pencil, Trash2, Check, Camera, Search, MoreHorizontal } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
 const lbl = computed(() => ['text-sm font-medium block mb-1.5', dark.value ? 'text-slate-300' : 'text-slate-700'])
 
-const activeTab = ref('Staff List')
-const tabs = ['Staff List', 'Roles & Permissions', 'Activity Log']
 const search = ref('')
 const openMenu = ref(null)
 const menuRefs = ref({})
@@ -217,16 +178,18 @@ const editingId = ref(null)
 const saving = ref(false)
 const photoInput = ref(null)
 const staff = ref([])
+const loading = ref(true)
+const loadError = ref(false)
 
 const toast = useToast()
-const roleOptions = ['Doctor', 'Nurse', 'Receptionist', 'Admin', 'Lab Technician']
-const defaultForm = () => ({ name: '', role: 'Doctor', department: '', phone: '', email: '', schedule: '', status: 'Active', avatar: '', last_active: 'Just now' })
+const roleOptions = ['Doctor', 'Nurse', 'Receptionist', 'Admin', 'Cashier', 'Lab Technician']
+const defaultForm = () => ({ name: '', role: 'Doctor', department: '', phone: '', email: '', schedule: '', status: 'Active', avatar: '' })
 const form = reactive(defaultForm())
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase()
   if (!q) return staff.value
-  return staff.value.filter(s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q) || s.department.toLowerCase().includes(q))
+  return staff.value.filter(s => s.name.toLowerCase().includes(q) || s.role.toLowerCase().includes(q) || (s.department || '').toLowerCase().includes(q))
 })
 
 function initials(name) {
@@ -237,7 +200,7 @@ const gradients = ['bg-gradient-to-br from-cyan-500 to-blue-600', 'bg-gradient-t
 function avatarBg(name) { return gradients[(name?.charCodeAt(0) || 0) % gradients.length] }
 
 function roleCls(role) {
-  const m = { Doctor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400', Nurse: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400', Receptionist: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', Admin: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400', 'Lab Technician': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
+  const m = { Doctor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400', Nurse: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400', Receptionist: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', Admin: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400', Cashier: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400', 'Lab Technician': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
   return m[role] || 'bg-slate-100 text-slate-600'
 }
 
@@ -291,36 +254,20 @@ async function deleteStaff(id) {
   }
 }
 
-const roleList = [
-  { name: 'Owner', key: 'owner', members: 1, bg: 'bg-amber-50', color: 'text-amber-500', badgeCls: 'badge-yellow', perms: ['All permissions'] },
-  { name: 'Admin', key: 'admin', members: 2, bg: 'bg-blue-50', color: 'text-blue-500', badgeCls: 'badge-blue', perms: ['Dashboard', 'Patients', 'Finance', 'Settings'] },
-  { name: 'Doctor', key: 'doctor', members: 3, bg: 'bg-emerald-50', color: 'text-emerald-500', badgeCls: 'badge-green', perms: ['Dashboard', 'Patients', 'Appointments', 'EMR'] },
-  { name: 'Receptionist', key: 'receptionist', members: 2, bg: 'bg-purple-50', color: 'text-purple-500', badgeCls: 'badge-slate', perms: ['Patients', 'Appointments'] },
-]
-
-const activityLogs = ref([
-  { id: 1, user: 'Sardor Umarov', action: 'added Dr. Rustamov to staff', time: '2 min ago', type: 'create' },
-  { id: 2, user: 'Admin', action: 'updated Nilufar Azimova\'s role', time: '1 hour ago', type: 'update' },
-  { id: 3, user: 'Admin', action: 'removed Bobur Toshmatov', time: '2 hours ago', type: 'delete' },
-  { id: 4, user: 'Sardor Umarov', action: 'added Malika Tosheva to staff', time: '1 day ago', type: 'create' },
-])
-
-onMounted(async () => {
+async function fetchStaff() {
+  loading.value = true
+  loadError.value = false
   try {
     const { data } = await api.get('/staff')
-    staff.value = data.map(s => ({ ...s, avatar: s.avatar || '', last_active: s.last_active || 'Unknown' }))
+    staff.value = data.map(s => ({ ...s, avatar: s.avatar || '' }))
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    staff.value = [
-      { id: '1', name: 'Dr. Rustamov', role: 'Doctor', department: 'General', phone: '+998 90 111 2233', email: 'rustamov@clinic.uz', status: 'Active', avatar: '', last_active: '2 min ago', patients_count: 124, schedule: 'Mon-Fri 09:00-17:00' },
-      { id: '2', name: 'Dr. Karimov', role: 'Doctor', department: 'Cardiology', phone: '+998 91 222 3344', email: 'karimov@clinic.uz', status: 'Active', avatar: '', last_active: '5 min ago', patients_count: 98, schedule: '' },
-      { id: '3', name: 'Dr. Yusupov', role: 'Doctor', department: 'Dermatology', phone: '+998 93 333 4455', email: 'yusupov@clinic.uz', status: 'Active', avatar: '', last_active: '1 hour ago', patients_count: 76, schedule: '' },
-      { id: '4', name: 'Nilufar Azimova', role: 'Receptionist', department: 'Front Desk', phone: '+998 94 444 5566', email: 'azimova@clinic.uz', status: 'Active', avatar: '', last_active: '1 min ago', patients_count: 0, schedule: '' },
-      { id: '5', name: 'Sardor Umarov', role: 'Admin', department: 'Management', phone: '+998 97 555 6677', email: 'umarov@clinic.uz', status: 'Active', avatar: '', last_active: '10 min ago', patients_count: 0, schedule: '' },
-      { id: '6', name: 'Malika Tosheva', role: 'Nurse', department: 'General', phone: '+998 95 666 7788', email: 'tosheva@clinic.uz', status: 'Inactive', avatar: '', last_active: '3 days ago', patients_count: 0, schedule: '' },
-    ]
-  }
-})
+    staff.value = []
+    loadError.value = true
+    toast.error(e, "Xodimlarni yuklab bo'lmadi")
+  } finally { loading.value = false }
+}
+
+onMounted(fetchStaff)
 </script>
 
 <style scoped>

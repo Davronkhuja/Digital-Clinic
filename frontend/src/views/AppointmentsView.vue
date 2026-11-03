@@ -30,7 +30,16 @@
 
     <!-- Table -->
     <div class="card">
-      <div class="table-container border-0">
+      <div v-if="loading" class="p-12 text-center">
+        <div class="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+        <p class="text-slate-400 text-sm">Yuklanmoqda...</p>
+      </div>
+
+      <EmptyState v-else-if="loadError" title="Uchrashuvlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchAppointments" />
+
+      <EmptyState v-else-if="appointments.length === 0" title="Hali uchrashuvlar yo'q" description="Birinchi uchrashuvni rejalashtiring" actionLabel="Uchrashuv qo'shish" @action="showModal = true" />
+
+      <div v-else class="table-container border-0">
         <table class="table">
           <thead>
             <tr>
@@ -87,10 +96,9 @@
               </div>
               <div>
                 <label class="text-sm font-medium text-slate-700 block mb-1.5">Shifokor *</label>
-                <select v-model="form.doctor" class="input">
-                  <option>Dr. Rustamov</option>
-                  <option>Dr. Karimov</option>
-                  <option>Dr. Yusupov</option>
+                <select v-model="form.doctor" class="input" required>
+                  <option value="" disabled>— Tanlang —</option>
+                  <option v-for="d in doctorList" :key="d" :value="d">{{ d }}</option>
                 </select>
               </div>
             </div>
@@ -128,16 +136,20 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 
 const appointments = ref([])
+const loading = ref(true)
+const loadError = ref(false)
+const doctorList = ref([])
 const filterDate = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
 const today = new Date().toLocaleDateString('uz-UZ')
 
-const form = reactive({ patient_name: '', patient_id: '1', doctor: 'Dr. Rustamov', date: '', time: '10:00', type: 'Konsultatsiya', notes: '' })
+const form = reactive({ patient_name: '', doctor: '', date: '', time: '10:00', type: 'Konsultatsiya', notes: '' })
 
 const filtered = computed(() => {
   let list = appointments.value
@@ -159,16 +171,25 @@ function statusLabel(s) {
 }
 
 async function fetchAppointments() {
+  loading.value = true
+  loadError.value = false
   try {
     const { data } = await api.get('/appointments')
     appointments.value = data
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    appointments.value = [
-      { id: '1', patient_name: 'Aziza Karimova', doctor: 'Dr. Rustamov', date: '2026-02-25', time: '10:00', type: 'Konsultatsiya', status: 'Scheduled' },
-      { id: '2', patient_name: 'Bobur Aliyev', doctor: 'Dr. Karimov', date: '2026-02-25', time: '11:30', type: 'Tekshiruv', status: 'Scheduled' },
-      { id: '3', patient_name: 'Dilnoza Rahimova', doctor: 'Dr. Yusupov', date: '2026-02-24', time: '09:00', type: 'Jarrohlik', status: 'Completed' },
-    ]
+    appointments.value = []
+    loadError.value = true
+    toast.error(e, "Uchrashuvlarni yuklab bo'lmadi")
+  } finally { loading.value = false }
+}
+
+async function fetchDoctors() {
+  try {
+    const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
+    doctorList.value = data.map(s => s.name)
+  } catch (e) {
+    doctorList.value = []
+    toast.error(e, "Shifokorlar ro'yxatini yuklab bo'lmadi")
   }
 }
 
@@ -176,7 +197,7 @@ const toast = useToast()
 
 async function addAppointment() {
   try {
-    // Bemor nomi bo'yicha haqiqiy patient_id topiladi (avval har doim '1' ketardi)
+    // Bemor nomi bo'yicha haqiqiy patient_id topiladi 
     const patients = await fetchAll('/patients', { search: form.patient_name })
     const patient = patients.find(p => p.name.toLowerCase() === form.patient_name.trim().toLowerCase())
     if (!patient) {
@@ -203,5 +224,5 @@ async function updateStatus(appt, status) {
   }
 }
 
-onMounted(fetchAppointments)
+onMounted(() => { fetchAppointments(); fetchDoctors() })
 </script>

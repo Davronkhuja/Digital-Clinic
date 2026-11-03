@@ -29,6 +29,12 @@
         <p class="text-slate-400 text-sm">Yuklanmoqda...</p>
       </div>
 
+      <div v-else-if="loadError" class="p-4">
+        <EmptyState title="Bemorlarni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="fetchPatients" />
+      </div>
+
+      <EmptyState v-else-if="patients.length === 0" title="Hali bemorlar yo'q" description="Birinchi bemorni qo'shing" actionLabel="Bemor qo'shish" @action="openAdd" />
+
       <div v-else class="table-container rounded-none border-0">
         <table class="table">
           <thead>
@@ -39,7 +45,7 @@
               <th>Yosh / Jins</th>
               <th>Qon guruhi</th>
               <th>{{ lang.t('patients.doctor') }}</th>
-              <th>To'lov (UZS)</th>
+              <th v-if="showPayments">To'lov (UZS)</th>
               <th>{{ lang.t('patients.status') }}</th>
               <th></th>
             </tr>
@@ -48,7 +54,7 @@
             <tr v-for="p in filtered" :key="p.id">
               <td>
                 <span :class="['font-mono text-xs px-2 py-1 rounded-lg font-semibold', dark ? 'bg-slate-800 text-cyan-400' : 'bg-cyan-50 text-cyan-700']">
-                  {{ p.patient_id }}
+                  {{ p.id.slice(0, 8) }}
                 </span>
               </td>
               <td>
@@ -68,7 +74,7 @@
                 <span v-else :class="['text-xs', dark ? 'text-slate-600' : 'text-slate-300']">—</span>
               </td>
               <td :class="['text-sm', dark ? 'text-slate-400' : 'text-slate-600']">{{ p.doctor || '—' }}</td>
-              <td>
+              <td v-if="showPayments">
                 <span v-if="patientPayments[p.name]" class="font-mono text-sm font-semibold text-emerald-500">
                   {{ fmtMoney(patientPayments[p.name]) }}
                 </span>
@@ -88,7 +94,7 @@
               </td>
             </tr>
             <tr v-if="filtered.length === 0">
-              <td colspan="9" :class="['py-12 text-center text-sm', dark ? 'text-slate-500' : 'text-slate-400']">Bemor topilmadi</td>
+              <td :colspan="showPayments ? 9 : 8" :class="['py-12 text-center text-sm', dark ? 'text-slate-500' : 'text-slate-400']">Bemor topilmadi</td>
             </tr>
           </tbody>
         </table>
@@ -148,6 +154,11 @@
                   <option v-for="d in doctorList" :key="d" :value="d">{{ d }}</option>
                 </select>
               </div>
+              <div>
+                <label :class="lbl">PINFL</label>
+                <input v-model="form.pinfl" class="input font-mono" placeholder="14 ta raqam" maxlength="14" inputmode="numeric"
+                  @input="form.pinfl = form.pinfl.replace(/\D/g, '')" />
+              </div>
               <div class="col-span-2">
                 <label :class="lbl">Manzil</label>
                 <input v-model="form.address" class="input" placeholder="Toshkent, Yunusobod tumani" />
@@ -180,6 +191,7 @@ import { useToast } from '@/composables/useToast'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
 import { usePhoneMask } from '@/composables/usePhoneMask'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const lang  = useLanguageStore()
 const theme = useThemeStore()
@@ -189,6 +201,7 @@ const { maskPhone, onPhoneKeydown } = usePhoneMask()
 
 const patients    = ref([])
 const loading     = ref(true)
+const loadError   = ref(false)
 const search      = ref('')
 const filterStatus = ref('')
 const showModal   = ref(false)
@@ -204,17 +217,18 @@ const toast = useToast()
 
 const defaultForm = () => ({
   name: '', phone: '', age: '', birth_date: '', gender: 'female',
-  blood_type: null, doctor: '', address: '', allergies: ''
+  blood_type: null, doctor: '', address: '', allergies: '', pinfl: ''
 })
 const form = reactive(defaultForm())
 
 // Payments map: patient name → total paid
 const patientPayments = ref({})
+const showPayments = ref(false)
 
 const total    = computed(() => patients.value.length)
 const filtered = computed(() => {
   let list = patients.value
-  if (search.value)      list = list.filter(p => p.name.toLowerCase().includes(search.value.toLowerCase()) || p.patient_id?.includes(search.value))
+  if (search.value)      list = list.filter(p => p.name.toLowerCase().includes(search.value.toLowerCase()) || p.phone?.includes(search.value) || p.id.startsWith(search.value))
   if (filterStatus.value) list = list.filter(p => p.status === filterStatus.value)
   return list
 })
@@ -222,56 +236,46 @@ const filtered = computed(() => {
 const gradients = ['bg-gradient-to-br from-cyan-500 to-blue-600', 'bg-gradient-to-br from-violet-500 to-purple-600', 'bg-gradient-to-br from-emerald-500 to-teal-600', 'bg-gradient-to-br from-orange-500 to-red-600', 'bg-gradient-to-br from-pink-500 to-rose-500']
 function avatarBg(name) { return gradients[(name?.charCodeAt(0) || 0) % gradients.length] }
 
-function generateId(index) {
-  const d = new Date()
-  const date = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
-  const seq  = String(index + 1).padStart(3, '0')
-  return `B-${date}-${seq}`
-}
-
 function fmtMoney(v) {
   return new Intl.NumberFormat('uz-UZ').format(v)
 }
 
 async function fetchPatients() {
   loading.value = true
+  loadError.value = false
   try {
-    const data = await fetchAll('/patients')
-    patients.value = data.map((p, i) => ({ ...p, patient_id: p.patient_id || generateId(i) }))
+    patients.value = await fetchAll('/patients')
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    patients.value = [
-      { id: '1', patient_id: 'B-20260224-001', name: 'Aziza Karimova',  phone: '+998 90 123-45-67', age: 34, gender: 'female', last_visit: '2026-02-20', status: 'Active',   doctor: 'Dr. Rustamov',  blood_type: 'A+' },
-      { id: '2', patient_id: 'B-20260224-002', name: 'Bobur Aliyev',    phone: '+998 91 234-56-78', age: 45, gender: 'male',   last_visit: '2026-02-18', status: 'Active',   doctor: 'Dr. Karimov',   blood_type: 'O+' },
-      { id: '3', patient_id: 'B-20260224-003', name: 'Dilnoza Rahimova',phone: '+998 93 345-67-89', age: 28, gender: 'female', last_visit: '2026-02-15', status: 'Inactive', doctor: 'Dr. Yusupov',  blood_type: null },
-      { id: '4', patient_id: 'B-20260224-004', name: 'Eldor Toshmatov', phone: '+998 94 456-78-90', age: 52, gender: 'male',   last_visit: '2026-02-22', status: 'Active',   doctor: 'Dr. Rustamov',  blood_type: 'B+' },
-      { id: '5', patient_id: 'B-20260224-005', name: 'Feruza Umarova',  phone: '+998 95 567-89-01', age: 39, gender: 'female', last_visit: '2026-02-21', status: 'Active',   doctor: 'Dr. Karimov',   blood_type: 'AB-' },
-    ]
+    patients.value = []
+    loadError.value = true
+    toast.error(e, "Bemorlarni yuklab bo'lmadi")
   } finally { loading.value = false }
 }
 
 async function fetchDoctors() {
   try {
-    const { data } = await api.get('/staff')
-    doctorList.value = data.filter(s => s.role === 'Doctor').map(s => s.name)
+    const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
+    doctorList.value = data.map(s => s.name)
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    doctorList.value = ['Dr. Rustamov', 'Dr. Karimov', 'Dr. Yusupov']
+    doctorList.value = []
+    toast.error(e, "Shifokorlar ro'yxatini yuklab bo'lmadi")
   }
 }
 
 async function fetchPayments() {
   try {
-    const { data } = await api.get('/finance/transactions')
+    const { data } = await api.get('/finance/transactions', { params: { type: 'income' } })
     const map = {}
     data.filter(t => t.type === 'income' && t.patient_name).forEach(t => {
       map[t.patient_name] = (map[t.patient_name] || 0) + t.amount
     })
     patientPayments.value = map
+    showPayments.value = true
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    // demo: Aziza Karimova paid
-    patientPayments.value = { 'Aziza Karimova': 700000, 'Bobur Aliyev': 450000, 'Eldor Toshmatov': 250000 }
+    // 403 — moliya ruxsati yo'q (kutilgan holat), to'lov ustuni yashiriladi
+    patientPayments.value = {}
+    showPayments.value = false
+    if (e?.response?.status !== 403) toast.error(e, "To'lovlarni yuklab bo'lmadi")
   }
 }
 
@@ -284,7 +288,7 @@ function openEdit(p) {
   editingId.value = p.id
   Object.assign(form, {
     name: p.name, phone: p.phone, age: p.age, birth_date: p.birth_date || '',
-    gender: p.gender, blood_type: p.blood_type, doctor: p.doctor || '', address: p.address || '', allergies: p.allergies || ''
+    gender: p.gender, blood_type: p.blood_type, doctor: p.doctor || '', address: p.address || '', allergies: p.allergies || '', pinfl: p.pinfl || ''
   })
   showModal.value = true
 }
@@ -295,7 +299,7 @@ async function savePatient() {
   saving.value = true
   // Backend age: int, bo'sh satrlar -> null
   const payload = { ...form, age: Number(form.age), blood_type: form.blood_type || null,
-                    doctor: form.doctor || null, address: form.address || null, allergies: form.allergies || null }
+                    doctor: form.doctor || null, address: form.address || null, allergies: form.allergies || null, pinfl: form.pinfl || null }
   try {
     if (editingId.value) {
       const { data } = await api.put(`/patients/${editingId.value}`, payload)
@@ -304,7 +308,7 @@ async function savePatient() {
       toast.success("Bemor ma'lumotlari yangilandi")
     } else {
       const { data } = await api.post('/patients', payload)
-      patients.value.push({ ...data, patient_id: data.patient_id || generateId(patients.value.length) })
+      patients.value.push(data)
       toast.success("Bemor qo'shildi")
     }
     closeModal()
@@ -328,7 +332,7 @@ async function deletePatient(id) {
 
 function exportCSV() {
   const header = ['ID', 'Ism', 'Telefon', 'Yosh', 'Jins', 'Qon guruhi', 'Shifokor', 'Status']
-  const rows = filtered.value.map(p => [p.patient_id, p.name, p.phone, p.age, p.gender, p.blood_type || '', p.doctor, p.status])
+  const rows = filtered.value.map(p => [p.id, p.name, p.phone, p.age, p.gender, p.blood_type || '', p.doctor || '', p.status])
   const csv = [header, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n')
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }))

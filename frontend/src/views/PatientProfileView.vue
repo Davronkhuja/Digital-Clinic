@@ -35,7 +35,7 @@
           </div>
           <div class="flex items-center justify-between py-2 border-b border-slate-100">
             <span class="text-xs text-slate-500">Shifokor</span>
-            <span class="text-sm font-medium text-slate-900">{{ patient.doctor }}</span>
+            <span class="text-sm font-medium text-slate-900">{{ patient.doctor || '—' }}</span>
           </div>
           <div v-if="patient.address" class="flex items-center justify-between py-2">
             <span class="text-xs text-slate-500">Manzil</span>
@@ -91,6 +91,14 @@
       </div>
     </div>
 
+    <div v-else-if="notFound" class="card">
+      <EmptyState title="Bemor topilmadi" description="Bunday bemor mavjud emas yoki o'chirilgan." />
+    </div>
+
+    <div v-else-if="loadError" class="card">
+      <EmptyState title="Bemorni yuklab bo'lmadi" description="Server bilan aloqa o'rnatilmadi. Qayta urinib ko'ring." actionLabel="Qayta urinish" @action="load" />
+    </div>
+
     <div v-else class="flex items-center justify-center h-64">
       <div class="text-center text-slate-400">
         <div class="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full mx-auto mb-3"></div>
@@ -106,6 +114,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const toast = useToast()
 
@@ -113,40 +122,43 @@ const route = useRoute()
 const patient = ref(null)
 const emrRecords = ref([])
 const appointments = ref([])
+const notFound = ref(false)
+const loadError = ref(false)
 
-const demoPatients = {
-  '1': { id: '1', name: 'Aziza Karimova', phone: '+998 90 123 4567', age: 34, gender: 'female', last_visit: '2026-02-20', status: 'Active', doctor: 'Dr. Rustamov', blood_type: 'A+', address: 'Toshkent, Yunusobod' },
-  '2': { id: '2', name: 'Bobur Aliyev', phone: '+998 91 234 5678', age: 45, gender: 'male', last_visit: '2026-02-18', status: 'Active', doctor: 'Dr. Karimov', blood_type: 'O+', address: 'Toshkent, Chilonzor' },
-}
-
-onMounted(async () => {
+async function load() {
   const id = route.params.id
+  patient.value = null
+  notFound.value = false
+  loadError.value = false
   try {
     const { data } = await api.get(`/patients/${id}`)
     patient.value = data
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    patient.value = demoPatients[id] || demoPatients['1']
+    // Xatoda hech qachon boshqa bemor ma'lumoti ko'rsatilmaydi
+    if (e?.response?.status === 404) notFound.value = true
+    else {
+      loadError.value = true
+      toast.error(e, "Bemorni yuklab bo'lmadi")
+    }
+    return
   }
 
   try {
     const { data } = await api.get('/emr', { params: { patient_id: id } })
     emrRecords.value = data
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    emrRecords.value = [
-      { id: '1', diagnosis: 'Gipertenziya 2-darajali', prescription: 'Amlodipine 5mg kuniga 1 marta', doctor: 'Dr. Rustamov', visit_date: '2026-02-20' },
-    ]
+    emrRecords.value = []
+    toast.error(e, "Tibbiy tarixni yuklab bo'lmadi")
   }
 
   try {
     const { data } = await api.get('/appointments', { params: { patient_id: id } })
     appointments.value = data
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    appointments.value = [
-      { id: '1', type: 'Konsultatsiya', doctor: 'Dr. Rustamov', date: '2026-02-25', time: '10:00', status: 'Scheduled' },
-    ]
+    appointments.value = []
+    toast.error(e, "Uchrashuvlarni yuklab bo'lmadi")
   }
-})
+}
+
+onMounted(load)
 </script>

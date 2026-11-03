@@ -33,7 +33,7 @@
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                {{ r.patient_name[0] }}
+                {{ (r.patient_name || "?")[0] }}
               </div>
               <div class="min-w-0">
                 <p :class="['font-semibold truncate', dark ? 'text-white' : 'text-slate-900']">{{ r.patient_name }}</p>
@@ -48,9 +48,6 @@
                 </button>
                 <button @click="openEdit(r)" :class="['p-1.5 rounded-lg transition-colors', dark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100']" title="Edit">
                   <Pencil class="w-4 h-4" />
-                </button>
-                <button @click="deleteRecord(r.id)" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
-                  <Trash2 class="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -83,7 +80,10 @@
           </div>
         </div>
 
-        <div v-if="filtered.length === 0" class="py-16 text-center">
+        <EmptyState v-if="loadError" title="Tibbiy yozuvlarni yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" actionLabel="Qayta urinish" @action="loadRecords" />
+        <div v-else-if="loading" :class="['py-16 text-center text-sm', dark ? 'text-slate-500' : 'text-slate-400']">Yuklanmoqda...</div>
+        <EmptyState v-else-if="records.length === 0" title="Hali tibbiy yozuvlar yo'q" description="Birinchi tibbiy yozuvni yaratish uchun tugmani bosing" actionLabel="Yangi yozuv" @action="openNew" />
+        <div v-else-if="filtered.length === 0" class="py-16 text-center">
           <FileText :class="['w-12 h-12 mx-auto mb-3', dark ? 'text-slate-700' : 'text-slate-300']" />
           <p :class="['text-sm', dark ? 'text-slate-500' : 'text-slate-400']">No records found</p>
         </div>
@@ -135,9 +135,8 @@
                   <div>
                     <label :class="lbl">Doctor *</label>
                     <select v-model="form.doctor" class="input">
-                      <option>Dr. Rustamov</option>
-                      <option>Dr. Karimov</option>
-                      <option>Dr. Yusupov</option>
+                      <option value="">Select doctor</option>
+                      <option v-for="d in doctorList" :key="d">{{ d }}</option>
                     </select>
                   </div>
                   <div>
@@ -146,6 +145,8 @@
                   </div>
                 </div>
               </div>
+
+              <p :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">Simptomlar, dorilar jadvali, laboratoriya fayllari va ilovalar hozircha saqlanmaydi</p>
 
               <!-- Symptoms -->
               <div :class="['rounded-2xl border p-5', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
@@ -285,17 +286,20 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Plus, Search, X, Pencil, Trash2, Save, Printer, Paperclip, FileText, Check,
+import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
   Stethoscope, FlaskConical, Pill, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
 const lbl = computed(() => ['text-sm font-medium block mb-1.5', dark.value ? 'text-slate-300' : 'text-slate-700'])
 
 const records = ref([])
+const loading = ref(true)
+const loadError = ref(false)
 const search = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
@@ -309,9 +313,10 @@ const allSymptoms = ['Fever', 'Headache', 'Cough', 'Fatigue', 'Chest Pain', 'Sho
 const toast = useToast()
 const patientRows = ref([])
 const patientList = computed(() => patientRows.value.map(p => p.name))
+const doctorList = ref([])
 
 const defaultForm = () => ({
-  patient_name: '', doctor: 'Dr. Rustamov', visit_date: new Date().toISOString().slice(0, 10),
+  patient_name: '', doctor: '', visit_date: new Date().toISOString().slice(0, 10),
   icd_code: '', diagnosis: '', prescription: '', notes: '',
   symptoms: [], medications: [], labFiles: [], attachments: []
 })
@@ -355,13 +360,13 @@ function saveDraft() {
 }
 
 async function saveRecord() {
-  if (!form.patient_name || !form.diagnosis) return
+  if (!form.patient_name || !form.diagnosis || !form.doctor) return
   const patient = patientRows.value.find(p => p.name === form.patient_name)
   if (!patient) { toast.error('Bemor topilmadi'); return }
   saving.value = true
   try {
     const payload = { patient_id: patient.id, patient_name: patient.name, doctor: form.doctor,
-                      diagnosis: form.diagnosis, prescription: form.prescription || '-',
+                      icd_code: form.icd_code || null, diagnosis: form.diagnosis, prescription: form.prescription || '-',
                       notes: form.notes || null, visit_date: form.visit_date }
     const { data } = await api.post('/emr', payload)
     // Backend saqlamaydigan maydonlar (simptomlar, dorilar, fayllar) faqat ekranda qoladi
@@ -373,11 +378,6 @@ async function saveRecord() {
   } finally {
     saving.value = false
   }
-}
-
-function deleteRecord(id) {
-  if (!confirm('Delete this record?')) return
-  records.value = records.value.filter(r => r.id !== id)
 }
 
 function printRecord(r) {
@@ -422,18 +422,28 @@ function exportExcel() {
   a.click()
 }
 
-onMounted(async () => {
-  try { patientRows.value = await fetchAll('/patients') } catch (e) { toast.error(e, "Bemorlar ro'yxatini yuklab bo'lmadi") }
+async function loadRecords() {
+  loading.value = true
+  loadError.value = false
   try {
     const { data } = await api.get('/emr')
     records.value = data
   } catch (e) {
-    toast.error(e, "Ma'lumotni yuklab bo'lmadi, demo ma'lumot ko'rsatilmoqda")
-    records.value = [
-      { id: '1', patient_name: 'Aziza Karimova', doctor: 'Dr. Rustamov', visit_date: '2026-02-22', icd_code: 'I10', diagnosis: 'Gipertenziya 2-darajali', prescription: 'Amlodipine 5mg kuniga bir marta, 3 oy', notes: 'Tuz iste\'molini kamaytirish', symptoms: ['Headache', 'Dizziness'], medications: [{ name: 'Amlodipine 5mg', dose: '1x daily', days: '90 days' }], labFiles: [], attachments: [] },
-      { id: '2', patient_name: 'Bobur Aliyev', doctor: 'Dr. Karimov', visit_date: '2026-02-20', icd_code: 'E11', diagnosis: 'Qandli diabet 2-tur', prescription: 'Metformin 500mg 2 marta kuniga, parhez', notes: "Qon glyukozasini nazorat qilish", symptoms: ['Fatigue', 'Nausea'], medications: [{ name: 'Metformin 500mg', dose: '2x daily', days: '30 days' }], labFiles: [{ name: 'blood_test.pdf' }], attachments: [] },
-    ]
+    records.value = []
+    loadError.value = true
+    toast.error(e, "Tibbiy yozuvlarni yuklab bo'lmadi")
+  } finally {
+    loading.value = false
   }
+}
+
+onMounted(async () => {
+  try { patientRows.value = await fetchAll('/patients') } catch (e) { toast.error(e, "Bemorlar ro'yxatini yuklab bo'lmadi") }
+  try {
+    const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
+    doctorList.value = data.map(s => s.name)
+  } catch (e) { toast.error(e, "Shifokorlar ro'yxatini yuklab bo'lmadi") }
+  await loadRecords()
 })
 </script>
 
