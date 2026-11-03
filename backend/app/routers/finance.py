@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -12,15 +12,9 @@ from app.schemas import Transaction as TransactionOut
 from app.schemas import TransactionCreate, TransactionType
 from app.services import audit, queries
 from app.services.lookup import get_patient_or_404, resolve_patient_by_name
+from app.services.periods import window
 
 router = APIRouter()
-
-
-def period_start(period: str, today: date | None = None) -> date | None:
-    """week = oxirgi 7 kun, month = joriy oy boshidan, year = joriy yil boshidan, all = hammasi."""
-    today = today or date.today()
-    return {"week": today - timedelta(days=6), "month": today.replace(day=1),
-            "year": today.replace(month=1, day=1), "all": None}[period]
 
 
 @router.get("/finance/transactions", tags=["💰 Finance"], response_model=List[TransactionOut],
@@ -60,7 +54,7 @@ def create_transaction(data: TransactionCreate, request: Request, db: Session = 
             description="Tanlangan davr uchun daromad, xarajat va foyda (bazadan hisoblanadi).")
 def get_finance_summary(period: str = Query("month", pattern="^(week|month|year|all)$"),
                         db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
-    start = period_start(period)
+    start, _ = window(period)
     stmt = select(Transaction.type, func.coalesce(func.sum(Transaction.amount), 0), func.count()).where(
         Transaction.deleted_at.is_(None)
     ).group_by(Transaction.type)

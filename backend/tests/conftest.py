@@ -93,3 +93,26 @@ def auth(client):
         return {"Authorization": f"Bearer {login(client, role)['access_token']}"}
 
     return make
+
+
+def seed_essentials_only() -> None:
+    """Demo ma'lumotlarsiz toza baza: filial, rollar va bitta administrator (parol PASSWORD)."""
+    from app.core.config import settings
+    from app.seed import seed_admin_from_env
+
+    truncate_all()
+    with SessionLocal() as db:
+        branch = seed_essentials(db)
+        old = (settings.admin_email, settings.admin_password)
+        settings.admin_email, settings.admin_password = "solo@clinic.uz", PASSWORD
+        try:
+            seed_admin_from_env(db, branch)
+        finally:
+            settings.admin_email, settings.admin_password = old
+        db.commit()
+
+
+def login_admin_only(client) -> str:
+    res = client.post("/auth/login", json={"email": "solo@clinic.uz", "password": PASSWORD})
+    assert res.status_code == 200, res.text
+    return res.json()["access_token"]

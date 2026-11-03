@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import CurrentUser, require
+from app.db.session import get_db
 from app.schemas import AIMessage, AIResponse, AnalyzeRequest, AnalyzeResponse
+from app.services import analytics
 from app.services.llm import (
     AI_DISCLAIMER,
     ANALYZE_SYSTEM_PROMPT,
@@ -56,14 +59,7 @@ def ai_analyze(data: AnalyzeRequest, user: CurrentUser = Depends(require("ai:use
     text = call_llm(messages, temperature=0.6, max_tokens=600)
     return AnalyzeResponse(analysis=text, disclaimer=AI_DISCLAIMER)
 
-@router.get("/ai/insights", tags=["🤖 AI Assistant"],
-         summary="AI tahliliy ma'lumotlar",
-         description="Klinika ma'lumotlari asosida AI tavsiyalari.")
-def get_ai_insights(user: CurrentUser = Depends(require("ai:use"))):
-    return {
-        "insights": [
-            {"type": "warning", "title": "Yuqori bekor qilishlar", "message": "Bu oyda 23% uchrashuvlar bekor qilindi. SMS eslatmalar yuborish tavsiya etiladi."},
-            {"type": "success", "title": "Daromad o'sishi", "message": "Oxirgi oyga nisbatan 12.5% o'sish kuzatildi."},
-            {"type": "info", "title": "Eng ko'p murojaat", "message": "Seshanba va Chorshanba kunlari eng ko'p bemor keladi."},
-        ]
-    }
+@router.get("/ai/insights", tags=["🤖 AI Assistant"], summary="Klinika ma'lumotlaridan tavsiyalar",
+            description="Bazadagi haqiqiy ko'rsatkichlardan hosil qilinadi (LLM talab qilinmaydi).")
+def get_ai_insights(db: Session = Depends(get_db), user: CurrentUser = Depends(require("analytics:read"))):
+    return {"insights": analytics.insights(db)}
