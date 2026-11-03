@@ -1,51 +1,101 @@
-import csv  # noqa: F401
-import io  # noqa: F401
-from datetime import date, datetime  # noqa: F401
-from typing import List, Optional  # noqa: F401
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: F401
-from fastapi.responses import Response  # noqa: F401
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.core.config import settings  # noqa: F401
-from app.core.security import *  # noqa: F401,F403
-from app.db import fake  # noqa: F401
-from app.schemas import *  # noqa: F401,F403
+from app.core.deps import CurrentUser, get_current_user, load_current_user
+from app.core.security import hash_password, verify_password
+from app.db.session import get_db
+from app.models import Branch, Role, Staff, User
+from app.schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    RegisterRequest,
+    StaffRole,
+    TokenResponse,
+)
+from app.services import auth as auth_service
 
 router = APIRouter()
 
-# ── AUTH ──────────────────────────────────────
-@router.post("/auth/login", tags=["🔐 Auth"], response_model=TokenResponse,
-          summary="Tizimga kirish", description="Email va parol orqali tizimga kiring va JWT token oling.")
-def login(data: LoginRequest):
-    user = fake.fake_users.get(data.email)
-    if not user or not verify_password(data.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Email yoki parol noto'g'ri")
-    return TokenResponse(access_token=create_access_token(user), refresh_token=create_refresh_token(user), user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
+# Mavjud bo'lmagan foydalanuvchi uchun ham bcrypt vaqti sarflansin (email enumeratsiyasiga qarshi)
+_DUMMY_HASH = hash_password("dummy-password")
 
-@router.post("/auth/refresh", tags=["🔐 Auth"], response_model=TokenResponse,
-          summary="Access tokenni yangilash",
-          description="Refresh token (7 kun) bilan yangi access (30 daqiqa) va yangi refresh token oling.")
-def refresh(data: RefreshRequest):
-    payload = decode_token(data.refresh_token, "refresh")
-    user = fake.fake_users.get(payload["sub"])
-    if not user:
-        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan")
-    return TokenResponse(access_token=create_access_token(user), refresh_token=create_refresh_token(user),
-                         user={"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]})
+
+@router.post("/auth/login", tags=["🔐 Auth"], response_model=TokenResponse, summary="Tizimga kirish",
+             description="Email va parol orqali tizimga kiring va JWT token oling.")
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(func.lower(User.email) == data.email.lower()))
+    ok = verify_password(data.password, user.password_hash if user else _DUMMY_HASH)
+    if not user or not ok:
+        raise HTTPException(401, "Email yoki parol noto'g'ri")
+    if not user.is_active:
+        raise HTTPException(403, "Hisob faol emas. Administratorga murojaat qiling")
+    user.last_login_at = datetime.now(timezone.utc)
+    current = load_current_user(db, user.id)
+    return auth_service.issue_tokens(db, current, request)
+
+
+@router.post("/auth/refresh", tags=["🔐 Auth"], response_model=TokenResponse, summary="Access tokenni yangilash",
+             description="Refresh token (7 kun) bilan yangi access (30 daqiqa) va yangi refresh token oling.")
+def refresh(data: RefreshRequest, request: Request, db: Session = Depends(get_db)):
+    return auth_service.rotate_refresh(db, data.refresh_token, request)
+
+
+@router.post("/auth/logout", tags=["🔐 Auth"], summary="Chiqish (refresh tokenni bekor qilish)")
+def logout(data: LogoutRequest, user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    auth_service.revoke_refresh(db, data.refresh_token, user.id)
+    return {"message": "Chiqdingiz"}
+
+
+@router.get("/auth/me", tags=["🔐 Auth"], summary="Joriy foydalanuvchi")
+def me(user: CurrentUser = Depends(get_current_user)):
+    return user.public()
+
+
+@router.post("/auth/change-password", tags=["🔐 Auth"], summary="Parolni o'zgartirish",
+             description="Parol o'zgarganda barcha refresh tokenlar bekor qilinadi.")
+def change_password(data: ChangePasswordRequest, user: CurrentUser = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    row = db.get(User, user.id)
+    if not verify_password(data.current_password, row.password_hash):
+        raise HTTPException(400, "Joriy parol noto'g'ri")
+    row.password_hash = hash_password(data.new_password)
+    auth_service.revoke_all(db, user.id)
+    db.commit()
+    return {"message": "Parol o'zgartirildi. Barcha qurilmalardan qayta kiring"}
+
 
 @router.post("/auth/register", tags=["🔐 Auth"], status_code=status.HTTP_201_CREATED,
-          summary="Yangi hisob yaratish", description="Yangi klinika uchun admin hisob yarating.")
-def register(data: RegisterRequest):
-    if data.email in fake.fake_users:
-        raise HTTPException(status_code=400, detail="Bu email allaqachon ro'yxatdan o'tgan")
-    fake.fake_users[data.email] = {
-        "id": new_id(), "name": data.name, "email": data.email,
-        "password_hash": hash_password(data.password), "role": "admin"
-    }
-    return {"message": "Muvaffaqiyatli ro'yxatdan o'tdingiz", "email": data.email}
+             summary="Hisob so'rovi",
+             description="Yangi hisob faol bo'lmagan holda yaratiladi; administrator faollashtiradi.")
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    branch = db.scalar(select(Branch).where(Branch.is_default.is_(True)))
+    role = db.scalar(select(Role).where(Role.code == "receptionist"))
+    if not branch or not role:
+        raise HTTPException(503, "Tizim hali sozlanmagan")
+    try:
+        staff = Staff(full_name=data.name, role=StaffRole.receptionist, email=data.email.lower(),
+                      branch_id=branch.id)
+        db.add(staff)
+        db.flush()
+        db.add(User(staff_id=staff.id, role_id=role.id, email=data.email.lower(),
+                    password_hash=hash_password(data.password), is_active=False, branch_id=branch.id))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Bu email allaqachon ro'yxatdan o'tgan")
+    return {"message": "So'rov qabul qilindi. Administrator hisobni faollashtirgach, kira olasiz",
+            "email": data.email}
+
 
 @router.post("/auth/forgot-password", tags=["🔐 Auth"],
-          summary="Parolni tiklash (hozircha mavjud emas)", description="Email orqali tiklash hali amalga oshirilmagan; 501 qaytaradi.")
+             summary="Parolni tiklash (hozircha mavjud emas)",
+             description="Email orqali tiklash hali amalga oshirilmagan; 501 qaytaradi.")
 def forgot_password(data: ForgotPasswordRequest):
-    # Email yuborish hozircha yo'q: yolg'on "yuborildi" javobi o'rniga halol 501
-    raise HTTPException(status_code=501, detail="Parolni tiklash uchun administratorga murojaat qiling")
+    raise HTTPException(501, "Parolni tiklash uchun administratorga murojaat qiling")

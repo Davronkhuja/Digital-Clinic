@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     # Ma'lumotlar bazasi (SQLAlchemy URL)
     database_url: str
 
+    # Boshlang'ich ma'lumotlar
+    seed_demo: bool = False  # true: faqat bo'sh bazaga demo ma'lumotlar yuklanadi
+    admin_email: str = ""  # demo bo'lmasa, birinchi administrator (bo'sh bazada)
+    admin_password: str = ""
+
     # CORS: vergul bilan ajratilgan aniq originlar
     cors_origins: str = "http://localhost:5180"
 

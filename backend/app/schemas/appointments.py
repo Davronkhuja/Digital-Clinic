@@ -1,21 +1,37 @@
-from typing import List, Optional  # noqa: F401
+import uuid
+from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field  # noqa: F401
+from pydantic import BaseModel, Field, model_validator
 
-from app.schemas.enums import *  # noqa: F403
+from app.schemas.enums import AppointmentStatus
 
 
-# Appointment
 class AppointmentCreate(BaseModel):
-    patient_id: str = Field(..., examples=["1"])
-    patient_name: str = Field(..., examples=["Aziza Karimova"])
-    doctor: str = Field(..., examples=["Dr. Rustamov"])
-    date: str = Field(..., examples=["2026-02-25"])
-    time: str = Field(..., examples=["10:00"])
+    patient_id: uuid.UUID = Field(..., examples=["3f2b8c1e-0000-0000-0000-000000000000"])
+    patient_name: Optional[str] = Field(None, description="E'tiborga olinmaydi: nom bazadan join orqali olinadi")
+    doctor_id: Optional[uuid.UUID] = None
+    doctor: Optional[str] = Field(None, examples=["Dr. Rustamov"], description="doctor_id bo'lmasa, nom bo'yicha")
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", examples=["2026-02-25"])
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$", examples=["10:00"])
     type: str = Field(..., examples=["Konsultatsiya"])
     notes: Optional[str] = Field(None, examples=["Qon bosimi tekshiruvi"])
 
-class Appointment(AppointmentCreate):
+    @model_validator(mode="after")
+    def _doctor_required(self):
+        if not self.doctor_id and not (self.doctor and self.doctor.strip()):
+            raise ValueError("doctor_id yoki doctor ko'rsatilishi kerak")
+        return self
+
+
+class Appointment(BaseModel):
     id: str
-    status: AppointmentStatus = AppointmentStatus.scheduled
+    patient_id: str
+    patient_name: str
+    doctor_id: str
+    doctor: str
+    date: str
+    time: str
+    type: str
+    notes: Optional[str] = None
+    status: AppointmentStatus
     created_at: str

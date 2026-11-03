@@ -1,45 +1,78 @@
-import csv  # noqa: F401
-import io  # noqa: F401
-from datetime import date, datetime  # noqa: F401
-from typing import List, Optional  # noqa: F401
+import uuid
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: F401
-from fastapi.responses import Response  # noqa: F401
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.core.config import settings  # noqa: F401
-from app.core.security import *  # noqa: F401,F403
-from app.db import fake  # noqa: F401
-from app.schemas import *  # noqa: F401,F403
+from app.core.deps import CurrentUser, get_current_user
+from app.db.session import get_db
+from app.models import Staff
+from app.schemas import StaffCreate, StaffMember, StaffRole, StaffUpdate
+from app.services import queries
 
 router = APIRouter()
 
-# ── STAFF ─────────────────────────────────────
-@router.get("/staff", tags=["👔 Staff"], response_model=List[StaffMember],
-         summary="Xodimlar ro'yxati", description="Barcha klinika xodimlarini ko'rish.")
-def get_staff(role: Optional[StaffRole] = None, _=Depends(get_current_user)):
-    if role:
-        return [s for s in fake.fake_staff if s.role == role]
-    return fake.fake_staff
+
+@router.get("/staff", tags=["👔 Staff"], response_model=List[StaffMember], summary="Xodimlar ro'yxati")
+def get_staff(role: Optional[StaffRole] = None, db: Session = Depends(get_db),
+              user: CurrentUser = Depends(get_current_user)):
+    return queries.list_staff(db, role)
+
 
 @router.post("/staff", tags=["👔 Staff"], response_model=StaffMember, status_code=201,
-          summary="Yangi xodim qo'shish")
-def create_staff(data: StaffCreate, _=Depends(get_current_user)):
-    member = StaffMember(**data.model_dump(), id=new_id(),
-                         joined_date=datetime.now().isoformat()[:10])
-    fake.fake_staff.append(member)
-    return member
+             summary="Yangi xodim qo'shish")
+def create_staff(data: StaffCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    from datetime import date
+
+    member = Staff(full_name=data.name, role=data.role, department=data.department, phone=data.phone,
+                   email=data.email.lower(), schedule=data.schedule, joined_date=date.today(),
+                   branch_id=user.branch_id, created_by=user.id)
+    db.add(member)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Bu email bilan xodim allaqachon mavjud")
+    return queries.list_staff(db, staff_id=member.id)[0]
+
 
 @router.put("/staff/{staff_id}", tags=["👔 Staff"], response_model=StaffMember,
-         summary="Xodim ma'lumotlarini yangilash")
-def update_staff(staff_id: str, data: StaffUpdate, _=Depends(get_current_user)):
-    for member in fake.fake_staff:
-        if member.id == staff_id:
-            for key, value in data.model_dump(exclude_unset=True).items():
-                setattr(member, key, value)
-            return member
-    raise HTTPException(404, "Xodim topilmadi")
+            summary="Xodim ma'lumotlarini yangilash")
+def update_staff(staff_id: uuid.UUID, data: StaffUpdate, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(get_current_user)):
+    member = db.get(Staff, staff_id)
+    if not member:
+        raise HTTPException(404, "Xodim topilmadi")
+    fields = data.model_dump(exclude_unset=True)
+    if "name" in fields and fields["name"]:
+        member.full_name = fields.pop("name")
+    fields.pop("name", None)
+    if "email" in fields and fields["email"]:
+        fields["email"] = fields["email"].lower()
+    for key, value in fields.items():
+        if value is not None:
+            setattr(member, key, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Bu email bilan xodim allaqachon mavjud")
+    return queries.list_staff(db, staff_id=staff_id)[0]
 
-@router.delete("/staff/{staff_id}", tags=["👔 Staff"], summary="Xodimni o'chirish")
-def delete_staff(staff_id: str, _=Depends(get_current_user)):
-    fake.fake_staff = [s for s in fake.fake_staff if s.id != staff_id]
+
+@router.delete("/staff/{staff_id}", tags=["👔 Staff"], summary="Xodimni o'chirish",
+               description="Yozuvlari (uchrashuv, EMR) bor xodimni o'chirib bo'lmaydi (409): faolsizlantiring.")
+def delete_staff(staff_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    member = db.get(Staff, staff_id)
+    if not member:
+        raise HTTPException(404, "Xodim topilmadi")
+    if member.id == user.staff_id:
+        raise HTTPException(400, "O'zingizni o'chira olmaysiz")
+    try:
+        db.delete(member)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Xodimda yozuvlar bor: o'chirib bo'lmaydi, faolsizlantiring")
     return {"message": "Xodim o'chirildi"}

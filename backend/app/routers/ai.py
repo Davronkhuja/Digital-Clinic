@@ -1,16 +1,18 @@
-import csv  # noqa: F401
-import io  # noqa: F401
-from datetime import date, datetime  # noqa: F401
-from typing import List, Optional  # noqa: F401
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status  # noqa: F401
-from fastapi.responses import Response  # noqa: F401
-
-from app.core.config import settings  # noqa: F401
-from app.core.security import *  # noqa: F401,F403
-from app.db import fake  # noqa: F401
-from app.schemas import *  # noqa: F401,F403
-from app.services.llm import *  # noqa: F401,F403
+from app.core.config import settings
+from app.core.deps import get_current_user
+from app.schemas import AIMessage, AIResponse, AnalyzeRequest, AnalyzeResponse
+from app.services.llm import (
+    AI_DISCLAIMER,
+    ANALYZE_SYSTEM_PROMPT,
+    CHAT_SYSTEM_PROMPT,
+    DEMO_ANALYSIS,
+    DEMO_CHAT_DEFAULT,
+    DEMO_CHAT_RESPONSES,
+    DEMO_CHAT_SUGGESTIONS,
+    call_llm,
+)
 
 router = APIRouter()
 

@@ -3,16 +3,11 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import HTTPException
 
 from app.core.config import settings
 
-security = HTTPBearer(auto_error=False)
-
-
-def new_id() -> str:
-    return str(uuid.uuid4())
+UNAUTHORIZED_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 
 def hash_password(password: str) -> str:
@@ -27,43 +22,39 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def _users():
-    from app.db import fake  # kech import: sikl bo'lmasligi uchun
-    return fake.fake_users
-
-
-def _create_token(user: dict, token_type: str, lifetime: timedelta) -> str:
+def create_access_token(user_id: uuid.UUID, role: str) -> str:
     now = datetime.now(timezone.utc)
-    payload = {"sub": user["email"], "uid": user["id"], "role": user["role"], "type": token_type,
-               "iat": now, "exp": now + lifetime}
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "type": "access",
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
+    }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-def create_access_token(user: dict) -> str:
-    return _create_token(user, "access", timedelta(minutes=settings.access_token_expire_minutes))
 
-def create_refresh_token(user: dict) -> str:
-    return _create_token(user, "refresh", timedelta(days=settings.refresh_token_expire_days))
+def create_refresh_token(user_id: uuid.UUID) -> tuple[str, uuid.UUID, datetime]:
+    """(token, jti, expires_at). jti bazada saqlanadi va bekor qilinishi mumkin."""
+    now = datetime.now(timezone.utc)
+    jti = uuid.uuid4()
+    expires_at = now + timedelta(days=settings.refresh_token_expire_days)
+    payload = {"sub": str(user_id), "jti": str(jti), "type": "refresh", "iat": now, "exp": expires_at}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm), jti, expires_at
+
 
 def decode_token(token: str, expected_type: str) -> dict:
     """Tokenni tekshiradi; yaroqsiz, eskirgan yoki turi noto'g'ri bo'lsa 401."""
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm],
-                             options={"require": ["exp", "sub"]})
+        payload = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], options={"require": ["exp", "sub"]}
+        )
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(401, "Token yaroqsiz yoki muddati tugagan", headers=UNAUTHORIZED_HEADERS)
     if payload.get("type") != expected_type:
-        raise HTTPException(status_code=401, detail="Token turi noto'g'ri",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(401, "Token turi noto'g'ri", headers=UNAUTHORIZED_HEADERS)
+    try:
+        uuid.UUID(payload["sub"])
+    except ValueError:
+        raise HTTPException(401, "Token yaroqsiz yoki muddati tugagan", headers=UNAUTHORIZED_HEADERS)
     return payload
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if not credentials:
-        raise HTTPException(status_code=401, detail="Authentication required",
-                            headers={"WWW-Authenticate": "Bearer"})
-    payload = decode_token(credentials.credentials, "access")
-    user = _users().get(payload["sub"])
-    if not user:
-        raise HTTPException(status_code=401, detail="Token yaroqsiz yoki muddati tugagan",
-                            headers={"WWW-Authenticate": "Bearer"})
-    return {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}

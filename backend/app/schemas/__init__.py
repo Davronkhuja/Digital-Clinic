@@ -1,3 +1,4 @@
+from app.schemas.common import *  # noqa: F401,F403
 from app.schemas.enums import *  # noqa: F401,F403
 from app.schemas.auth import *  # noqa: F401,F403
 from app.schemas.patients import *  # noqa: F401,F403
