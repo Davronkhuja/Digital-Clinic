@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     admin_email: str = ""  # demo bo'lmasa, birinchi administrator (bo'sh bazada)
     admin_password: str = ""
 
+    # Mijoz IP'sini X-Forwarded-For'dan olishga ishonchli proksilar (vergul bilan, CIDR); docker tarmog'i standarti
+    trusted_proxies: str = "127.0.0.1/32,::1/128,172.16.0.0/12,10.0.0.0/8"
+
     # CORS: vergul bilan ajratilgan aniq originlar
     cors_origins: str = "http://localhost:5180"
 

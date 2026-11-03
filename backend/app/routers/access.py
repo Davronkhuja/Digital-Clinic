@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import Permission, Role, Staff, User
 from app.schemas import PermissionOut, RoleOut, RoleUpdate, StaffRole, UserCreate, UserOut, UserUpdate
+from app.services import audit
 from app.services.auth import revoke_all
 
 router = APIRouter()
@@ -37,7 +38,7 @@ def list_roles(db: Session = Depends(get_db), user: CurrentUser = Depends(requir
 
 @router.put("/roles/{role_id}", tags=["🛡️ Access"], response_model=RoleOut, summary="Rol ruxsatlarini yozish",
             description="Administrator roli o'zgartirilmaydi (tizimdan qulflanib qolmaslik uchun).")
-def update_role(role_id: uuid.UUID, data: RoleUpdate, db: Session = Depends(get_db),
+def update_role(role_id: uuid.UUID, data: RoleUpdate, request: Request, db: Session = Depends(get_db),
                 user: CurrentUser = Depends(require("roles:manage"))):
     role = db.get(Role, role_id)
     if not role:
@@ -51,6 +52,7 @@ def update_role(role_id: uuid.UUID, data: RoleUpdate, db: Session = Depends(get_
     role.permissions = list(perms)
     if data.name:
         role.name = data.name
+    audit.record(db, user, request, "update", "role", role.id, {"permissions": sorted(data.permissions)})
     db.commit()
     count = db.scalar(select(func.count()).select_from(User).where(User.role_id == role.id))
     return _role_out(role, count)
@@ -76,7 +78,7 @@ STAFF_ROLE_FOR = {"admin": StaffRole.admin, "doctor": StaffRole.doctor, "nurse":
 @router.post("/users", tags=["🛡️ Access"], response_model=UserOut, status_code=201,
              summary="Xodim va login yaratish (faqat administrator)",
              description="Ro'yxatdan o'tish yo'q: xodimni va uning loginini faqat administrator qo'shadi.")
-def create_user(data: UserCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(require("roles:manage"))):
+def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("roles:manage"))):
     role = db.scalar(select(Role).where(Role.code == data.role))
     if not role or role.code not in STAFF_ROLE_FOR:
         raise HTTPException(422, "Rol topilmadi")
@@ -89,6 +91,8 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), user: CurrentUs
         new_user = User(staff_id=staff.id, role_id=role.id, email=email, password_hash=hash_password(data.password),
                         is_active=True, branch_id=user.branch_id, created_by=user.id)
         db.add(new_user)
+        db.flush()
+        audit.record(db, user, request, "create", "user", new_user.id, {"role": role.code})
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -98,7 +102,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), user: CurrentUs
 
 @router.patch("/users/{user_id}", tags=["🛡️ Access"], response_model=UserOut,
               summary="Foydalanuvchi rolini o'zgartirish yoki faollashtirish/o'chirish")
-def update_user(user_id: uuid.UUID, data: UserUpdate, db: Session = Depends(get_db),
+def update_user(user_id: uuid.UUID, data: UserUpdate, request: Request, db: Session = Depends(get_db),
                 user: CurrentUser = Depends(require("roles:manage"))):
     target = db.get(User, user_id)
     if not target:
@@ -114,6 +118,7 @@ def update_user(user_id: uuid.UUID, data: UserUpdate, db: Session = Depends(get_
         target.is_active = data.is_active
     if data.is_active is False or data.role:
         revoke_all(db, target.id)  # eski huquq bilan yaratilgan sessiyalar tugasin
+    audit.record(db, user, request, "update", "user", target.id, data.model_dump(exclude_unset=True))
     db.commit()
     staff = db.get(Staff, target.staff_id)
     return _user_out(target, staff, db.get(Role, target.role_id))

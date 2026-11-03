@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.7] - 2026-11-03
+### Added
+- Audit jurnali: bemor, EMR, to'lov yozuvlarini o'qish/yozish, hisobot yuklab olish, kirish (muvaffaqiyatli va muvaffaqiyatsiz), chiqish, parol o'zgarishi, rol va foydalanuvchi o'zgarishlari: kim, qachon, nima, IP (`audit_log`; asosiy amal bilan bitta tranzaksiyada). Parol jurnalga tushmaydi.
+- `GET /security/audit` (`audit:read`, sahifalash va filtr), `GET /security/sessions` va `DELETE /security/sessions/{id}` (administrator), `GET /auth/sessions` va `DELETE /auth/sessions/{id}` (o'z sessiyalari). Sessiya bekor qilinganda refresh token bekor bo'ladi; amaldagi access token muddati tugaguncha (<=30 daqiqa) ishlashi mumkin.
+- Mijoz IP'si: `X-Forwarded-For` faqat ishonchli proksidan (`TRUSTED_PROXIES`) hisobga olinadi, o'ngdan birinchi ishonchsiz manzil olinadi (soxtalashtirishga qarshi) (1-bosqich, band 7, backend qismi).
+
 ## [1.5.6] - 2026-11-03
 ### Security
 - `SEED_DEMO` standarti `false` (`.env.example` va compose). `SEED_DEMO=false` bo'lsa va bazada foydalanuvchi bo'lmasa, `ADMIN_EMAIL` va `ADMIN_PASSWORD` (kamida 10 belgi) majburiy: aks holda backend ishga tushmaydi (konteyner xato bilan to'xtaydi). Bazada foydalanuvchilar bor bo'lsa, qayta ishga tushirishda parol talab qilinmaydi.

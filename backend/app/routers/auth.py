@@ -16,6 +16,7 @@ from app.schemas import (
     RefreshRequest,
     TokenResponse,
 )
+from app.services import audit
 from app.services import auth as auth_service
 
 router = APIRouter()
@@ -30,11 +31,18 @@ def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(func.lower(User.email) == data.email.lower()))
     ok = verify_password(data.password, user.password_hash if user else _DUMMY_HASH)
     if not user or not ok:
+        audit.record(db, None, request, "login_failed", "auth", user_id=user.id if user else None,
+                     details={"email": data.email.lower()})
+        db.commit()
         raise HTTPException(401, "Email yoki parol noto'g'ri")
     if not user.is_active:
+        audit.record(db, None, request, "login_failed", "auth", user_id=user.id,
+                     details={"email": data.email.lower(), "reason": "inactive"})
+        db.commit()
         raise HTTPException(403, "Hisob faol emas. Administratorga murojaat qiling")
     user.last_login_at = datetime.now(UTC)
     current = load_current_user(db, user.id)
+    audit.record(db, current, request, "login", "auth")
     return auth_service.issue_tokens(db, current, request)
 
 
@@ -45,8 +53,10 @@ def refresh(data: RefreshRequest, request: Request, db: Session = Depends(get_db
 
 
 @router.post("/auth/logout", tags=["🔐 Auth"], summary="Chiqish (refresh tokenni bekor qilish)")
-def logout(data: LogoutRequest, user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout(data: LogoutRequest, request: Request, user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
     auth_service.revoke_refresh(db, data.refresh_token, user.id)
+    audit.record(db, user, request, "logout", "auth")
+    db.commit()
     return {"message": "Chiqdingiz"}
 
 
@@ -57,13 +67,14 @@ def me(user: CurrentUser = Depends(get_current_user)):
 
 @router.post("/auth/change-password", tags=["🔐 Auth"], summary="Parolni o'zgartirish",
              description="Parol o'zgarganda barcha refresh tokenlar bekor qilinadi.")
-def change_password(data: ChangePasswordRequest, user: CurrentUser = Depends(get_current_user),
+def change_password(data: ChangePasswordRequest, request: Request, user: CurrentUser = Depends(get_current_user),
                     db: Session = Depends(get_db)):
     row = db.get(User, user.id)
     if not verify_password(data.current_password, row.password_hash):
         raise HTTPException(400, "Joriy parol noto'g'ri")
     row.password_hash = hash_password(data.new_password)
     auth_service.revoke_all(db, user.id)
+    audit.record(db, user, request, "change_password", "user", user.id)
     db.commit()
     return {"message": "Parol o'zgartirildi. Barcha qurilmalardan qayta kiring"}
 

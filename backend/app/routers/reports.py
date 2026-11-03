@@ -2,13 +2,13 @@ import csv
 import io
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.services import queries
+from app.services import audit, queries
 
 router = APIRouter()
 
@@ -49,11 +49,12 @@ def generate_report(report_id: str, user: CurrentUser = Depends(require("reports
 @router.get("/reports/download/{report_id}", tags=["📝 Reports"],
             summary="Hisobotni CSV sifatida yuklab olish",
             description="UTF-8 BOM bilan CSV (Excel to'g'ri ochadi). Authorization header talab qilinadi.")
-def download_report(report_id: str, db: Session = Depends(get_db), user: CurrentUser = Depends(require("reports:read"))):
+def download_report(report_id: str, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("reports:read"))):
     if report_id not in SOURCES:
         raise HTTPException(404, "Hisobot topilmadi")
     name, source = SOURCES[report_id]
     rows = source(db)
+    audit.record_read(db, user, request, "report", details={"report_id": report_id, "rows": len(rows)})
     buf = io.StringIO()
     writer = csv.writer(buf)
     if rows:

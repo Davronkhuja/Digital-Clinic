@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.core.config import settings
-from app.routers import access, ai, analytics, appointments, auth, emr, finance, patients, reports, staff
+from app.routers import access, ai, analytics, appointments, auth, emr, finance, patients, reports, security, staff
 from app.routers import settings as settings_router
 
 logging.basicConfig(level=logging.INFO)
@@ -66,5 +66,5 @@ def root():
     return {"status": "ok", "message": "Digital Clinic AI API", "docs": "/docs"}
 
 
-for module in (access, auth, patients, appointments, emr, finance, analytics, ai, staff, settings_router, reports):
+for module in (access, auth, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router, reports):
     app.include_router(module.router)

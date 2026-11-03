@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.models import Transaction
 from app.schemas import Transaction as TransactionOut
 from app.schemas import TransactionCreate, TransactionType
-from app.services import queries
+from app.services import audit, queries
 from app.services.lookup import get_patient_or_404, resolve_patient_by_name
 
 router = APIRouter()
@@ -25,14 +25,16 @@ def period_start(period: str, today: date | None = None) -> date | None:
 
 @router.get("/finance/transactions", tags=["💰 Finance"], response_model=List[TransactionOut],
             summary="Moliyaviy tranzaksiyalar")
-def get_transactions(type: Optional[TransactionType] = Query(None), category: Optional[str] = Query(None),
+def get_transactions(request: Request, type: Optional[TransactionType] = Query(None), category: Optional[str] = Query(None),
                      db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
-    return queries.list_transactions(db, type, category)
+    result = queries.list_transactions(db, type, category)
+    audit.record_read(db, user, request, "transaction", details={"count": len(result)})
+    return result
 
 
 @router.post("/finance/transactions", tags=["💰 Finance"], response_model=TransactionOut, status_code=201,
              summary="Yangi tranzaksiya qo'shish")
-def create_transaction(data: TransactionCreate, db: Session = Depends(get_db),
+def create_transaction(data: TransactionCreate, request: Request, db: Session = Depends(get_db),
                        user: CurrentUser = Depends(require("finance:write"))):
     if data.patient_id:
         patient = get_patient_or_404(db, data.patient_id)
@@ -48,6 +50,8 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db),
                      date=tx_date, patient_id=patient.id if patient else None,
                      branch_id=user.branch_id, created_by=user.id)
     db.add(tx)
+    db.flush()
+    audit.record(db, user, request, "create", "transaction", tx.id, {"type": data.type.value, "amount": str(data.amount)})
     db.commit()
     return queries.ser.transaction_out(tx, patient.full_name if patient else None)
 

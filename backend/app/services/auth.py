@@ -8,12 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import CurrentUser, load_current_user
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.models import RefreshToken
-
-
-def client_meta(request: Request) -> tuple[str | None, str | None]:
-    ip = request.client.host if request.client else None
-    ua = (request.headers.get("user-agent") or "")[:300] or None
-    return ip, ua
+from app.services.audit import client_meta
 
 
 def issue_tokens(db: Session, user: CurrentUser, request: Request) -> dict:
