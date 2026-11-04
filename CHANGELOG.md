@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.17] - 2026-11-04
+### Fixed
+- CI: ruff versiyasi CI va `requirements-dev.txt` da bir xil (0.15.22). Avval CI 0.5.5 ni o'rnatgan, `pyproject.toml` esa yangi qoidalarni (`UP045`) ishlatgani uchun lint yiqilgan edi.
+
 ## [1.5.16] - 2026-11-04
 ### Added
 - `CLAUDE.md`: loyiha, ish qoidalari, qabul qilingan sxema qarorlari, 2-6 bosqichlar rejasi, ochiq masalalar. `scripts/bump-version.sh` (versiyani uch joyda yangilaydi).
