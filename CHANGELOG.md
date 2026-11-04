@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.16] - 2026-11-04
+### Added
+- `CLAUDE.md`: loyiha, ish qoidalari, qabul qilingan sxema qarorlari, 2-6 bosqichlar rejasi, ochiq masalalar. `scripts/bump-version.sh` (versiyani uch joyda yangilaydi).
+
 ## [1.5.15] - 2026-11-03
 ### Added
 - Frontend: eslint (`npm run lint`, flat config + eslint-plugin-vue); kod lintdan o'tdi.
