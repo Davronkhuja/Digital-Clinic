@@ -7,3 +7,6 @@ venv
 .env
 .DS_Store
 *.log
+
+# Claude Code lokal sozlamalari (shaxsiy ruxsatlar)
+.claude/settings.local.json
