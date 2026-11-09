@@ -13,7 +13,8 @@ Xususiy klinikalar uchun boshqaruv tizimi (bemorlar, uchrashuvlar, EMR, moliya, 
 - Stack: FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 (`backend/`), Vue 3 + Vite + Pinia + Tailwind (`frontend/`), Docker Compose.
 - Portlar: frontend http://localhost:5180, backend http://localhost:8010 (Swagger `/docs`). PostgreSQL host portiga ochilmagan.
   **8080 portiga TEGMA: u yerda boshqa loyiha ishlaydi.**
-- Repo: github.com/Davronkhuja/Digital-Clinic (shaxsiy, `origin`, branch `main`).
+- Repo: github.com/Davronkhuja/Digital-Clinic (shaxsiy, branch `main`). `origin` HTTPS (`https://github.com/Davronkhuja/Digital-Clinic.git`),
+  autentifikatsiya `gh auth setup-git` orqali (SSH `Permission denied (publickey)` bilan o'zgaruvchan edi, shuning uchun HTTPS'ga o'tilgan).
 - Til: foydalanuvchi bilan va UI/commit/CHANGELOG matnlarida o'zbekcha.
 
 ## Ish qoidalari
@@ -38,6 +39,9 @@ Xususiy klinikalar uchun boshqaruv tizimi (bemorlar, uchrashuvlar, EMR, moliya, 
 10. Har bosqich oxirida uning "Shart"ini test yoki skript bilan isbotla va qisqa hisobot ber (versiya, nima qilindi, nima qoldi).
 11. Mexanik frontend ishlarini subagentga berish mumkin, lekin natijani brauzerda tekshir (agentlar brauzerda sinamaydi).
     Backend o'zgarishdan keyin `docker compose build backend` shart: `docker compose run` eski imajni ishlatadi.
+12. **Docker disk:** Docker VM diski tez to'ladi (Postgres `No space left on device` bilan crash bo'ladi, `docker compose ... --build test` har safar yangi imaj qatlami yaratadi).
+    `--build` ni faqat kod o'zgarganda ishlat. Disk to'lsa: faqat `docker builder prune -f`, qolganini foydalanuvchi tozalaydi.
+13. `.github/workflows/*` ni push qilish uchun `gh` tokenida `workflow` scope kerak (`gh auth refresh -h github.com -s workflow`, brauzer tasdig'i; foydalanuvchi bajaradi).
 
 ## Buyruqlar
 
@@ -49,7 +53,8 @@ cd frontend && npm run lint && npm run build           # frontend lint va build
 docker compose exec backend alembic revision --autogenerate -m "..." --rev-id NNNN   # migratsiya; faylni docker cp bilan chiqarib ol
 ```
 
-CI: `.github/workflows/ci.yml` (lint -> pytest -> frontend build -> docker build). `gh run list` / `gh run watch` bilan kuzat.
+CI: `.github/workflows/ci.yml` (lint -> pytest -> frontend build -> docker build); faqat `main` push va `pull_request` (tag push'da ishlamaydi).
+`gh run list` / `gh run watch <id> --exit-status` bilan kuzat; qizil bo'lsa tuzat va qayta push qil. Ruff versiyasi CI va `backend/requirements-dev.txt` da bir xil bo'lsin.
 
 Lokal `.env`da `SEED_DEMO=true` (demo hisoblar, parol `password123`: `admin@clinic.uz`, `rustamov@clinic.uz` doctor,
 `yusupova@clinic.uz` nurse, `mirzayev@clinic.uz` receptionist, `akbarova@clinic.uz` cashier). `.env` gitda yo'q.
@@ -132,6 +137,8 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 
 - Sozlamalar (Klinika "Saqlash"), sessiyani bekor qilish va parol o'zgartirish UI'lari qo'lda tekshirilmoqda (backend testlangan, UI to'liq sinalmagan).
 - Dashboard'da AI sahifasiga olib boradigan tugma yo'q (menyuda "AI" bor).
+- Push `.github/workflows/ci.yml` o'zgarishi bilan rad etilgan edi (`workflow` scope yo'q, v1.5.19 lokal): foydalanuvchi `gh auth refresh -h github.com -s workflow` bajargach push qilinadi.
+- GitHub Actions'da Node 20 deprecation ogohlantirishi bor (action versiyalarini keyin yangilash).
 - Prettier yo'q (faqat eslint). `v1.5.5` API'ni buzgan edi (MAJOR bo'lishi kerak edi), `v1.5.x` raqamlash saqlandi.
 - Uchrashuvda bemor hali ism bo'yicha topiladi (`AppointmentsView`); bir vaqtga ikkita qabul cheklovi 2-bosqichda.
 - Audit eksporti yo'q. Refresh token bekor qilinsa ham amaldagi access token <=30 daqiqa ishlaydi.

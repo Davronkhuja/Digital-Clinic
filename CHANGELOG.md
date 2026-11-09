@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.20] - 2026-11-09
+### Changed
+- `CLAUDE.md`: HTTPS remote va `gh auth setup-git`, CI qoidalari (tag trigger yo'q, ruff pin), Docker disk ogohlantirishi, `workflow` scope talabi, ochiq masalalar yangilandi.
+
 ## [1.5.19] - 2026-11-09
 ### Changed
 - CI: tag push'lari workflow'ni ishga tushirmaydi (har push'da 2-3 ta takroriy run bo'lardi); faqat `main` push va `pull_request`.
