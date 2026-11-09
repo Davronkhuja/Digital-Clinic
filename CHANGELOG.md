@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.5.19] - 2026-11-09
+### Changed
+- CI: tag push'lari workflow'ni ishga tushirmaydi (har push'da 2-3 ta takroriy run bo'lardi); faqat `main` push va `pull_request`.
+
 ## [1.5.18] - 2026-11-04
 ### Fixed
 - Favikon: `index.html` `/favicon.ico` ga ishora qilardi, lekin `frontend/public/` yo'q edi (nginx SPA zaxirasi `index.html` qaytarardi). `public/` yaratildi: `favicon.svg` (yumaloq kvadrat ichida xoch, loyiha asosiy rangida), `favicon.ico` (16/32/48), `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`; `index.html` da svg/ico/apple-touch-icon va `theme-color`.
