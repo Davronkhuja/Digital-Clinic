@@ -12,6 +12,7 @@ from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import (
     ClinicSettings,
+    Encounter,
     LabOrder,
     LabOrderItem,
     LabPanel,
@@ -210,6 +211,10 @@ def create_order(data: LabOrderCreate, request: Request, db: Session = Depends(g
                  user: CurrentUser = Depends(require("lab:write"))):
     patient = get_patient_or_404(db, data.patient_id)
     doctor = resolve_doctor(db, data.doctor_id, data.doctor)
+    if data.encounter_id:
+        enc = db.get(Encounter, data.encounter_id)
+        if not enc or enc.deleted_at is not None or enc.patient_id != patient.id:
+            raise HTTPException(422, "Ko'rik topilmadi yoki boshqa bemorga tegishli")
     test_ids: dict[uuid.UUID, None] = dict.fromkeys(data.test_ids)
     for pid in data.panel_ids:
         panel = db.get(LabPanel, pid)

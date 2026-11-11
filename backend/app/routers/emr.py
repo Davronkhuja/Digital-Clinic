@@ -1,16 +1,18 @@
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Appointment, Encounter, ExamTemplate, InnDrug, Prescription
+from app.models import Appointment, ClinicSettings, Encounter, ExamTemplate, InnDrug, Prescription
 from app.schemas import (
+    DmedMark,
+    EMRCard,
     EMRCreate,
     EMRRecord,
     EMRUpdate,
@@ -23,7 +25,7 @@ from app.schemas import (
     PrescriptionOut,
 )
 from app.schemas.enums import AppointmentStatus
-from app.services import audit, icd10, inn, queries
+from app.services import audit, emr_card, icd10, inn, pdf, queries
 from app.services import serializers as ser
 from app.services.lookup import get_patient_or_404, resolve_doctor
 
@@ -234,3 +236,36 @@ def add_inn(data: InnIn, db: Session = Depends(get_db), user: CurrentUser = Depe
     db.add(drug)
     db.commit()
     return {"inn": drug.inn, "group_uz": drug.group_uz}
+
+
+@router.get("/emr/{record_id}/card", tags=["📋 EMR"], response_model=EMRCard, summary="Ko'rik kartasi (DMED maydonlari tartibida)",
+            description="DMED bilan API integratsiyasi yo'q: maydonlar nusxalanib DMED ga qo'lda kiritiladi.")
+def get_card(record_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("emr:read"))):
+    enc = _live_encounter(db, record_id)
+    audit.record_read(db, user, request, "emr", enc.id, {"patient_id": str(enc.patient_id), "card": True})
+    return emr_card.build_card(db, enc)
+
+
+@router.get("/emr/{record_id}/card/pdf", tags=["📋 EMR"], summary="Ko'rik kartasi PDF (chop etish)",
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def get_card_pdf(record_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("emr:read"))):
+    enc = _live_encounter(db, record_id)
+    clinic = db.scalar(select(ClinicSettings).where(ClinicSettings.branch_id == enc.branch_id))
+    content = pdf.encounter_card_pdf(emr_card.build_card(db, enc), {
+        "name": clinic.clinic_name if clinic else None, "address": clinic.address if clinic else None,
+        "phone": clinic.phone if clinic else None})
+    audit.record_read(db, user, request, "emr", enc.id, {"patient_id": str(enc.patient_id), "card": True, "pdf": True})
+    return Response(content, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="card-{str(enc.id)[:8]}.pdf"'})
+
+
+@router.post("/emr/{record_id}/dmed-mark", tags=["📋 EMR"], response_model=EMRCard, summary="'DMED ga ko'chirildi' belgisi",
+             description="Qo'lda belgi (API yo'q). `copied=false` belgini olib tashlaydi. Auditga yoziladi.")
+def mark_dmed(record_id: uuid.UUID, data: DmedMark, request: Request, db: Session = Depends(get_db),
+              user: CurrentUser = Depends(require("emr:write"))):
+    enc = _live_encounter(db, record_id)
+    enc.dmed_copied_at = datetime.now(UTC) if data.copied else None
+    enc.dmed_copied_by = user.id if data.copied else None
+    audit.record(db, user, request, "update", "emr", enc.id, {"patient_id": str(enc.patient_id), "dmed_copied": data.copied})
+    db.commit()
+    return emr_card.build_card(db, enc)

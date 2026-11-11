@@ -85,3 +85,62 @@ def lab_order_pdf(order: dict, patient: dict, clinic: dict) -> bytes:
                     "Natijalarni shifokor baholaydi.", small))
     doc.build(story)
     return buffer.getvalue()
+
+
+def encounter_card_pdf(card: dict, clinic: dict) -> bytes:
+    """Ko'rik kartasi chop etish uchun (DMED maydonlari tartibida): bemor, murojaat, bo'limlar, MKB-10, retsept, laboratoriya."""
+    regular, bold = _fonts()
+    base = ParagraphStyle("base", fontName=regular, fontSize=9.5, leading=12.5)
+    strong = ParagraphStyle("strong", parent=base, fontName=bold)
+    title = ParagraphStyle("title", parent=base, fontName=bold, fontSize=15, leading=19)
+    label = ParagraphStyle("label", parent=base, fontSize=8.5, textColor=colors.HexColor("#64748b"))
+    abnormal = ParagraphStyle("abnormal", parent=strong, textColor=colors.HexColor("#b91c1c"))
+
+    buffer = io.BytesIO()
+    patient_name = next((f["value"] for f in card["patient"] if f["key"] == "full_name"), "")
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=16 * mm,
+                            title=f"Ko'rik kartasi: {patient_name}", author=clinic.get("name") or "Digital Clinic")
+
+    def pairs(fields: list[dict]) -> Table:
+        table = Table([[_p(f["label"], label), _p(f["value"], base)] for f in fields], colWidths=[40 * mm, 130 * mm])
+        table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                                   ("TOPPADDING", (0, 0), (-1, -1), 2)]))
+        return table
+
+    def heading(text: str) -> list:
+        return [Spacer(1, 4 * mm), _p(text, strong), Spacer(1, 1.5 * mm)]
+
+    story = [_p(clinic.get("name") or "Digital Clinic", title),
+             _p(" · ".join(x for x in (clinic.get("address"), clinic.get("phone")) if x), label), Spacer(1, 4 * mm),
+             _p("Ko'rik kartasi", ParagraphStyle("h", parent=title, fontSize=13))]
+    story += heading("Bemor") + [pairs(card["patient"])]
+    story += heading("Murojaat") + [pairs(card["visit"])]
+    for f in card["sections"]:
+        story += [Spacer(1, 3 * mm), _p(f["label"], label), _p(f["value"], base)]
+        if f["key"] == "diagnosis" and card.get("icd_code"):
+            story.append(_p(f"MKB-10: {card['icd_code']}" + (f" — {card['icd_name']}" if card.get("icd_name") else ""), strong))
+    if card["prescriptions"]:
+        story += heading("Retsept (INN)")
+        rows = [[_p(h, label) for h in ("Dori (INN)", "Doza", "Usul", "Chastota", "Muddat")]]
+        for p in card["prescriptions"]:
+            rows.append([_p(p["inn"], strong), _p(p["dose"], base), _p(p["route"], base), _p(p["frequency"], base),
+                         _p(f"{p['duration_days']} kun" if p["duration_days"] else None, base)])
+            if p.get("instructions"):
+                rows.append([_p(p["instructions"], label), "", "", "", ""])
+        t = Table(rows, colWidths=[52 * mm, 28 * mm, 30 * mm, 36 * mm, 24 * mm], repeatRows=1)
+        t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+        story.append(t)
+    if card["lab_results"]:
+        story += heading("Laboratoriya natijalari")
+        rows = [[_p(h, label) for h in ("Tahlil", "Natija", "Birlik", "Me'yor")]]
+        for i in card["lab_results"]:
+            out = i["flag"] in ("Low", "High")
+            rows.append([_p(i["name"], base), _p(f"{i['value']:g}", abnormal if out else strong), _p(i["unit"], base),
+                         _p(i["reference"] or "—", base)])
+        t = Table(rows, colWidths=[70 * mm, 30 * mm, 30 * mm, 40 * mm], repeatRows=1)
+        t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1"))]))
+        story.append(t)
+    story += [Spacer(1, 8 * mm), _p("DMED ga qo'lda kiritish uchun nusxa. " + (
+        f"DMED ga ko'chirildi: {card['dmed_copied_at'][:10]}" if card.get("dmed_copied_at") else "DMED ga ko'chirilmagan."), label)]
+    doc.build(story)
+    return buffer.getvalue()

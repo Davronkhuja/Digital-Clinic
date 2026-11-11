@@ -41,10 +41,11 @@
               </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
+              <span v-if="r.dmed_copied_at" class="badge-green text-xs" title="DMED ga qo'lda ko'chirilgan">DMED ✓</span>
               <span class="badge badge-blue text-xs">{{ r.icd_code || 'ICD-10' }}</span>
               <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button @click="printRecord(r)" :class="['p-1.5 rounded-lg transition-colors', dark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100']" title="Print">
-                  <Printer class="w-4 h-4" />
+                <button @click="cardFor = r" :class="['p-1.5 rounded-lg transition-colors', dark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100']" title="DMED ko'rik kartasi (nusxalash, chop etish)">
+                  <ClipboardCheck class="w-4 h-4" />
                 </button>
                 <button @click="openEdit(r)" :class="['p-1.5 rounded-lg transition-colors', dark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100']" title="Edit">
                   <Pencil class="w-4 h-4" />
@@ -283,6 +284,7 @@
 
     <!-- Print template (hidden) -->
     <div id="print-area" class="hidden"></div>
+    <EncounterCard v-if="cardFor" :record-id="cardFor.id" @close="cardFor = null" @marked="onMarked" />
   </div>
 </template>
 
@@ -290,6 +292,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icd10Input from '@/components/Icd10Input.vue'
 import PrescriptionEditor from '@/components/PrescriptionEditor.vue'
+import EncounterCard from '@/components/EncounterCard.vue'
 import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
   Stethoscope, FlaskConical, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
@@ -340,6 +343,8 @@ function applyTemplate() {
   for (const f of sectionFields) if (!form[f.key] && t[f.key]) form[f.key] = t[f.key]
   if (!form.diagnosis && t.diagnosis) form.diagnosis = t.diagnosis
 }
+const cardFor = ref(null)
+function onMarked(at) { const r = records.value.find(x => x.id === cardFor.value?.id); if (r) r.dmed_copied_at = at }
 const existingRx = ref([])
 async function cancelRx(p) {
   try {

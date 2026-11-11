@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +30,9 @@ class Encounter(SoftDeleteMixin, BranchScoped, BaseModel):
     diagnosis: Mapped[str] = mapped_column(Text)
     recommendations: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
+    # DMED API yo'q: ma'lumot qo'lda ko'chiriladi, ko'chirilgani shifokor/qabulxona tomonidan qo'lda belgilanadi
+    dmed_copied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dmed_copied_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 class Prescription(SoftDeleteMixin, BranchScoped, BaseModel):

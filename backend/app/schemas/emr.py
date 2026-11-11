@@ -67,6 +67,7 @@ class EMRRecord(BaseModel):
     recommendations: Optional[str] = None
     appointment_id: Optional[str] = None
     prescriptions: List[PrescriptionOut] = Field(default_factory=list)
+    dmed_copied_at: Optional[str] = None
     visit_date: str
     created_at: str
 
@@ -123,3 +124,46 @@ class InnOut(BaseModel):
 class InnIn(BaseModel):
     inn: str = Field(..., min_length=2, max_length=200)
     group_uz: Optional[str] = Field(None, max_length=200)
+
+
+class CardField(BaseModel):
+    key: str
+    label: str
+    value: Optional[str] = None
+
+
+class CardPrescription(BaseModel):
+    inn: str
+    dose: Optional[str] = None
+    route: Optional[str] = None
+    frequency: Optional[str] = None
+    duration_days: Optional[int] = None
+    instructions: Optional[str] = None
+    text: str = Field(..., description="Bir tugma bilan nusxalanadigan yig'ma matn")
+
+
+class CardLabItem(BaseModel):
+    name: str
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    reference: Optional[str] = None
+    flag: Optional[str] = None
+
+
+class EMRCard(BaseModel):
+    """Ko'rik kartasi: maydonlar DMED ko'rik kartasi tartibida. Har bo'lim alohida nusxalanadi."""
+
+    record_id: str
+    patient: List[CardField]
+    visit: List[CardField]
+    sections: List[CardField]
+    icd_code: Optional[str] = None
+    icd_name: Optional[str] = None
+    prescriptions: List[CardPrescription]
+    lab_results: List[CardLabItem]
+    dmed_copied_at: Optional[str] = None
+    dmed_copied_by: Optional[str] = None
+
+
+class DmedMark(BaseModel):
+    copied: bool = Field(..., description="true: 'DMED ga ko'chirildi' belgisi qo'yiladi; false: olib tashlanadi")

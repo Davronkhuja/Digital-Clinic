@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.14] - 2026-11-12
+### Added
+- EMR (4/4): ko'rik kartasi DMED maydonlari tartibida. `GET /emr/{id}/card`: bemor (F.I.Sh., tug'ilgan sana, jins, PINFL, telefon, manzil), murojaat (sana, shifokor), ko'rik (shikoyat, anamnez, ob'ektiv ko'rik, tashxis + MKB-10 kodi va nomi, tavsiya), retsept (INN, doza, usul, chastota, muddat, bir qatorli matn), ko'rikka bog'langan laboratoriya natijalari. `GET /emr/{id}/card/pdf`: chop etish uchun PDF.
+- "DMED ga ko'chirildi" belgisi qo'lda (API yo'q): `POST /emr/{id}/dmed-mark {copied}` (`emr:write`), kim va qachon (`encounters.dmed_copied_at/by`, migratsiya 0013), auditga yoziladi; `EMRRecord.dmed_copied_at`.
+- `POST /lab/orders`: `encounter_id` ko'rik shu bemorniki bo'lishi shart (422).
+- Frontend: EMR ro'yxatida "DMED ko'rik kartasi" (har maydon, MKB-10 kodi, INN, doza alohida nusxalanadi, "Hammasini nusxalash", "ko'chirildi" belgisi, chop etish PDF); ro'yxatda "DMED ✓" belgisi.
+- **Taxmin**: DMED ning aniq maydon tartibi hujjati yo'q edi; tartib yuqoridagi umumiy ko'rik tuzilmasi bo'yicha qo'yildi, haqiqiy DMED shakli bilan solishtirib tuzatish kerak (ochiq masala).
+
 ## [1.6.13] - 2026-11-12
 ### Added
 - Laboratoriya (2/2): `GET /lab/orders/{id}/pdf` (`lab:read`): klinika sarlavhasi, bemor (ism, tug'ilgan sana, jins), shifokor, jadval (tahlil, natija, birlik, me'yor, belgi); me'yordan tashqari qiymat qalin va qizil; natijasiz tahlil "—". Kirill va lotin DejaVu shrifti bilan (Dockerfile: `fonts-dejavu-core`; topilmasa Helvetica). PDF ochilishi auditga yoziladi. Kutubxona: reportlab 4.2.2 (testlarda pypdf bilan matn tekshiriladi).
