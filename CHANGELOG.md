@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.15] - 2026-11-12
+### Added
+- 2-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage2.py`): bemor qo'shish (kirill/lotin, telefon qidiruvi), bo'sh vaqt (jadval, tanaffus), yozish (davomiylik, kabinet, band vaqt 409), ko'rik (shablon, MKB-10, qabul `Completed`), laboratoriya (to'plam, hamshira natijasi, me'yor belgisi), INN retsept, DMED tartibidagi karta, PDF, "ko'chirildi" belgisi va butun zanjir auditi.
+### Changed
+- `CLAUDE.md`: 2-bosqich tugadi, yangi qarorlar (vaqt, band vaqt, katalog, ruxsatlar) va ochiq masalalar.
+
 ## [1.6.14] - 2026-11-12
 ### Added
 - EMR (4/4): ko'rik kartasi DMED maydonlari tartibida. `GET /emr/{id}/card`: bemor (F.I.Sh., tug'ilgan sana, jins, PINFL, telefon, manzil), murojaat (sana, shifokor), ko'rik (shikoyat, anamnez, ob'ektiv ko'rik, tashxis + MKB-10 kodi va nomi, tavsiya), retsept (INN, doza, usul, chastota, muddat, bir qatorli matn), ko'rikka bog'langan laboratoriya natijalari. `GET /emr/{id}/card/pdf`: chop etish uchun PDF.

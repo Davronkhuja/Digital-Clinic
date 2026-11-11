@@ -64,7 +64,7 @@ Brauzer sinovi uchun: login API'dan token olib `localStorage` (`token`, `refresh
 
 `backend/app/`: `main.py`, `core/` (config = pydantic-settings, security = JWT/bcrypt, deps = `get_current_user`, `require("perm")`,
 permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `models/`, `schemas/`, `routers/<bo'lim>.py`,
-`services/` (queries = join bilan ro'yxatlar, serializers, audit, auth, analytics, periods, llm, lookup), `seed.py`. Migratsiyalar: `backend/alembic/versions/`.
+`services/` (queries = join bilan ro'yxatlar, serializers, audit, auth, analytics, periods, llm, lookup, scheduling/availability/booking = qabul qoidalari, icd10, inn, lab, emr_card, pdf), `seed.py`. Migratsiyalar: `backend/alembic/versions/`.
 
 ## Qabul qilingan qarorlar (o'zgartirma, so'ramasdan)
 
@@ -88,6 +88,12 @@ permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `mo
 - **Audit:** bemor, EMR, to'lov yozuvlarini o'qish/yozish, hisobot yuklab olish, kirish hodisalari, rol/foydalanuvchi o'zgarishlari `audit_log` ga
   (asosiy amal bilan bitta tranzaksiyada). IP: `X-Forwarded-For` faqat `TRUSTED_PROXIES` dan, o'ngdan birinchi ishonchsiz manzil.
 - **Analitika:** hamma raqam bazadan; `period` aylanma oyna: week=7, month=30, year=365 kun, all=chegarasiz. Frontendda qattiq yozilgan raqam bo'lmasin.
+- **Vaqt:** qabul `starts_at/ends_at` timestamptz (UTC), klinika vaqti Asia/Tashkent faqat ko'rsatishda; haftalik shablon devor soati (`time`).
+  ORM da `Appointment.date/.time` hybrid (klinika vaqti). Ish oynasi: ExtraWork > ta'til/kasallik/dam olish > shablon; shablonsiz shifokor cheklovsiz.
+- **Band vaqt:** `no_doctor_overlap` va `no_room_overlap` exclusion cheklovlar (`btree_gist`, DB foydalanuvchisi superuser), 409. Faqat `Scheduled`/`Completed` band.
+- **Katalog yozuvlari o'chirilmaydi:** qabul turi, kabinet, tahlil faolsizlantiriladi; lab natijasiga nom/birlik/me'yor nusxalanadi.
+  Retsept (`deleted_at`) va lab buyurtma (status `Cancelled`) o'chirilmaydi. Mos me'yor bo'lmasa (bola, yosh noma'lum) lab belgisi null.
+- **Ruxsatlar:** `patients:merge`, `lab:read`, `lab:write` (data migratsiya mavjud rollarga beradi; yangi ruxsat qo'shsangiz migratsiyada ham bering).
 - **Frontend:** demo/zaxira ma'lumot yo'q; xatoda toast + "Qayta urinish", bo'sh ro'yxatda `EmptyState`. Chat va Obuna sahifalari yashirilgan (`hidden`, kodi bor).
 
 ## Reja: 6 bosqich
@@ -95,15 +101,12 @@ permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `mo
 **1-bosqich: Ma'lumot asosi (v1.5.x): TUGADI (v1.5.15).** app/ tuzilmasi, PostgreSQL + Alembic, sxema, seed, rollar/ruxsatlar bazada, audit va sessiyalar,
 analitika bazadan, demo olib tashlandi, pytest + ruff + eslint + GitHub Actions.
 
-### 2-bosqich: Klinik yadro (v1.6.x)
-- Bemor: PINFL tekshiruvi, telefon va sana bo'yicha qidiruv, dublikatlarni birlashtirish.
-- Shifokor jadvali (ish kunlari, soatlar, tanaffus), bo'sh vaqtlar, kutish ro'yxati, kabinetlar.
-  Bir vaqtga ikkita qabul yozib bo'lmasin.
-- EMR: MKB-10 ma'lumotnomasi (import skripti), ko'rik shablonlari (shikoyat, anamnez, ko'rik, tashxis, tavsiya), INN bo'yicha retsept (doza, usul, muddat).
-- Laboratoriya: buyurtma, natija shablonlari, me'yor bilan solishtirish, PDF.
-- Ko'rik kartasi DMED maydonlari tartibida bo'ladi. MKB-10, INN va dozani bir tugma bilan nusxalash, chop etish,
-  qo'lda qo'yiladigan "DMED ga ko'chirildi" belgisi (API yo'q).
-- **Shart:** bitta qabul yozilishdan retseptgacha qog'ozsiz o'tadi (e2e test).
+### 2-bosqich: Klinik yadro (v1.6.x): TUGADI (v1.6.15)
+Bemor (PINFL, telefon/sana qidiruvi, ism normallashtirish `name_norm`, dublikatlarni topish va `patients:merge` bilan birlashtirish),
+shifokor jadvali (haftalik shablon + istisnolar, qabul turi bo'yicha davomiylik, kabinetlar, bo'sh vaqtlar, kutish ro'yxati,
+bir vaqtga ikkita qabul bazadagi exclusion cheklov bilan taqiqlangan), EMR (MKB-10, ko'rik bo'limlari va shablonlar,
+INN retsept, DMED tartibidagi ko'rik kartasi, nusxalash, PDF, qo'lda "ko'chirildi" belgisi), laboratoriya (katalog, jins/yosh
+me'yori, buyurtma, natija belgisi, PDF). **Shart** `backend/tests/test_e2e_stage2.py` bilan isbotlangan.
 
 ### 3-bosqich: Moliya va kassa (v1.7.x)
 - services (narxnoma, kategoriyalar), invoices, payments (naqd, karta, Click, Payme), chegirmalar, qaytarish, kassa smenasi (ochish/yopish, Z-hisobot).
@@ -134,6 +137,14 @@ analitika bazadan, demo olib tashlandi, pytest + ruff + eslint + GitHub Actions.
 Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; oxirida "Shart"ni test yoki skript bilan isbotlab hisobot.
 
 ## Ochiq masalalar
+
+- **Starter ma'lumotnomalar rasmiy emas** (muallif yozgan, shifokor/laboratoriya tekshirishi shart): `backend/data/mkb10_starter.csv`
+  (142 toifa), `inn_starter.csv` (146), `lab_starter.json` (24 tahlil, kattalar 18+ me'yori). To'liq rasmiy fayl:
+  `docker compose exec backend python scripts/import_mkb10.py <csv>` / `scripts/import_inn.py <csv>`; tahlil me'yorlari Sozlamalar/API orqali.
+- **DMED ko'rik kartasi maydon tartibi taxminiy** (DMED shakli hujjati yo'q edi): haqiqiy shakl bilan solishtirib `services/emr_card.py` ni tuzatish.
+- Ish vaqtidan tashqari qabul yozish faqat jadvalni o'zgartirish orqali mumkin (admin uchun "majburan yozish" yo'q).
+- Eski EMR formasida (EMRView) simptom chiplari, fayl ilovalari saqlanmaydi (backendda yo'q); qayta ishlash kerak.
+- Kutish ro'yxati bildirishnomalari 4-bosqichda (SMS/Telegram).
 
 - Sozlamalar (Klinika "Saqlash"), sessiyani bekor qilish va parol o'zgartirish UI'lari qo'lda tekshirilmoqda (backend testlangan, UI to'liq sinalmagan).
 - Dashboard'da AI sahifasiga olib boradigan tugma yo'q (menyuda "AI" bor).
