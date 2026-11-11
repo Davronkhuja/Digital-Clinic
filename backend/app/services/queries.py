@@ -92,7 +92,7 @@ def list_appointments(
         select(Appointment, Patient.full_name, Staff.full_name)
         .join(Patient, Appointment.patient_id == Patient.id)
         .join(Staff, Appointment.doctor_id == Staff.id)
-        .order_by(Appointment.date, Appointment.time, Appointment.id)
+        .order_by(Appointment.starts_at, Appointment.id)
     )
     if date_:
         stmt = stmt.where(Appointment.date == date.fromisoformat(date_))

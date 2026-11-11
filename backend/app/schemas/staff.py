@@ -12,6 +12,7 @@ class StaffCreate(BaseModel):
     phone: str = Field(..., examples=["+998 90 111 2233"])
     email: EmailStr = Field(..., examples=["rustamov@clinic.uz"])
     schedule: Optional[str] = Field(None, examples=["Dushanba-Juma, 09:00-17:00"])
+    slot_minutes: Optional[int] = Field(None, ge=5, le=480, description="Standart qabul davomiyligi (daqiqa)")
 
 
 class StaffUpdate(BaseModel):
@@ -21,6 +22,7 @@ class StaffUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
     schedule: Optional[str] = None
+    slot_minutes: Optional[int] = Field(None, ge=5, le=480)
     status: Optional[StatusEnum] = None
 
 
@@ -32,6 +34,7 @@ class StaffMember(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     schedule: Optional[str] = None
+    slot_minutes: int = 30
     status: StatusEnum
     joined_date: Optional[str] = None
     patients_count: int = 0

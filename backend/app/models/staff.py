@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,7 @@ from app.schemas.enums import StaffRole, StatusEnum
 
 class Staff(BranchScoped, BaseModel):
     __tablename__ = "staff"
+    __table_args__ = (CheckConstraint("slot_minutes BETWEEN 5 AND 480", name="slot_minutes_range"),)
 
     full_name: Mapped[str] = mapped_column(String(200))
     role: Mapped[StaffRole] = mapped_column(enum_col(StaffRole, "role", 20))
@@ -19,6 +20,8 @@ class Staff(BranchScoped, BaseModel):
     email: Mapped[str | None] = mapped_column(String(200), unique=True)
     schedule: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[StatusEnum] = mapped_column(enum_col(StatusEnum, "status", 10), default=StatusEnum.active)
+    # shifokorning standart qabul davomiyligi (xizmat turida davomiylik bo'lmasa)
+    slot_minutes: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
     joined_date: Mapped[date | None] = mapped_column(Date)
 
 

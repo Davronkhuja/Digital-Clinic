@@ -16,6 +16,7 @@ from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import (
     Appointment,
+    AppointmentType,
     Branch,
     ClinicSettings,
     Encounter,
@@ -27,11 +28,16 @@ from app.models import (
     Transaction,
     User,
 )
+from app.models.appointment import clinic_datetime
 from app.schemas.enums import AppointmentStatus, GenderEnum, StaffRole, StatusEnum, TransactionType
 
 log = logging.getLogger("seed")
 
 DEMO_PASSWORD = "password123"  # faqat demo uchun
+
+
+APPOINTMENT_TYPES = {"Konsultatsiya": 30, "Takroriy ko'rik": 20, "Qayta ko'rik": 20, "Tekshiruv": 45,
+                     "Laboratoriya": 15, "Jarrohlik": 90, "Boshqa": 30}
 
 
 def seed_essentials(db: Session) -> Branch:
@@ -53,6 +59,10 @@ def seed_essentials(db: Session) -> Branch:
     for code, (name, codes) in ROLES.items():
         if code not in existing_roles:  # mavjud rolning ruxsatlariga tegilmaydi (admin sozlagan bo'lishi mumkin)
             db.add(Role(code=code, name=name, is_system=True, permissions=[perms[c] for c in codes]))
+    existing_types = set(db.scalars(select(AppointmentType.name)).all())
+    for name, minutes in APPOINTMENT_TYPES.items():
+        if name not in existing_types:
+            db.add(AppointmentType(name=name, duration_min=minutes))
     db.flush()
     return branch
 
@@ -120,8 +130,10 @@ def seed_demo(db: Session, branch: Branch) -> None:
     doctors = [rustamov, karimova, yusupov]
 
     def appt(p, doc, day, hh, mm, kind, st):
-        db.add(Appointment(patient_id=p.id, doctor_id=doc.id, date=day, time=time(hh, mm), type=kind, status=st,
-                           branch_id=branch.id))
+        starts = clinic_datetime(day, time(hh, mm))
+        db.add(Appointment(patient_id=p.id, doctor_id=doc.id, starts_at=starts,
+                           ends_at=starts + timedelta(minutes=APPOINTMENT_TYPES.get(kind, 30)), type=kind,
+                           status=st, branch_id=branch.id))
 
     S = AppointmentStatus
     appt(aziza, rustamov, d(2026, 2, 25), 10, 0, "Konsultatsiya", S.scheduled)

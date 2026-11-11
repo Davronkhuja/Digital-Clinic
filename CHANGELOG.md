@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.5] - 2026-11-11
+### Added
+- 2-bosqich, shifokor jadvali (1/5): uchrashuv vaqti `timestamptz` (`starts_at`/`ends_at`, UTC); klinika vaqti (Asia/Tashkent) faqat ko'rsatishda. API `date`/`time` saqlanadi, qo'shimcha `end_time`, `duration_min`, `starts_at`. Sana filtri va tahlil klinika kuni bo'yicha (kechasi 00:30 oldingi UTC kuniga tushmaydi).
+- Qabul turlari (`appointment_types`, nomi registrsiz unikal) va davomiyligi: `GET/POST/PUT/DELETE /appointment-types` (yozish: `settings:write`; ishlatilgan tur faolsizlantiriladi). Davomiylik ustuvorligi: so'rovdagi `duration_min` -> tur -> `staff.slot_minutes` (shifokor standarti, standart 30) -> 30.
+- Migratsiya 0005: eski `date`+`time` -> `starts_at`/`ends_at` (davomiylik tur bo'yicha), `date`/`time` ustunlari olib tashlandi (ORM da `Appointment.date`/`.time` hybrid, klinika vaqti bo'yicha).
+- Frontend: qabul turlari API'dan, jadvalda tugash vaqti va davomiylik.
+
 ## [1.6.4] - 2026-11-11
 ### Added
 - `patients.name_norm` (indekslangan, migratsiya 0004 mavjud bemorlarni to'ldiradi): ism kirill -> lotin (o'zbek translit: ў=o', қ=q, ғ=g', ҳ=h), `ʻ ʼ ' ` ’ ‘` bitta `'` ga, registrsiz, `ay/ey` oralig'idagi `y` tushirilib (Абдуллаев ~ Abdullayev). Yaratish/o'zgartirishda avtomatik yangilanadi.

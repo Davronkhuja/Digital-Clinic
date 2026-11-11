@@ -26,7 +26,7 @@ def create_staff(data: StaffCreate, db: Session = Depends(get_db), user: Current
     from datetime import date
 
     member = Staff(full_name=data.name, role=data.role, department=data.department, phone=data.phone,
-                   email=data.email.lower(), schedule=data.schedule, joined_date=date.today(),
+                   email=data.email.lower(), schedule=data.schedule, slot_minutes=data.slot_minutes or 30, joined_date=date.today(),
                    branch_id=user.branch_id, created_by=user.id)
     db.add(member)
     try:

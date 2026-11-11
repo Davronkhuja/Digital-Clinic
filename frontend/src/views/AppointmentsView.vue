@@ -55,7 +55,7 @@
             <tr v-for="a in filtered" :key="a.id">
               <td class="font-medium text-slate-900">{{ a.patient_name }}</td>
               <td class="text-slate-600">{{ a.doctor }}</td>
-              <td class="font-mono text-slate-600">{{ a.date }} <span class="text-cyan-600">{{ a.time }}</span></td>
+              <td class="font-mono text-slate-600">{{ a.date }} <span class="text-cyan-600">{{ a.time }}–{{ a.end_time }}</span> <span class="text-xs text-slate-400">({{ a.duration_min }} daq)</span></td>
               <td><span class="badge badge-blue">{{ a.type }}</span></td>
               <td>
                 <span :class="{
@@ -115,11 +115,7 @@
             <div>
               <label class="text-sm font-medium text-slate-700 block mb-1.5">Tur</label>
               <select v-model="form.type" class="input">
-                <option>Konsultatsiya</option>
-                <option>Tekshiruv</option>
-                <option>Jarrohlik</option>
-                <option>Laboratoriya</option>
-                <option>Boshqa</option>
+                <option v-for="t in appointmentTypes" :key="t.id" :value="t.name">{{ t.name }} ({{ t.duration_min }} daq)</option>
               </select>
             </div>
             <div class="flex gap-3 pt-2">
@@ -183,6 +179,18 @@ async function fetchAppointments() {
   } finally { loading.value = false }
 }
 
+const appointmentTypes = ref([])
+async function fetchTypes() {
+  try {
+    const { data } = await api.get('/appointment-types')
+    appointmentTypes.value = data
+    if (data.length && !data.some(t => t.name === form.type)) form.type = data[0].name
+  } catch (e) {
+    appointmentTypes.value = []
+    toast.error(e, "Qabul turlarini yuklab bo'lmadi")
+  }
+}
+
 async function fetchDoctors() {
   try {
     const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
@@ -224,5 +232,5 @@ async function updateStatus(appt, status) {
   }
 }
 
-onMounted(() => { fetchAppointments(); fetchDoctors() })
+onMounted(() => { fetchAppointments(); fetchDoctors(); fetchTypes() })
 </script>
