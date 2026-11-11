@@ -8,6 +8,7 @@ PERMISSIONS: dict[str, str] = {
     "patients:read": "Bemorlarni ko'rish",
     "patients:write": "Bemor qo'shish va tahrirlash",
     "patients:delete": "Bemorni o'chirish",
+    "patients:merge": "Bemor dublikatlarini birlashtirish",
     "appointments:read": "Uchrashuvlarni ko'rish",
     "appointments:write": "Uchrashuv yozish va o'zgartirish",
     "emr:read": "Tibbiy yozuvlarni (EMR) ko'rish",
@@ -36,7 +37,7 @@ ROLES: dict[str, tuple[str, list[str]]] = {
         "emr:read", "staff:read", "settings:read", "ai:use",
     ]),
     "receptionist": ("Qabulxona", [
-        "patients:read", "patients:write", "appointments:read", "appointments:write",
+        "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
         "staff:read", "settings:read",
     ]),
     "cashier": ("Kassir", [

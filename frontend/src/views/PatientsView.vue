@@ -211,7 +211,7 @@ const lbl   = computed(() => ['text-sm font-medium block mb-1.5', dark.value ? '
 const { maskPhone, onPhoneKeydown } = usePhoneMask()
 
 const auth        = useAuthStore()
-const canMerge    = computed(() => auth.can('patients:delete'))
+const canMerge    = computed(() => auth.can('patients:merge'))
 const tab         = ref('list')
 const tabs        = [{ key: 'list', label: 'Ro\'yxat' }, { key: 'duplicates', label: 'Dublikatlar' }]
 const searchHint  = "Ism, telefon (90 123 45 67), PINFL (14 raqam) yoki tug'ilgan sana (17.05.1990 yoki 1990-05-17)"

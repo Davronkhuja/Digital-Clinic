@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.3] - 2026-11-11
+### Changed
+- Birlashtirish uchun alohida `patients:merge` ruxsati (seed: admin va receptionist); `patients:delete` endi talab qilinmaydi. Frontend "Dublikatlar" tabi shu ruxsat bilan ko'rinadi.
+- Migratsiya 0003: mavjud bazada ruxsat qo'shiladi va admin hamda receptionist rollariga beriladi (boshqa rollar va admin sozlamalari o'zgarmaydi).
+
 ## [1.6.2] - 2026-11-11
 ### Added
 - Bemorlar sahifasida "Dublikatlar" tabi (`PatientDuplicates.vue`): guruhlar ro'yxati, yozuvlarni yonma-yon solishtirish (farqlar ajratiladi), asosiy yozuvni tanlash, tasdiqlash oynasi bilan "Birlashtirish".

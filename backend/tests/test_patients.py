@@ -175,8 +175,12 @@ def test_merge_moves_records_and_deactivates_source(client, auth):
     assert client.post(f"/patients/{keep['id']}/merge", json={"source_id": keep["id"]}, headers=admin).status_code == 422
 
 
-def test_merge_requires_delete_permission(client, auth):
+def test_merge_requires_merge_permission(client, auth):
     a = client.post("/patients", json=NEW, headers=auth("admin")).json()
     b = client.post("/patients", json={**NEW, "name": "Ikkinchi"}, headers=auth("admin")).json()
-    res = client.post(f"/patients/{a['id']}/merge", json={"source_id": b["id"]}, headers=auth("receptionist"))
-    assert res.status_code == 403
+    body = {"source_id": b["id"]}
+    assert client.post(f"/patients/{a['id']}/merge", json=body, headers=auth("doctor")).status_code == 403
+    assert client.post(f"/patients/{a['id']}/merge", json=body, headers=auth("receptionist")).status_code == 200
+    # patients:delete endi birlashtirish uchun talab qilinmaydi
+    perms = client.get("/auth/me", headers=auth("receptionist")).json().get("permissions", [])
+    assert "patients:merge" in perms and "patients:delete" not in perms

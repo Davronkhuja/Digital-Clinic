@@ -116,7 +116,7 @@ def update_patient(patient_id: uuid.UUID, data: PatientUpdate, request: Request,
                          "Dublikat o'chirilmaydi: faolsizlantirilib, `merged_into` ga asosiy bemor yoziladi. "
                          "Asosiy bemorda bo'sh maydonlar dublikatdan to'ldiriladi.")
 def merge_patients(patient_id: uuid.UUID, data: PatientMerge, request: Request, db: Session = Depends(get_db),
-                   user: CurrentUser = Depends(require("patients:delete"))):
+                   user: CurrentUser = Depends(require("patients:merge"))):
     try:
         source_id = uuid.UUID(data.source_id)
     except ValueError:
