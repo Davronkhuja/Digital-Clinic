@@ -40,7 +40,9 @@ def encounter_out(e: Encounter, patient_name: str, doctor_name: str, prescriptio
     return {
         "id": str(e.id), "patient_id": str(e.patient_id), "patient_name": patient_name,
         "doctor_id": str(e.doctor_id), "doctor": doctor_name, "diagnosis": e.diagnosis,
-        "icd_code": e.icd_code, "prescription": prescription, "notes": e.notes,
+        "icd_code": e.icd_code, "prescription": prescription, "notes": e.notes, "complaints": e.complaints,
+        "anamnesis": e.anamnesis, "examination": e.examination, "recommendations": e.recommendations,
+        "appointment_id": str(e.appointment_id) if e.appointment_id else None,
         "visit_date": e.visit_date.isoformat(), "created_at": _d(e.created_at),
     }
 

@@ -63,6 +63,7 @@
     </div>
 
     <!-- ═══ Rollar ═══ -->
+    <ExamTemplates v-if="activeTab === 'templates' && auth.can('emr:write')" />
     <ClinicResources v-if="activeTab === 'resources' && canResources" />
 
     <div v-if="activeTab === 'roles'" class="space-y-4">
@@ -213,13 +214,14 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Building2, DoorOpen, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
+import { Building2, DoorOpen, FileText, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ClinicResources from '@/components/ClinicResources.vue'
+import ExamTemplates from '@/components/ExamTemplates.vue'
 
 const theme = useThemeStore()
 const auth = useAuthStore()
@@ -234,6 +236,7 @@ const canResources = computed(() => auth.can('settings:write'))
 const activeTab = ref('clinic')
 const tabs = computed(() => [
   { key: 'clinic', label: 'Klinika', icon: Building2 },
+  ...(auth.can('emr:write') ? [{ key: 'templates', label: "Ko'rik shablonlari", icon: FileText }] : []),
   ...(canResources.value ? [{ key: 'resources', label: 'Kabinet va qabul turlari', icon: DoorOpen }] : []),
   ...(canManage.value ? [
     { key: 'roles', label: 'Rollar', icon: Shield },

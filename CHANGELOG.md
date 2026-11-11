@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.10] - 2026-11-12
+### Added
+- EMR (2/4): ko'rik bo'limlari `complaints`, `anamnesis`, `examination`, `recommendations` (tashxis va MKB-10 avvaldan) DMED ko'rik kartasi tartibida; `POST /emr` va `EMRRecord` da.
+- `PUT /emr/{id}`: ko'rikni tahrirlash (o'chirilmaydi; audit `update`, o'zgargan maydonlar nomi bilan). Frontend tahrirlashda endi yangi yozuv yaratmaydi, mavjudini yangilaydi.
+- `POST /emr` da `appointment_id`: qabul shu bemorniki bo'lishi shart (422), bekor/kelmagan bo'lsa 409; saqlanganda qabul `Completed` bo'ladi (qog'ozsiz zanjir: qabul -> ko'rik).
+- Ko'rik shablonlari (`exam_templates`, migratsiya 0010): `GET/POST/PUT/DELETE /emr-templates` (o'qish `emr:read`, yozish `emr:write`; nomi registrsiz unikal). Seed: 2 ta bo'sh andoza (faqat sarlavhalar, klinik matn yo'q).
+- Frontend: EMR formasida bo'limlar, shablon tanlash (faqat bo'sh bo'limlar to'ldiriladi), qabulga bog'lash; Sozlamalar > "Ko'rik shablonlari".
+
 ## [1.6.9] - 2026-11-12
 ### Added
 - EMR (1/4): MKB-10 ma'lumotnomasi (`icd10_codes`, migratsiya 0009). `GET /icd10?search=` (kod boshi, o'zbekcha yoki inglizcha nom), `GET /icd10/{code}` (`emr:read`).

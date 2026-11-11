@@ -21,6 +21,7 @@ from app.models import (
     ClinicSettings,
     DoctorSchedule,
     Encounter,
+    ExamTemplate,
     Patient,
     Permission,
     Prescription,
@@ -43,6 +44,21 @@ APPOINTMENT_TYPES = {"Konsultatsiya": 30, "Takroriy ko'rik": 20, "Qayta ko'rik":
                      "Laboratoriya": 15, "Jarrohlik": 90, "Boshqa": 30}
 
 
+EXAM_TEMPLATES = [
+    {"name": "Umumiy ko'rik (andoza)",
+     "complaints": "Asosiy shikoyatlar:\nBoshlanishi va davomiyligi:",
+     "anamnesis": "Kasallik tarixi:\nSurunkali kasalliklar:\nAllergiya:\nQabul qilayotgan dorilar:",
+     "examination": "Umumiy holati:\nTeri va shilliq pardalar:\nNafas olish a'zolari:\nYurak-qon tomir tizimi:\n"
+                    "Qorin:\nQon bosimi:  Puls:  Harorat:",
+     "recommendations": "Rejim va parhez:\nDori-darmon:\nTekshiruvlar:\nQayta ko'rik muddati:"},
+    {"name": "Qayta ko'rik (andoza)",
+     "complaints": "Davolashdan keyingi shikoyatlar:",
+     "anamnesis": "Oldingi ko'rikdan keyingi o'zgarishlar:\nDoriga munosabat:",
+     "examination": "Holati (oldingiga nisbatan):\nQon bosimi:  Puls:  Harorat:",
+     "recommendations": "Davolashni davom ettirish / o'zgartirish:\nKeyingi ko'rik:"},
+]
+
+
 def seed_essentials(db: Session) -> Branch:
     branch = db.scalar(select(Branch).where(Branch.is_default.is_(True)))
     if not branch:
@@ -63,6 +79,10 @@ def seed_essentials(db: Session) -> Branch:
         if code not in existing_roles:  # mavjud rolning ruxsatlariga tegilmaydi (admin sozlagan bo'lishi mumkin)
             db.add(Role(code=code, name=name, is_system=True, permissions=[perms[c] for c in codes]))
     seed_starter(db)
+    existing_templates = set(db.scalars(select(ExamTemplate.name)).all())
+    for tpl in EXAM_TEMPLATES:
+        if tpl["name"] not in existing_templates:
+            db.add(ExamTemplate(**tpl))
     existing_types = set(db.scalars(select(AppointmentType.name)).all())
     for name, minutes in APPOINTMENT_TYPES.items():
         if name not in existing_types:

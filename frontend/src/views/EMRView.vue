@@ -146,6 +146,28 @@
                 </div>
               </div>
 
+              <!-- Ko'rik bo'limlari -->
+              <div :class="['rounded-2xl border p-5 space-y-4', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                  <h4 :class="['font-semibold text-sm', dark ? 'text-white' : 'text-slate-900']">Ko'rik bo'limlari</h4>
+                  <select v-model="templateId" class="input w-auto text-xs" @change="applyTemplate">
+                    <option value="">Shablon tanlash...</option>
+                    <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                  </select>
+                </div>
+                <div v-if="!editingId && apptOptions.length">
+                  <label :class="lbl">Qabulga bog'lash (ko'rik saqlanganda qabul yakunlanadi)</label>
+                  <select v-model="form.appointment_id" class="input">
+                    <option value="">Bog'lanmagan</option>
+                    <option v-for="a in apptOptions" :key="a.id" :value="a.id">{{ a.date }} {{ a.time }} · {{ a.type }} · {{ a.doctor }}</option>
+                  </select>
+                </div>
+                <div v-for="f in sectionFields" :key="f.key">
+                  <label :class="lbl">{{ f.label }}</label>
+                  <textarea v-model="form[f.key]" rows="3" class="input" />
+                </div>
+              </div>
+
               <p :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">Simptomlar, dorilar jadvali, laboratoriya fayllari va ilovalar hozircha saqlanmaydi</p>
 
               <!-- Symptoms -->
@@ -285,7 +307,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icd10Input from '@/components/Icd10Input.vue'
 import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
   Stethoscope, FlaskConical, Pill, ClipboardCheck, TableIcon } from 'lucide-vue-next'
@@ -319,9 +341,32 @@ const doctorList = ref([])
 const defaultForm = () => ({
   patient_name: '', doctor: '', visit_date: new Date().toISOString().slice(0, 10),
   icd_code: '', diagnosis: '', prescription: '', notes: '',
+  complaints: '', anamnesis: '', examination: '', recommendations: '', appointment_id: '',
   symptoms: [], medications: [], labFiles: [], attachments: []
 })
 const form = reactive(defaultForm())
+
+const sectionFields = [
+  { key: 'complaints', label: 'Shikoyatlar' }, { key: 'anamnesis', label: 'Anamnez' },
+  { key: 'examination', label: "Ob'ektiv ko'rik" }, { key: 'recommendations', label: 'Tavsiyalar' },
+]
+const templates = ref([]), templateId = ref('')
+function applyTemplate() {
+  const t = templates.value.find(x => x.id === templateId.value)
+  if (!t) return
+  // mavjud matn ustiga yozilmaydi: faqat bo'sh bo'limlar to'ldiriladi
+  for (const f of sectionFields) if (!form[f.key] && t[f.key]) form[f.key] = t[f.key]
+  if (!form.diagnosis && t.diagnosis) form.diagnosis = t.diagnosis
+}
+const apptOptions = ref([])
+watch(() => form.patient_name, async name => {
+  form.appointment_id = ''
+  const patient = patientRows.value.find(p => p.name === name)
+  if (!patient) { apptOptions.value = []; return }
+  try {
+    apptOptions.value = (await api.get('/appointments', { params: { patient_id: patient.id, status: 'Scheduled' } })).data
+  } catch { apptOptions.value = [] }
+})
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase()
@@ -349,6 +394,8 @@ function openEdit(r) {
   editingId.value = r.id
   Object.assign(form, { patient_name: r.patient_name, doctor: r.doctor, visit_date: r.visit_date,
     icd_code: r.icd_code || '', diagnosis: r.diagnosis, prescription: r.prescription, notes: r.notes || '',
+    complaints: r.complaints || '', anamnesis: r.anamnesis || '', examination: r.examination || '',
+    recommendations: r.recommendations || '', appointment_id: '',
     symptoms: [...(r.symptoms || [])], medications: [...(r.medications || [])],
     labFiles: [...(r.labFiles || [])], attachments: [...(r.attachments || [])] })
   showForm.value = true
@@ -368,10 +415,20 @@ async function saveRecord() {
   try {
     const payload = { patient_id: patient.id, patient_name: patient.name, doctor: form.doctor,
                       icd_code: form.icd_code || null, diagnosis: form.diagnosis, prescription: form.prescription || '-',
-                      notes: form.notes || null, visit_date: form.visit_date }
-    const { data } = await api.post('/emr', payload)
+                      notes: form.notes || null, visit_date: form.visit_date,
+                      complaints: form.complaints || null, anamnesis: form.anamnesis || null,
+                      examination: form.examination || null, recommendations: form.recommendations || null,
+                      appointment_id: form.appointment_id || null }
+    // tahrirlashda ko'rik yangilanadi (yangi yozuv yaratilmaydi); retsept alohida boshqariladi
+    const { data } = editingId.value
+      ? await api.put(`/emr/${editingId.value}`, { diagnosis: form.diagnosis, icd_code: form.icd_code || null, notes: form.notes || null,
+          complaints: payload.complaints, anamnesis: payload.anamnesis, examination: payload.examination, recommendations: payload.recommendations })
+      : await api.post('/emr', payload)
     // Backend saqlamaydigan maydonlar (simptomlar, dorilar, fayllar) faqat ekranda qoladi
-    records.value.unshift({ ...JSON.parse(JSON.stringify(form)), ...data })
+    const merged = { ...JSON.parse(JSON.stringify(form)), ...data }
+    const idx = records.value.findIndex(r => r.id === data.id)
+    if (idx >= 0) records.value[idx] = { ...records.value[idx], ...merged }
+    else records.value.unshift(merged)
     toast.success('Yozuv saqlandi')
     closeForm()
   } catch (e) {
@@ -444,6 +501,7 @@ onMounted(async () => {
     const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
     doctorList.value = data.map(s => s.name)
   } catch (e) { toast.error(e, "Shifokorlar ro'yxatini yuklab bo'lmadi") }
+  try { templates.value = (await api.get('/emr-templates')).data } catch (e) { toast.error(e, "Shablonlarni yuklab bo'lmadi") }
   await loadRecords()
 })
 </script>

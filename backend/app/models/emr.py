@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,7 +22,12 @@ class Encounter(SoftDeleteMixin, BranchScoped, BaseModel):
     )
     visit_date: Mapped[date] = mapped_column(Date)
     icd_code: Mapped[str | None] = mapped_column(String(10))
+    # Ko'rik bo'limlari (DMED ko'rik kartasi tartibida): shikoyat, anamnez, ko'rik, tashxis, tavsiya
+    complaints: Mapped[str | None] = mapped_column(Text)
+    anamnesis: Mapped[str | None] = mapped_column(Text)
+    examination: Mapped[str | None] = mapped_column(Text)
     diagnosis: Mapped[str] = mapped_column(Text)
+    recommendations: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
 
 
@@ -39,3 +44,19 @@ class Prescription(SoftDeleteMixin, BranchScoped, BaseModel):
     dosage: Mapped[str | None] = mapped_column(String(100))
     frequency: Mapped[str | None] = mapped_column(String(100))
     duration_days: Mapped[int | None] = mapped_column(Integer)
+
+
+class ExamTemplate(BaseModel):
+    """Ko'rik shabloni: bo'limlarning boshlang'ich matni (shifokor to'ldirishda o'zgartiradi)."""
+
+    __tablename__ = "exam_templates"
+    __table_args__ = (Index("uq_exam_templates_name_lower", func.lower(text("name")), unique=True),)
+
+    name: Mapped[str] = mapped_column(String(120))
+    specialty: Mapped[str | None] = mapped_column(String(100))  # bo'lim/mutaxassislik (ixtiyoriy)
+    complaints: Mapped[str | None] = mapped_column(Text)
+    anamnesis: Mapped[str | None] = mapped_column(Text)
+    examination: Mapped[str | None] = mapped_column(Text)
+    diagnosis: Mapped[str | None] = mapped_column(Text)
+    recommendations: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
