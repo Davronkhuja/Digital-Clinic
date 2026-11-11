@@ -184,3 +184,45 @@ def test_merge_requires_merge_permission(client, auth):
     # patients:delete endi birlashtirish uchun talab qilinmaydi
     perms = client.get("/auth/me", headers=auth("receptionist")).json().get("permissions", [])
     assert "patients:merge" in perms and "patients:delete" not in perms
+
+
+def test_normalize_name_cyrillic_latin_apostrophes():
+    from app.core.names import normalize_name
+
+    assert normalize_name("Абдуллаев Ўктам") == normalize_name("Abdullayev O'ktam") == "abdullaev o'ktam"
+    for variant in ("Oʻktam", "O‘ktam", "O’ktam", "O`ktam", "O'KTAM"):
+        assert normalize_name(variant) == "o'ktam", variant
+    assert normalize_name("  Юсупова   Ғуломова ") == normalize_name("yusupova g'ulomova")
+
+
+def test_duplicates_cyrillic_and_latin_names_in_one_group(client, auth):
+    h = auth("receptionist")
+    base = {**NEW, "phone": "+998 91 222 33 44"}
+    a = client.post("/patients", json={**base, "name": "Абдуллаев Ўктам", "birth_date": "1970-03-03"}, headers=h).json()
+    b = client.post("/patients", json={**base, "name": "Abdullayev O'ktam", "birth_date": "1971-04-04"}, headers=h).json()
+    groups = client.get("/patients/duplicates", headers=h).json()
+    mine = [g for g in groups if {p["id"] for p in g["patients"]} == {a["id"], b["id"]}]
+    assert len(mine) == 1 and mine[0]["reasons"] == ["phone"]
+    # sana bo'yicha ham mos kelsa, sabablar ikkalasi ko'rsatiladi
+    c = client.post("/patients", json={**base, "name": "ABDULLAYEV OʻKTAM", "birth_date": "1980-01-01"}, headers=h).json()
+    d = client.post("/patients", json={**NEW, "name": "Абдуллаев Ўктам", "phone": "+998 90 000 11 22",
+                                       "birth_date": "1980-01-01"}, headers=h).json()
+    groups = client.get("/patients/duplicates", headers=h).json()
+    big = [g for g in groups if {p["id"] for p in g["patients"]} >= {c["id"], d["id"]}]
+    assert big and "birth_date" in big[0]["reasons"]
+    # qidiruv ham kirill/lotinni farqlamaydi
+    names = [p["name"] for p in client.get("/patients", params={"search": "абдуллаев"}, headers=h).json()]
+    assert "Abdullayev O'ktam" in names
+
+
+def test_name_norm_updated_on_rename(client, auth):
+    from sqlalchemy import select
+
+    from app.db.session import SessionLocal
+    from app.models import Patient
+
+    h = auth("admin")
+    p = client.post("/patients", json={**NEW, "name": "Старое Имя"}, headers=h).json()
+    client.put(f"/patients/{p['id']}", json={"name": "Yangi Ism"}, headers=h)
+    with SessionLocal() as db:
+        assert db.scalar(select(Patient.name_norm).where(Patient.id == p["id"])) == "yangi ism"

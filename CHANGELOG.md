@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.4] - 2026-11-11
+### Added
+- `patients.name_norm` (indekslangan, migratsiya 0004 mavjud bemorlarni to'ldiradi): ism kirill -> lotin (o'zbek translit: ў=o', қ=q, ғ=g', ҳ=h), `ʻ ʼ ' ` ’ ‘` bitta `'` ga, registrsiz, `ay/ey` oralig'idagi `y` tushirilib (Абдуллаев ~ Abdullayev). Yaratish/o'zgartirishda avtomatik yangilanadi.
+- Dublikat guruhida moslik sababi (`reasons`): `pinfl` (eng kuchli), `phone` (ism+telefon), `birth_date` (ism+sana); guruhlar kuchi bo'yicha tartiblanadi. PINFL unikal bo'lgani uchun hozir `pinfl` sababi amalda chiqmaydi (cheklov olib tashlansa ishlaydi).
+- Qidiruv ham `name_norm` bo'yicha: "абдуллаев" lotin yozuvdagi bemorni topadi.
+- Test: "Абдуллаев Ўктам" va "Abdullayev O'ktam" bitta guruhda.
+
 ## [1.6.3] - 2026-11-11
 ### Changed
 - Birlashtirish uchun alohida `patients:merge` ruxsati (seed: admin va receptionist); `patients:delete` endi talab qilinmaydi. Frontend "Dublikatlar" tabi shu ruxsat bilan ko'rinadi.

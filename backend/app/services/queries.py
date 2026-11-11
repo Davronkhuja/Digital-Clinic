@@ -6,6 +6,7 @@ from datetime import date, datetime
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.names import normalize_name
 from app.models import Appointment, Encounter, Patient, Prescription, Staff, Transaction
 from app.schemas.enums import AppointmentStatus, StaffRole, StatusEnum, TransactionType
 from app.services import serializers as ser
@@ -28,6 +29,9 @@ def patient_search_clause(search: str):
     """Ism, telefon (faqat raqamlar bo'yicha), PINFL va tug'ilgan sana (YYYY-MM-DD, DD.MM.YYYY)."""
     text = search.strip()
     conds = [Patient.full_name.ilike(f"%{text}%"), Patient.pinfl.ilike(f"%{text}%")]
+    norm = normalize_name(text)
+    if norm:  # kirill/lotin va apostrof farqlarisiz
+        conds.append(Patient.name_norm.like(f"%{norm}%"))
     digits = re.sub(r"\D", "", text)
     if len(digits) >= 3 and re.fullmatch(r"[\d\s+()\-]+", text):
         conds.append(_digits(Patient.phone).like(f"%{digits}%"))
@@ -168,32 +172,47 @@ def list_staff(db: Session, role: StaffRole | None = None, staff_id: uuid.UUID |
 
 
 
+_REASON_ORDER = ("pinfl", "phone", "birth_date")  # kuchlidan zaifga
+
+
 def patient_duplicate_groups(db: Session) -> list[dict]:
-    """Ehtimoliy dublikatlar: bir xil ism va (telefon raqamlari yoki tug'ilgan sana). Faqat faol bemorlar."""
-    name = func.lower(func.trim(Patient.full_name))
+    """Ehtimoliy dublikatlar (faol bemorlar). Moslik sababi: pinfl (eng kuchli), phone (ism+telefon), birth_date (ism+sana).
+    Ism `name_norm` bo'yicha: kirill/lotin, apostrof va registr farqlari hisobga olinmaydi."""
+    keys = (
+        ("pinfl", Patient.pinfl, [Patient.pinfl], Patient.pinfl.is_(None)),
+        ("phone", _digits(Patient.phone), [Patient.name_norm, _digits(Patient.phone)], _digits(Patient.phone) == ""),
+        ("birth_date", Patient.birth_date, [Patient.name_norm, Patient.birth_date], Patient.birth_date.is_(None)),
+    )
     groups: dict[frozenset, dict] = {}
-    for reason, key, empty in (("phone", _digits(Patient.phone), _digits(Patient.phone) == ""),
-                               ("birth_date", Patient.birth_date, Patient.birth_date.is_(None))):
+    for reason, _key, cols, empty in keys:
         dup_keys = (
-            select(name.label("n"), key.label("k"))
+            select(*[c.label(f"k{i}") for i, c in enumerate(cols)])
             .where(Patient.status == StatusEnum.active, ~empty)
-            .group_by(name, key)
+            .group_by(*cols)
             .having(func.count() > 1)
             .subquery()
         )
+        cond = None
+        for i, c in enumerate(cols):
+            part = c == dup_keys.c[f"k{i}"]
+            cond = part if cond is None else cond & part
         rows = db.execute(
-            select(Patient, dup_keys.c.n, dup_keys.c.k)
-            .join(dup_keys, (name == dup_keys.c.n) & (key == dup_keys.c.k))
+            select(Patient, *[dup_keys.c[f"k{i}"] for i in range(len(cols))])
+            .join(dup_keys, cond)
             .where(Patient.status == StatusEnum.active)
             .order_by(Patient.created_at, Patient.id)
         ).all()
         members: dict[tuple, list] = {}
-        for p, n, k in rows:
-            members.setdefault((n, k), []).append(p)
+        for p, *k in rows:
+            members.setdefault(tuple(k), []).append(p)
         for plist in members.values():
             ids = frozenset(p.id for p in plist)
             if ids in groups:
                 groups[ids]["reasons"].append(reason)
             else:
                 groups[ids] = {"reasons": [reason], "patients": [ser.patient_out(p, None, None) for p in plist]}
-    return list(groups.values())
+    out = list(groups.values())
+    for g in out:
+        g["reasons"].sort(key=_REASON_ORDER.index)
+    out.sort(key=lambda g: _REASON_ORDER.index(g["reasons"][0]))
+    return out
