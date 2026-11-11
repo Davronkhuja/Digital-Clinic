@@ -8,11 +8,20 @@
       <button class="btn-primary" @click="openAdd"><Plus class="w-4 h-4" /> {{ lang.t('patients.add') }}</button>
     </div>
 
-    <div class="card">
+    <div v-if="canMerge" class="flex gap-1">
+      <button v-for="t in tabs" :key="t.key" :class="['px-4 py-2 text-sm font-medium rounded-lg transition-colors', tab === t.key ? 'bg-cyan-600 text-white' : (dark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100')]" @click="tab = t.key">{{ t.label }}</button>
+    </div>
+
+    <div v-if="tab === 'duplicates' && canMerge" class="card">
+      <PatientDuplicates @merged="fetchPatients" />
+    </div>
+
+    <div v-else class="card">
       <div :class="['p-4 border-b flex flex-col sm:flex-row gap-3', dark ? 'border-slate-800' : 'border-slate-100']">
         <div class="relative flex-1">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input v-model="search" class="input pl-9" :placeholder="lang.t('patients.search')" />
+          <input v-model="search" class="input pl-9" :placeholder="lang.t('patients.search')" :title="searchHint" />
+          <p :class="['text-xs mt-1.5', dark ? 'text-slate-500' : 'text-slate-400']">{{ searchHint }}</p>
         </div>
         <div class="flex gap-2">
           <select v-model="filterStatus" class="input w-auto">
@@ -183,7 +192,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Plus, Search, Download, X, Check, Pencil, Trash2 } from 'lucide-vue-next'
 import api, { fetchAll } from '@/composables/useApi'
@@ -191,7 +200,9 @@ import { useToast } from '@/composables/useToast'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
 import { usePhoneMask } from '@/composables/usePhoneMask'
+import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import PatientDuplicates from '@/components/PatientDuplicates.vue'
 
 const lang  = useLanguageStore()
 const theme = useThemeStore()
@@ -199,6 +210,11 @@ const dark  = computed(() => theme.isDark)
 const lbl   = computed(() => ['text-sm font-medium block mb-1.5', dark.value ? 'text-slate-300' : 'text-slate-700'])
 const { maskPhone, onPhoneKeydown } = usePhoneMask()
 
+const auth        = useAuthStore()
+const canMerge    = computed(() => auth.can('patients:delete'))
+const tab         = ref('list')
+const tabs        = [{ key: 'list', label: 'Ro\'yxat' }, { key: 'duplicates', label: 'Dublikatlar' }]
+const searchHint  = "Ism, telefon (90 123 45 67), PINFL (14 raqam) yoki tug'ilgan sana (17.05.1990 yoki 1990-05-17)"
 const patients    = ref([])
 const loading     = ref(true)
 const loadError   = ref(false)
@@ -227,8 +243,7 @@ const showPayments = ref(false)
 
 const total    = computed(() => patients.value.length)
 const filtered = computed(() => {
-  let list = patients.value
-  if (search.value)      list = list.filter(p => p.name.toLowerCase().includes(search.value.toLowerCase()) || p.phone?.includes(search.value) || p.id.startsWith(search.value))
+  let list = patients.value // qidiruv serverda (ism, telefon raqamlari, PINFL, sana)
   if (filterStatus.value) list = list.filter(p => p.status === filterStatus.value)
   return list
 })
@@ -244,7 +259,7 @@ async function fetchPatients() {
   loading.value = true
   loadError.value = false
   try {
-    patients.value = await fetchAll('/patients')
+    patients.value = await fetchAll('/patients', search.value.trim() ? { search: search.value.trim() } : {})
   } catch (e) {
     patients.value = []
     loadError.value = true
@@ -339,6 +354,9 @@ function exportCSV() {
   a.download = `patients_${new Date().toISOString().slice(0,10)}.csv`
   a.click()
 }
+
+let searchTimer
+watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(fetchPatients, 300) })
 
 onMounted(() => { fetchPatients(); fetchDoctors(); fetchPayments() })
 </script>

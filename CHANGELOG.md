@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.2] - 2026-11-11
+### Added
+- Bemorlar sahifasida "Dublikatlar" tabi (`PatientDuplicates.vue`): guruhlar ro'yxati, yozuvlarni yonma-yon solishtirish (farqlar ajratiladi), asosiy yozuvni tanlash, tasdiqlash oynasi bilan "Birlashtirish".
+- Qidiruv maydonida format ko'rsatmasi (telefon, PINFL, sana); qidiruv endi serverda (300 ms debounce), shuning uchun telefon raqamlari va sana bo'yicha ham ishlaydi.
+
 ## [1.6.1] - 2026-11-11
 ### Added
 - `POST /patients/{id}/merge` (`patients:delete`): dublikat bemorning uchrashuv, EMR, retsept va to'lovlari asosiy bemorga ko'chiriladi, asosiy bemorning bo'sh maydonlari (PINFL, tug'ilgan sana, manzil, qon guruhi, allergiya, shifokor) to'ldiriladi. Dublikat o'chirilmaydi: `Inactive` va `merged_into`. Audit: `merge`.
