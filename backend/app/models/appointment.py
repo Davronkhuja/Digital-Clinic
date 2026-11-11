@@ -17,7 +17,7 @@ from sqlalchemy import (
     literal_column,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ExcludeConstraint
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +26,7 @@ from app.schemas.enums import AppointmentStatus
 from app.services.periods import CLINIC_TZ
 
 CLINIC_TZ_NAME = "Asia/Tashkent"
+BUSY = "status IN ('Scheduled', 'Completed')"
 
 
 class AppointmentType(BaseModel):
@@ -44,7 +45,15 @@ class AppointmentType(BaseModel):
 
 class Appointment(BranchScoped, BaseModel):
     __tablename__ = "appointments"
-    __table_args__ = (CheckConstraint("ends_at > starts_at", name="ends_after_start"),)
+    # Bir vaqtga ikkita qabul bo'lmasin: shifokor va kabinet bo'yicha (bekor qilingan va kelmaganlar band emas).
+    # Oraliq yarim ochiq [starts_at, ends_at): ketma-ket qabullar ruxsat. Cheklov bazada: poyga holatida ham ishlaydi.
+    __table_args__ = (
+        CheckConstraint("ends_at > starts_at", name="ends_after_start"),
+        ExcludeConstraint(("doctor_id", "="), (func.tstzrange(text("starts_at"), text("ends_at")), "&&"),
+                          using="gist", where=text(BUSY), name="no_doctor_overlap"),
+        ExcludeConstraint(("room_id", "="), (func.tstzrange(text("starts_at"), text("ends_at")), "&&"),
+                          using="gist", where=text(f"{BUSY} AND room_id IS NOT NULL"), name="no_room_overlap"),
+    )
 
     patient_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("patients.id", ondelete="RESTRICT"), index=True
@@ -53,6 +62,9 @@ class Appointment(BranchScoped, BaseModel):
         UUID(as_uuid=True), ForeignKey("staff.id", ondelete="RESTRICT"), index=True
     )
     # Vaqt timestamptz da (UTC); klinika vaqti (Asia/Tashkent) faqat ko'rsatishda
+    room_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rooms.id", ondelete="RESTRICT"), index=True
+    )
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     type: Mapped[str] = mapped_column(String(60))

@@ -25,12 +25,13 @@ def patient_out(p: Patient, doctor_name: str | None, last_visit: date | None) ->
     }
 
 
-def appointment_out(a: Appointment, patient_name: str, doctor_name: str) -> dict:
+def appointment_out(a: Appointment, patient_name: str, doctor_name: str, room_name: str | None = None) -> dict:
     return {
         "id": str(a.id), "patient_id": str(a.patient_id), "patient_name": patient_name,
         "doctor_id": str(a.doctor_id), "doctor": doctor_name, "date": a.date.isoformat(),
         "time": a.time.strftime("%H:%M"), "end_time": a.ends_at.astimezone(CLINIC_TZ).strftime("%H:%M"),
-        "duration_min": a.duration_min, "starts_at": a.starts_at.isoformat(), "type": a.type, "notes": a.notes, "status": a.status,
+        "duration_min": a.duration_min, "starts_at": a.starts_at.isoformat(),
+        "room_id": str(a.room_id) if a.room_id else None, "room": room_name, "type": a.type, "notes": a.notes, "status": a.status,
         "created_at": _d(a.created_at),
     }
 
@@ -55,6 +56,7 @@ def transaction_out(t: Transaction, patient_name: str | None) -> dict:
 def staff_out(s: Staff, patients_count: int) -> dict:
     return {
         "id": str(s.id), "name": s.full_name, "role": s.role, "department": s.department, "phone": s.phone,
-        "email": s.email, "schedule": s.schedule, "slot_minutes": s.slot_minutes, "status": s.status, "joined_date": _d(s.joined_date),
+        "email": s.email, "schedule": s.schedule, "slot_minutes": s.slot_minutes,
+        "default_room_id": str(s.default_room_id) if s.default_room_id else None, "status": s.status, "joined_date": _d(s.joined_date),
         "patients_count": patients_count,
     }

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Staff
+from app.models import Room, Staff
 from app.schemas import StaffCreate, StaffMember, StaffRole, StaffUpdate
 from app.services import queries
 
@@ -50,6 +50,16 @@ def update_staff(staff_id: uuid.UUID, data: StaffUpdate, db: Session = Depends(g
     fields.pop("name", None)
     if "email" in fields and fields["email"]:
         fields["email"] = fields["email"].lower()
+    if "default_room_id" in fields:
+        room_id = fields.pop("default_room_id")
+        if room_id:
+            try:
+                room = db.get(Room, uuid.UUID(room_id))
+            except ValueError:
+                room = None
+            if not room or not room.is_active or room.branch_id != member.branch_id:
+                raise HTTPException(422, "Kabinet topilmadi yoki faol emas")
+        member.default_room_id = uuid.UUID(room_id) if room_id else None
     for key, value in fields.items():
         if value is not None:
             setattr(member, key, value)

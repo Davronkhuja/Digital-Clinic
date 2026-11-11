@@ -8,11 +8,20 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Appointment, AppointmentType
+from app.models import Appointment, AppointmentType, Staff
 from app.schemas import Appointment as AppointmentOut
-from app.schemas import AppointmentCreate, AppointmentStatus, AppointmentTypeIn, AppointmentTypeOut, AppointmentTypeUpdate
+from app.schemas import (
+    AppointmentCreate,
+    AppointmentStatus,
+    AppointmentTypeIn,
+    AppointmentTypeOut,
+    AppointmentTypeUpdate,
+    AppointmentUpdate,
+)
 from app.services import queries
+from app.services.booking import commit_booking, resolve_room
 from app.services.lookup import get_patient_or_404, resolve_doctor
+from app.services.periods import CLINIC_TZ
 from app.services.scheduling import appointment_window, resolve_duration
 
 router = APIRouter()
@@ -45,12 +54,13 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db),
         starts_at, ends_at = appointment_window(data.date, data.time, duration)
     except ValueError:
         raise HTTPException(422, "Sana yoki vaqt noto'g'ri")
+    room = resolve_room(db, data.room_id, doctor)
     appt = Appointment(
-        patient_id=patient.id, doctor_id=doctor.id, starts_at=starts_at, ends_at=ends_at, type=data.type,
-        notes=data.notes, branch_id=user.branch_id, created_by=user.id,
+        patient_id=patient.id, doctor_id=doctor.id, room_id=room.id if room else None, starts_at=starts_at,
+        ends_at=ends_at, type=data.type, notes=data.notes, branch_id=user.branch_id, created_by=user.id,
     )
     db.add(appt)
-    db.commit()
+    commit_booking(db)
     return queries.list_appointments(db, appt_id=appt.id)[0]
 
 
@@ -62,7 +72,44 @@ def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db:
     if not appt:
         raise HTTPException(404, "Uchrashuv topilmadi")
     appt.status = status
-    db.commit()
+    commit_booking(db)  # bekor qilingan qabulni qayta faollashtirish band vaqtga to'qnashishi mumkin
+    return queries.list_appointments(db, appt_id=appt_id)[0]
+
+
+@router.patch("/appointments/{appt_id}", tags=["📅 Appointments"], response_model=AppointmentOut,
+              summary="Uchrashuvni ko'chirish yoki o'zgartirish",
+              description="Faqat `Scheduled` uchrashuv. Vaqt, shifokor yoki kabinet band bo'lsa 409.")
+def update_appointment(appt_id: uuid.UUID, data: AppointmentUpdate, db: Session = Depends(get_db),
+                       user: CurrentUser = Depends(require("appointments:write"))):
+    appt = db.get(Appointment, appt_id)
+    if not appt:
+        raise HTTPException(404, "Uchrashuv topilmadi")
+    if appt.status != AppointmentStatus.scheduled:
+        raise HTTPException(409, "Faqat rejalashtirilgan (Scheduled) uchrashuvni o'zgartirish mumkin")
+    fields = data.model_dump(exclude_unset=True)
+    if fields.get("doctor_id") or fields.get("doctor"):
+        appt.doctor_id = resolve_doctor(db, fields.get("doctor_id"), fields.get("doctor")).id
+    doctor = db.get(Staff, appt.doctor_id)
+    if fields.get("type"):
+        appt.type = fields["type"]
+    if "notes" in fields:
+        appt.notes = fields["notes"]
+    if "room_id" in fields:  # null: kabinetsiz; qiymat: aniq kabinet
+        room = resolve_room(db, fields["room_id"], doctor) if fields["room_id"] else None
+        appt.room_id = room.id if room else None
+    elif fields.get("doctor_id") or fields.get("doctor"):  # shifokor almashdi: yangi shifokorning standart kabineti
+        room = resolve_room(db, None, doctor)
+        appt.room_id = room.id if room else None
+    if {"date", "time", "duration_min", "type"} & fields.keys():
+        local = appt.starts_at.astimezone(CLINIC_TZ)
+        duration = fields.get("duration_min") or (
+            resolve_duration(db, doctor, appt.type) if "type" in fields else appt.duration_min)
+        try:
+            appt.starts_at, appt.ends_at = appointment_window(
+                fields.get("date") or local.date().isoformat(), fields.get("time") or local.strftime("%H:%M"), duration)
+        except ValueError:
+            raise HTTPException(422, "Sana yoki vaqt noto'g'ri")
+    commit_booking(db)
     return queries.list_appointments(db, appt_id=appt_id)[0]
 
 

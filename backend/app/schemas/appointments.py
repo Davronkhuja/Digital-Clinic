@@ -15,6 +15,7 @@ class AppointmentCreate(BaseModel):
     time: str = Field(..., pattern=r"^\d{2}:\d{2}$", examples=["10:00"])
     type: str = Field(..., examples=["Konsultatsiya"])
     duration_min: Optional[int] = Field(None, ge=5, le=480, description="Bo'lmasa: xizmat turi, so'ng shifokor standarti")
+    room_id: Optional[uuid.UUID] = Field(None, description="Bo'lmasa: shifokorning standart kabineti")
     notes: Optional[str] = Field(None, examples=["Qon bosimi tekshiruvi"])
 
     @model_validator(mode="after")
@@ -36,6 +37,8 @@ class Appointment(BaseModel):
     duration_min: int
     starts_at: str
     type: str
+    room_id: Optional[str] = None
+    room: Optional[str] = None
     notes: Optional[str] = None
     status: AppointmentStatus
     created_at: str
@@ -57,4 +60,36 @@ class AppointmentTypeOut(BaseModel):
     id: str
     name: str
     duration_min: int
+    is_active: bool
+
+
+class AppointmentUpdate(BaseModel):
+    """Uchrashuvni ko'chirish/o'zgartirish (faqat `Scheduled`). Yuborilmagan maydonlar o'zgarmaydi."""
+
+    doctor_id: Optional[uuid.UUID] = None
+    doctor: Optional[str] = None
+    room_id: Optional[uuid.UUID] = Field(None, description="null yuborilsa kabinet olib tashlanadi")
+    date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    type: Optional[str] = None
+    duration_min: Optional[int] = Field(None, ge=5, le=480)
+    notes: Optional[str] = None
+
+
+class RoomIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=60, examples=["101"])
+    description: Optional[str] = Field(None, max_length=200, examples=["Kardiologiya kabineti"])
+    is_active: bool = True
+
+
+class RoomUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=60)
+    description: Optional[str] = Field(None, max_length=200)
+    is_active: Optional[bool] = None
+
+
+class RoomOut(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
     is_active: bool

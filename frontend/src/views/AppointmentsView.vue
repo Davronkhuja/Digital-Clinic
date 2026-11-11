@@ -47,6 +47,7 @@
               <th>Shifokor</th>
               <th>Sana / Vaqt</th>
               <th>Tur</th>
+              <th>Kabinet</th>
               <th>Status</th>
               <th>Amal</th>
             </tr>
@@ -57,6 +58,7 @@
               <td class="text-slate-600">{{ a.doctor }}</td>
               <td class="font-mono text-slate-600">{{ a.date }} <span class="text-cyan-600">{{ a.time }}–{{ a.end_time }}</span> <span class="text-xs text-slate-400">({{ a.duration_min }} daq)</span></td>
               <td><span class="badge badge-blue">{{ a.type }}</span></td>
+              <td class="font-mono text-sm text-slate-500">{{ a.room || '—' }}</td>
               <td>
                 <span :class="{
                   'badge-blue': a.status === 'Scheduled',
@@ -73,7 +75,7 @@
               </td>
             </tr>
             <tr v-if="filtered.length === 0">
-              <td colspan="6" class="py-12 text-center text-slate-400">Uchrashuvlar topilmadi</td>
+              <td colspan="7" class="py-12 text-center text-slate-400">Uchrashuvlar topilmadi</td>
             </tr>
           </tbody>
         </table>
@@ -118,6 +120,13 @@
                 <option v-for="t in appointmentTypes" :key="t.id" :value="t.name">{{ t.name }} ({{ t.duration_min }} daq)</option>
               </select>
             </div>
+            <div>
+              <label class="text-sm font-medium text-slate-700 block mb-1.5">Kabinet</label>
+              <select v-model="form.room_id" class="input">
+                <option value="">Shifokorning standart kabineti</option>
+                <option v-for="r in roomList" :key="r.id" :value="r.id">{{ r.name }}{{ r.description ? ' — ' + r.description : '' }}</option>
+              </select>
+            </div>
             <div class="flex gap-3 pt-2">
               <button type="button" class="btn-secondary flex-1" @click="showModal = false">Bekor</button>
               <button type="submit" class="btn-primary flex-1">Saqlash</button>
@@ -145,7 +154,7 @@ const filterStatus = ref('')
 const showModal = ref(false)
 const today = new Date().toLocaleDateString('uz-UZ')
 
-const form = reactive({ patient_name: '', doctor: '', date: '', time: '10:00', type: 'Konsultatsiya', notes: '' })
+const form = reactive({ patient_name: '', doctor: '', date: '', time: '10:00', type: 'Konsultatsiya', room_id: '', notes: '' })
 
 const filtered = computed(() => {
   let list = appointments.value
@@ -177,6 +186,11 @@ async function fetchAppointments() {
     loadError.value = true
     toast.error(e, "Uchrashuvlarni yuklab bo'lmadi")
   } finally { loading.value = false }
+}
+
+const roomList = ref([])
+async function fetchRooms() {
+  try { roomList.value = (await api.get('/rooms')).data } catch (e) { roomList.value = []; toast.error(e, "Kabinetlarni yuklab bo'lmadi") }
 }
 
 const appointmentTypes = ref([])
@@ -212,7 +226,7 @@ async function addAppointment() {
       toast.error(`"${form.patient_name}" nomli bemor topilmadi`)
       return
     }
-    const { data } = await api.post('/appointments', { ...form, patient_id: patient.id, patient_name: patient.name })
+    const { data } = await api.post('/appointments', { ...form, room_id: form.room_id || null, patient_id: patient.id, patient_name: patient.name })
     appointments.value.push(data)
     toast.success('Uchrashuv rejalashtirildi')
     showModal.value = false
@@ -232,5 +246,5 @@ async function updateStatus(appt, status) {
   }
 }
 
-onMounted(() => { fetchAppointments(); fetchDoctors(); fetchTypes() })
+onMounted(() => { fetchAppointments(); fetchDoctors(); fetchTypes(); fetchRooms() })
 </script>

@@ -63,6 +63,8 @@
     </div>
 
     <!-- ═══ Rollar ═══ -->
+    <ClinicResources v-if="activeTab === 'resources' && canResources" />
+
     <div v-if="activeTab === 'roles'" class="space-y-4">
       <p :class="['text-sm', dark ? 'text-slate-400' : 'text-slate-500']">Rollarning ruxsatlarini boshqaring</p>
       <div v-if="loadingRoles" :class="['text-sm py-8 text-center', dark ? 'text-slate-400' : 'text-slate-500']">Yuklanmoqda...</div>
@@ -211,12 +213,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Building2, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
+import { Building2, DoorOpen, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ClinicResources from '@/components/ClinicResources.vue'
 
 const theme = useThemeStore()
 const auth = useAuthStore()
@@ -226,10 +229,12 @@ const lbl = computed(() => ['text-sm font-medium block mb-1.5', dark.value ? 'te
 
 const canWrite = computed(() => auth.can('settings:write'))
 const canManage = computed(() => auth.can('roles:manage'))
+const canResources = computed(() => auth.can('settings:write'))
 
 const activeTab = ref('clinic')
 const tabs = computed(() => [
   { key: 'clinic', label: 'Klinika', icon: Building2 },
+  ...(canResources.value ? [{ key: 'resources', label: 'Kabinet va qabul turlari', icon: DoorOpen }] : []),
   ...(canManage.value ? [
     { key: 'roles', label: 'Rollar', icon: Shield },
     { key: 'users', label: 'Foydalanuvchilar', icon: Users },

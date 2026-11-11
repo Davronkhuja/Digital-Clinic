@@ -23,6 +23,7 @@ class StaffUpdate(BaseModel):
     email: Optional[EmailStr] = None
     schedule: Optional[str] = None
     slot_minutes: Optional[int] = Field(None, ge=5, le=480)
+    default_room_id: Optional[str] = Field(None, description="Shifokorning standart kabineti (null: olib tashlash)")
     status: Optional[StatusEnum] = None
 
 
@@ -35,6 +36,7 @@ class StaffMember(BaseModel):
     email: Optional[str] = None
     schedule: Optional[str] = None
     slot_minutes: int = 30
+    default_room_id: Optional[str] = None
     status: StatusEnum
     joined_date: Optional[str] = None
     patients_count: int = 0

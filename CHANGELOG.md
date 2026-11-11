@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.6] - 2026-11-11
+### Added
+- Shifokor jadvali (2/5): kabinetlar (`rooms`, nomi filial ichida registrsiz unikal; `GET/POST/PUT/DELETE /rooms`, yozish `settings:write`, ishlatilgan kabinet faolsizlantiriladi), shifokorning standart kabineti (`staff.default_room_id`), uchrashuvda `room_id`/`room`.
+- Bir vaqtga ikkita qabul yozib bo'lmaydi: bazadagi exclusion cheklovlar (`btree_gist`, `tstzrange` yarim ochiq oraliq) shifokor (`no_doctor_overlap`) va kabinet (`no_room_overlap`) bo'yicha; faqat `Scheduled`/`Completed` band, bekor qilingan va kelmaganlar bo'sh. To'qnashuvda 409 (poyga holatida ham: 6 parallel so'rovdan faqat bittasi o'tadi, test bilan).
+- `PATCH /appointments/{id}`: ko'chirish/o'zgartirish (faqat `Scheduled`), shifokor almashsa yangi shifokorning kabineti. Statusni qayta `Scheduled` qilish ham to'qnashuvni tekshiradi.
+- Migratsiya 0006 (`CREATE EXTENSION btree_gist`: DB foydalanuvchisi superuser bo'lishi kerak, docker compose'da shunday).
+- Frontend: Sozlamalar > "Kabinet va qabul turlari" (qo'shish, tahrirlash, faolsizlantirish), qabul formasida kabinet, jadvalda kabinet ustuni.
+
 ## [1.6.5] - 2026-11-11
 ### Added
 - 2-bosqich, shifokor jadvali (1/5): uchrashuv vaqti `timestamptz` (`starts_at`/`ends_at`, UTC); klinika vaqti (Asia/Tashkent) faqat ko'rsatishda. API `date`/`time` saqlanadi, qo'shimcha `end_time`, `duration_min`, `starts_at`. Sana filtri va tahlil klinika kuni bo'yicha (kechasi 00:30 oldingi UTC kuniga tushmaydi).

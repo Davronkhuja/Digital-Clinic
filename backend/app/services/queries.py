@@ -7,7 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.names import normalize_name
-from app.models import Appointment, Encounter, Patient, Prescription, Staff, Transaction
+from app.models import Appointment, Encounter, Patient, Prescription, Room, Staff, Transaction
 from app.schemas.enums import AppointmentStatus, StaffRole, StatusEnum, TransactionType
 from app.services import serializers as ser
 
@@ -89,9 +89,10 @@ def list_appointments(
     appt_id: uuid.UUID | None = None,
 ) -> list[dict]:
     stmt = (
-        select(Appointment, Patient.full_name, Staff.full_name)
+        select(Appointment, Patient.full_name, Staff.full_name, Room.name)
         .join(Patient, Appointment.patient_id == Patient.id)
         .join(Staff, Appointment.doctor_id == Staff.id)
+        .outerjoin(Room, Appointment.room_id == Room.id)
         .order_by(Appointment.starts_at, Appointment.id)
     )
     if date_:
@@ -104,7 +105,7 @@ def list_appointments(
         stmt = stmt.where(Appointment.patient_id == patient_id)
     if appt_id:
         stmt = stmt.where(Appointment.id == appt_id)
-    return [ser.appointment_out(a, pn, dn) for a, pn, dn in db.execute(stmt).all()]
+    return [ser.appointment_out(a, pn, dn, rn) for a, pn, dn, rn in db.execute(stmt).all()]
 
 
 def list_encounters(

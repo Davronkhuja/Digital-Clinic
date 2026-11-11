@@ -24,6 +24,7 @@ from app.models import (
     Permission,
     Prescription,
     Role,
+    Room,
     Staff,
     Transaction,
     User,
@@ -128,10 +129,16 @@ def seed_demo(db: Session, branch: Branch) -> None:
     db.flush()
     patients = [aziza, bobur, dilnoza, eldor, feruza]
     doctors = [rustamov, karimova, yusupov]
+    for doc, room_name, desc in ((rustamov, "101", "Kardiologiya"), (karimova, "102", "Nevrologiya"),
+                                 (yusupov, "103", "Dermatologiya")):
+        room = Room(name=room_name, description=f"{desc} kabineti", branch_id=branch.id)
+        db.add(room)
+        db.flush()
+        doc.default_room_id = room.id
 
     def appt(p, doc, day, hh, mm, kind, st):
         starts = clinic_datetime(day, time(hh, mm))
-        db.add(Appointment(patient_id=p.id, doctor_id=doc.id, starts_at=starts,
+        db.add(Appointment(patient_id=p.id, doctor_id=doc.id, room_id=doc.default_room_id, starts_at=starts,
                            ends_at=starts + timedelta(minutes=APPOINTMENT_TYPES.get(kind, 30)), type=kind,
                            status=st, branch_id=branch.id))
 

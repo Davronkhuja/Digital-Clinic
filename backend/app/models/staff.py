@@ -22,6 +22,9 @@ class Staff(BranchScoped, BaseModel):
     status: Mapped[StatusEnum] = mapped_column(enum_col(StatusEnum, "status", 10), default=StatusEnum.active)
     # shifokorning standart qabul davomiyligi (xizmat turida davomiylik bo'lmasa)
     slot_minutes: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
+    default_room_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rooms.id", ondelete="SET NULL")
+    )
     joined_date: Mapped[date | None] = mapped_column(Date)
 
 
