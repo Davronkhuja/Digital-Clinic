@@ -23,7 +23,7 @@ def test_duration_from_type_then_doctor_default_then_override(client, auth):
     pid = _patient(client, h)
     a = _book(client, h, pid).json()
     assert (a["time"], a["end_time"], a["duration_min"]) == ("10:00", "10:30", 30)
-    assert _book(client, h, pid, time="12:00", type="Jarrohlik").json()["duration_min"] == 90
+    assert _book(client, h, pid, time="11:00", type="Jarrohlik").json()["duration_min"] == 90
     assert _book(client, h, pid, time="15:00", duration_min=15).json()["end_time"] == "15:15"
 
     doc = next(s for s in client.get("/staff", headers=h).json() if s["name"] == DOC)
@@ -45,7 +45,9 @@ def test_times_stored_as_utc_and_shown_in_tashkent(client, auth):
 def test_date_filter_uses_clinic_day_not_utc_day(client, auth):
     h = auth("admin")
     pid = _patient(client, h)
-    _book(client, h, pid, date="2027-03-02", time="00:30")  # UTC bo'yicha 1-mart 19:30
+    free = client.post("/staff", headers=h, json={"name": "Dr. Jadvalsiz", "role": "Doctor", "department": "Terapiya",
+                                                  "phone": "+998 90 000 00 01", "email": "jadvalsiz@clinic.uz"}).json()
+    _book(client, h, pid, doctor_id=free["id"], doctor=None, date="2027-03-02", time="00:30")  # UTC: 1-mart 19:30
     on_2nd = client.get("/appointments", params={"date": "2027-03-02"}, headers=h).json()
     on_1st = client.get("/appointments", params={"date": "2027-03-01"}, headers=h).json()
     assert [a["time"] for a in on_2nd] == ["00:30"] and on_1st == []

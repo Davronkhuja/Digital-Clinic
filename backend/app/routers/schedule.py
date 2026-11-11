@@ -1,0 +1,135 @@
+import uuid
+from datetime import date as date_type
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
+
+from app.core.deps import CurrentUser, require
+from app.db.session import get_db
+from app.models import Appointment, DoctorSchedule, ScheduleException, Staff
+from app.schemas import ExceptionIn, ExceptionOut, ScheduleOut, ScheduleTemplate, SlotsOut
+from app.schemas.enums import AppointmentStatus, ExceptionKind, StaffRole
+from app.services import availability
+from app.services.booking import resolve_room
+from app.services.periods import CLINIC_TZ
+from app.services.scheduling import resolve_duration
+
+router = APIRouter()
+TAG = "🗓 Schedule"
+
+
+def _doctor(db: Session, staff_id: uuid.UUID) -> Staff:
+    doctor = db.get(Staff, staff_id)
+    if not doctor or doctor.role != StaffRole.doctor:
+        raise HTTPException(404, "Shifokor topilmadi")
+    return doctor
+
+
+def _affected(db: Session, e: ScheduleException) -> list[str]:
+    """Istisno davriga tushgan rejalashtirilgan qabullar (ish vaqtidan tashqarida qolganlar)."""
+    appts = db.scalars(
+        select(Appointment).where(
+            Appointment.doctor_id == e.staff_id, Appointment.status == AppointmentStatus.scheduled,
+            Appointment.date >= e.date_from, Appointment.date <= e.date_to,
+        )
+    ).all()
+    return [str(a.id) for a in appts
+            if not any(ws <= a.starts_at and a.ends_at <= we for ws, we in availability.day_windows(db, e.staff_id, a.date))]
+
+
+def _exception_out(db: Session, e: ScheduleException, with_affected: bool = False) -> dict:
+    return {
+        "id": str(e.id), "kind": e.kind, "date_from": e.date_from, "date_to": e.date_to, "start_time": e.start_time,
+        "end_time": e.end_time, "break_start": e.break_start, "break_end": e.break_end, "note": e.note,
+        "affected_appointments": _affected(db, e) if with_affected else [],
+    }
+
+
+def _schedule_out(db: Session, staff_id: uuid.UUID) -> dict:
+    days = db.scalars(select(DoctorSchedule).where(DoctorSchedule.staff_id == staff_id).order_by(DoctorSchedule.weekday)).all()
+    excs = db.scalars(select(ScheduleException).where(ScheduleException.staff_id == staff_id)
+                      .order_by(ScheduleException.date_from)).all()
+    return {
+        "staff_id": str(staff_id),
+        "days": [{"weekday": d.weekday, "start_time": d.start_time, "end_time": d.end_time,
+                  "break_start": d.break_start, "break_end": d.break_end} for d in days],
+        "exceptions": [_exception_out(db, e) for e in excs],
+    }
+
+
+@router.get("/staff/{staff_id}/schedule", tags=[TAG], response_model=ScheduleOut,
+            summary="Shifokorning haftalik shabloni va istisnolari")
+def get_schedule(staff_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("staff:read"))):
+    _doctor(db, staff_id)
+    return _schedule_out(db, staff_id)
+
+
+@router.put("/staff/{staff_id}/schedule", tags=[TAG], response_model=ScheduleOut,
+            summary="Haftalik shablonni almashtirish",
+            description="Ro'yxatda yo'q kunlar dam olish kuni. Bo'sh ro'yxat: shablon yo'q (shifokor cheklovsiz). "
+                        "Mavjud qabullar o'zgarmaydi.")
+def put_schedule(staff_id: uuid.UUID, data: ScheduleTemplate, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(require("staff:write"))):
+    _doctor(db, staff_id)
+    db.execute(delete(DoctorSchedule).where(DoctorSchedule.staff_id == staff_id))
+    for d in data.days:
+        db.add(DoctorSchedule(staff_id=staff_id, weekday=d.weekday, start_time=d.start_time, end_time=d.end_time,
+                              break_start=d.break_start, break_end=d.break_end, created_by=user.id))
+    db.commit()
+    return _schedule_out(db, staff_id)
+
+
+@router.post("/staff/{staff_id}/schedule/exceptions", tags=[TAG], response_model=ExceptionOut, status_code=201,
+             summary="Istisno qo'shish (ta'til, kasallik, dam olish, qo'shimcha ish kuni)",
+             description="Javobdagi `affected_appointments`: shu davrda ish vaqtidan tashqarida qolgan rejalashtirilgan qabullar "
+                         "(avtomatik bekor qilinmaydi, ko'chirish kerak).")
+def add_exception(staff_id: uuid.UUID, data: ExceptionIn, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(require("staff:write"))):
+    _doctor(db, staff_id)
+    e = ScheduleException(staff_id=staff_id, kind=data.kind, date_from=data.date_from,
+                          date_to=data.date_to or data.date_from, start_time=data.start_time, end_time=data.end_time,
+                          break_start=data.break_start, break_end=data.break_end, note=data.note, created_by=user.id)
+    db.add(e)
+    db.commit()
+    return _exception_out(db, e, with_affected=e.kind != ExceptionKind.extra_work)
+
+
+@router.delete("/staff/{staff_id}/schedule/exceptions/{exception_id}", tags=[TAG], summary="Istisnoni olib tashlash")
+def delete_exception(staff_id: uuid.UUID, exception_id: uuid.UUID, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("staff:write"))):
+    e = db.get(ScheduleException, exception_id)
+    if not e or e.staff_id != staff_id:
+        raise HTTPException(404, "Istisno topilmadi")
+    db.delete(e)
+    db.commit()
+    return {"message": "Istisno olib tashlandi"}
+
+
+@router.get("/staff/{staff_id}/slots", tags=[TAG], response_model=SlotsOut, summary="Bo'sh qabul vaqtlari",
+            description="Ish oynalari (shablon + istisnolar) ichida, shifokor va kabinet band bo'lmagan boshlanish vaqtlari. "
+                        "Davomiylik: `duration_min` -> `type` -> shifokor standarti. Bugun uchun o'tgan vaqtlar chiqmaydi.")
+def get_slots(
+    staff_id: uuid.UUID,
+    date: date_type = Query(..., description="Klinika sanasi (YYYY-MM-DD)"),
+    type: Optional[str] = Query(None, description="Qabul turi (davomiylik uchun)"),
+    duration_min: Optional[int] = Query(None, ge=5, le=480),
+    step_min: int = Query(15, ge=5, le=120, description="Boshlanish vaqtlari qadami"),
+    room_id: Optional[uuid.UUID] = Query(None, description="Bo'lmasa: shifokorning standart kabineti"),
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require("appointments:read")),
+):
+    doctor = _doctor(db, staff_id)
+    duration = resolve_duration(db, doctor, type or "", duration_min)
+    room = resolve_room(db, room_id, doctor)
+    slots = availability.free_slots(db, doctor, date, duration, step_min, room.id if room else None,
+                                    now=datetime.now(CLINIC_TZ))
+    return {
+        "date": date.isoformat(), "doctor_id": str(doctor.id), "duration_min": duration,
+        "room_id": str(room.id) if room else None,
+        "slots": [{"time": s.astimezone(CLINIC_TZ).strftime("%H:%M"), "end_time": e.astimezone(CLINIC_TZ).strftime("%H:%M")}
+                  for s, e in slots],
+    }
+

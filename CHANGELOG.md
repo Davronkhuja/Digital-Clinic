@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.7] - 2026-11-11
+### Added
+- Shifokor jadvali (3/5): haftalik shablon (`doctor_schedules`: hafta kuni, ish soatlari, tanaffus) va istisnolar (`schedule_exceptions`: `Vacation`, `Sick`, `DayOff` oralig'i; `ExtraWork` bir kunlik, o'z soatlari va tanaffusi bilan). Ustuvorlik: `ExtraWork` > ta'til/kasallik/dam olish > shablon. Vaqtlar klinika devor soati (takrorlanuvchi shablon), qabullar timestamptz.
+- `GET/PUT /staff/{id}/schedule`, `POST/DELETE /staff/{id}/schedule/exceptions` (o'qish `staff:read`, yozish `staff:write`). Istisno javobida `affected_appointments`: shu davrda ish vaqtidan tashqarida qolgan rejalashtirilgan qabullar (avtomatik bekor qilinmaydi).
+- Qabul yozish va ko'chirish ish oynasi ichida bo'lishi shart (422): tanaffus, dam olish kuni, ta'til hisobga olinadi. Shablon umuman belgilanmagan shifokor cheklovsiz (istisnolar baribir amal qiladi).
+- `GET /staff/{id}/slots?date=&type=&duration_min=&step_min=&room_id=`: bo'sh boshlanish vaqtlari (ish oynalari, shifokor va kabinet bandligi, bugun uchun o'tgan vaqtlar chiqmaydi).
+- Demo seed: 3 shifokor uchun jadval (13:00-14:00 tanaffus). Migratsiya 0007 mavjud bazaga jadval qo'shmaydi.
+- Frontend: Xodimlar > "Ish jadvali" (shablon, standart davomiylik va kabinet, istisnolar), qabul formasida bo'sh vaqt tugmalari.
+
 ## [1.6.6] - 2026-11-11
 ### Added
 - Shifokor jadvali (2/5): kabinetlar (`rooms`, nomi filial ichida registrsiz unikal; `GET/POST/PUT/DELETE /rooms`, yozish `settings:write`, ishlatilgan kabinet faolsizlantiriladi), shifokorning standart kabineti (`staff.default_room_id`), uchrashuvda `room_id`/`room`.

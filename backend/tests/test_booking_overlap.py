@@ -60,8 +60,8 @@ def test_reschedule_checks_overlap_and_status(client, auth):
     assert client.patch(f"/appointments/{b['id']}", json={"time": "10:10"}, headers=h).status_code == 409
     moved = client.patch(f"/appointments/{b['id']}", json={"time": "10:30", "type": "Jarrohlik"}, headers=h)
     assert moved.status_code == 200 and (moved.json()["time"], moved.json()["end_time"]) == ("10:30", "12:00")
-    shifted = client.patch(f"/appointments/{a['id']}", json={"date": "2027-04-02"}, headers=h).json()
-    assert shifted["date"] == "2027-04-02" and shifted["time"] == "10:00"
+    shifted = client.patch(f"/appointments/{a['id']}", json={"date": "2027-04-05"}, headers=h).json()
+    assert shifted["date"] == "2027-04-05" and shifted["time"] == "10:00"
     # shifokor almashganda kabinet ham almashadi
     to_doc2 = client.patch(f"/appointments/{a['id']}", json={"doctor": DOC2}, headers=h).json()
     assert to_doc2["room"] == "102"
@@ -73,7 +73,7 @@ def test_concurrent_bookings_only_one_wins(client, auth):
     h = auth("admin")
     pids = [_patient(client, h, f"P{i}") for i in range(6)]
     with ThreadPoolExecutor(6) as pool:
-        codes = list(pool.map(lambda pid: _book(client, h, pid, date="2027-05-01").status_code, pids))
+        codes = list(pool.map(lambda pid: _book(client, h, pid, date="2027-05-03").status_code, pids))
     assert sorted(codes) == [201] + [409] * 5
 
 

@@ -26,7 +26,8 @@ from app.schemas.enums import AppointmentStatus
 from app.services.periods import CLINIC_TZ
 
 CLINIC_TZ_NAME = "Asia/Tashkent"
-BUSY = "status IN ('Scheduled', 'Completed')"
+BUSY_STATUSES = (AppointmentStatus.scheduled, AppointmentStatus.completed)
+BUSY = "status IN ('Scheduled', 'Completed')"  # BUSY_STATUSES bilan bir xil (exclusion cheklov uchun)
 
 
 class AppointmentType(BaseModel):

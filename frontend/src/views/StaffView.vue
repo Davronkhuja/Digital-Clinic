@@ -77,6 +77,9 @@
                       <button @click="openEdit(s); openMenu = null" :class="['flex items-center gap-2 w-full px-3 py-2 text-sm', dark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50']">
                         <Pencil class="w-3.5 h-3.5" /> Edit
                       </button>
+                      <button v-if="s.role === 'Doctor'" @click="scheduleFor = s; openMenu = null" :class="['flex items-center gap-2 w-full px-3 py-2 text-sm', dark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50']">
+                        <CalendarClock class="w-3.5 h-3.5" /> Ish jadvali
+                      </button>
                       <button @click="deleteStaff(s.id); openMenu = null" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
                         <Trash2 class="w-3.5 h-3.5" /> Delete
                       </button>
@@ -155,16 +158,18 @@
         </div>
       </div>
     </Transition>
+    <DoctorScheduleModal v-if="scheduleFor" :staff="scheduleFor" @close="scheduleFor = null" @saved="fetchStaff" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
-import { Plus, X, Pencil, Trash2, Check, Camera, Search, MoreHorizontal } from 'lucide-vue-next'
+import { Plus, X, Pencil, Trash2, Check, Camera, Search, MoreHorizontal, CalendarClock } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import DoctorScheduleModal from '@/components/DoctorScheduleModal.vue'
 
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
@@ -182,6 +187,7 @@ const loading = ref(true)
 const loadError = ref(false)
 
 const toast = useToast()
+const scheduleFor = ref(null)
 const roleOptions = ['Doctor', 'Nurse', 'Receptionist', 'Admin', 'Cashier', 'Lab Technician']
 const defaultForm = () => ({ name: '', role: 'Doctor', department: '', phone: '', email: '', schedule: '', status: 'Active', avatar: '' })
 const form = reactive(defaultForm())

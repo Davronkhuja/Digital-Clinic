@@ -114,6 +114,16 @@
                 <input v-model="form.time" type="time" class="input" required />
               </div>
             </div>
+            <div v-if="form.doctor && form.date" class="-mt-1">
+              <p class="text-xs text-slate-400 mb-1.5">Bo'sh vaqtlar (ish jadvali, band qabullar hisobga olingan)</p>
+              <p v-if="slotsLoading" class="text-xs text-slate-400">Yuklanmoqda...</p>
+              <p v-else-if="slotsError" class="text-xs text-red-500">Yuklab bo'lmadi. <button type="button" class="underline" @click="loadSlots">Qayta urinish</button></p>
+              <p v-else-if="!slots.length" class="text-xs text-amber-600">Bu kuni bo'sh vaqt yo'q (shifokor ishlamaydi yoki band)</p>
+              <div v-else class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                <button v-for="sl in slots" :key="sl.time" type="button" @click="form.time = sl.time"
+                  :class="['px-2 py-1 rounded-lg text-xs font-mono border', form.time === sl.time ? 'bg-cyan-600 text-white border-cyan-600' : 'border-slate-200 text-slate-600 hover:border-cyan-500']">{{ sl.time }}</button>
+              </div>
+            </div>
             <div>
               <label class="text-sm font-medium text-slate-700 block mb-1.5">Tur</label>
               <select v-model="form.type" class="input">
@@ -139,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import api, { fetchAll } from '@/composables/useApi'
@@ -149,6 +159,7 @@ const appointments = ref([])
 const loading = ref(true)
 const loadError = ref(false)
 const doctorList = ref([])
+const doctorIds = {}
 const filterDate = ref('')
 const filterStatus = ref('')
 const showModal = ref(false)
@@ -188,6 +199,24 @@ async function fetchAppointments() {
   } finally { loading.value = false }
 }
 
+const slots = ref([]), slotsLoading = ref(false), slotsError = ref(false)
+async function loadSlots() {
+  const id = doctorIds[form.doctor]
+  if (!id || !form.date) { slots.value = []; return }
+  slotsLoading.value = true
+  slotsError.value = false
+  try {
+    const params = { date: form.date, type: form.type }
+    if (form.room_id) params.room_id = form.room_id
+    slots.value = (await api.get(`/staff/${id}/slots`, { params })).data.slots
+  } catch (e) {
+    slots.value = []
+    slotsError.value = true
+    toast.error(e, "Bo'sh vaqtlarni yuklab bo'lmadi")
+  } finally { slotsLoading.value = false }
+}
+watch(() => [form.doctor, form.date, form.type, form.room_id], loadSlots)
+
 const roomList = ref([])
 async function fetchRooms() {
   try { roomList.value = (await api.get('/rooms')).data } catch (e) { roomList.value = []; toast.error(e, "Kabinetlarni yuklab bo'lmadi") }
@@ -209,6 +238,7 @@ async function fetchDoctors() {
   try {
     const { data } = await api.get('/staff', { params: { role: 'Doctor' } })
     doctorList.value = data.map(s => s.name)
+    data.forEach(s => { doctorIds[s.name] = s.id })
   } catch (e) {
     doctorList.value = []
     toast.error(e, "Shifokorlar ro'yxatini yuklab bo'lmadi")

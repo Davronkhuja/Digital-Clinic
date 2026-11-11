@@ -27,3 +27,9 @@ class StaffRole(str, Enum):
     admin = "Admin"
     lab_tech = "Lab Technician"
     cashier = "Cashier"
+
+class ExceptionKind(str, Enum):
+    day_off = "DayOff"
+    vacation = "Vacation"
+    sick = "Sick"
+    extra_work = "ExtraWork"
