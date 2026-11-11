@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.1] - 2026-11-11
+### Added
+- `POST /patients/{id}/merge` (`patients:delete`): dublikat bemorning uchrashuv, EMR, retsept va to'lovlari asosiy bemorga ko'chiriladi, asosiy bemorning bo'sh maydonlari (PINFL, tug'ilgan sana, manzil, qon guruhi, allergiya, shifokor) to'ldiriladi. Dublikat o'chirilmaydi: `Inactive` va `merged_into`. Audit: `merge`.
+- Migratsiya 0002: `patients.merged_into_id` (FK, `SET NULL`).
+
 ## [1.6.0] - 2026-11-11
 ### Added
 - 2-bosqich, bemor: qidiruv telefon raqamlari bo'yicha (`+998 (93) 555-12-34`, `935551234` bir xil topiladi) va tug'ilgan sana bo'yicha (`YYYY-MM-DD`, `DD.MM.YYYY`).

@@ -3,14 +3,15 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Patient
+from app.models import Appointment, Encounter, Patient, Prescription, Transaction
 from app.schemas import Patient as PatientOut
-from app.schemas import PatientCreate, PatientUpdate, StatusEnum
+from app.schemas import PatientCreate, PatientMerge, PatientUpdate, StatusEnum
 from app.services import audit, queries
 from app.services.lookup import get_patient_or_404, resolve_doctor
 
@@ -107,6 +108,45 @@ def update_patient(patient_id: uuid.UUID, data: PatientUpdate, request: Request,
     audit.record(db, user, request, "update", "patient", patient_id, {"fields": sorted(fields)})
     db.commit()
     return queries.get_patient(db, patient_id)
+
+
+@router.post("/patients/{patient_id}/merge", tags=["👥 Patients"], response_model=PatientOut,
+             summary="Dublikatni birlashtirish",
+             description="`source_id` bemorning uchrashuv, EMR, retsept va to'lovlari ushbu bemorga ko'chiriladi. "
+                         "Dublikat o'chirilmaydi: faolsizlantirilib, `merged_into` ga asosiy bemor yoziladi. "
+                         "Asosiy bemorda bo'sh maydonlar dublikatdan to'ldiriladi.")
+def merge_patients(patient_id: uuid.UUID, data: PatientMerge, request: Request, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(require("patients:delete"))):
+    try:
+        source_id = uuid.UUID(data.source_id)
+    except ValueError:
+        raise HTTPException(422, "source_id noto'g'ri")
+    if source_id == patient_id:
+        raise HTTPException(422, "Bemorni o'zi bilan birlashtirib bo'lmaydi")
+    target = get_patient_or_404(db, patient_id)
+    source = get_patient_or_404(db, source_id)
+    if source.merged_into_id:
+        raise HTTPException(409, "Bu bemor allaqachon birlashtirilgan")
+    if target.merged_into_id:
+        raise HTTPException(409, "Asosiy bemor o'zi boshqa bemorga birlashtirilgan")
+    moved = {}
+    for model in (Appointment, Encounter, Prescription, Transaction):
+        res = db.execute(update(model).where(model.patient_id == source.id).values(patient_id=target.id))
+        moved[model.__tablename__] = res.rowcount
+    pinfl = source.pinfl
+    if pinfl and not target.pinfl:
+        source.pinfl = None  # unikal cheklov: avval bo'shatiladi
+        db.flush()
+        target.pinfl = pinfl
+    for key in ("birth_date", "address", "blood_type", "allergies", "primary_doctor_id"):
+        if getattr(target, key) is None:
+            setattr(target, key, getattr(source, key))
+    source.status = StatusEnum.inactive
+    source.merged_into_id = target.id
+    audit.record(db, user, request, "merge", "patient", target.id,
+                 {"source_id": str(source.id), "source_name": source.full_name, "moved": moved})
+    db.commit()
+    return queries.get_patient(db, target.id)
 
 
 @router.delete("/patients/{patient_id}", tags=["👥 Patients"], summary="Bemorni o'chirish",

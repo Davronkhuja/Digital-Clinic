@@ -25,3 +25,6 @@ class Patient(BranchScoped, BaseModel):
     primary_doctor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("staff.id", ondelete="SET NULL")
     )
+    merged_into_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("patients.id", ondelete="SET NULL")
+    )

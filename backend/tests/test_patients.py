@@ -142,3 +142,41 @@ def test_duplicates_by_phone_and_birth_date(client, auth):
     assert len(mine) == 1 and len(mine[0]["patients"]) == 2
     assert set(mine[0]["reasons"]) == {"phone", "birth_date"}
     assert all("Yakka" not in p["name"] for g in groups for p in g["patients"])
+
+
+def test_merge_moves_records_and_deactivates_source(client, auth):
+    admin = auth("admin")
+    keep = client.post("/patients", json={**NEW, "name": "Asosiy Bemor"}, headers=admin).json()
+    dup = client.post("/patients", json={**NEW, "name": "Dublikat Bemor", "pinfl": "55555555555555",
+                                         "blood_type": "B+"}, headers=admin).json()
+    appt = client.post("/appointments", headers=admin, json={
+        "patient_id": dup["id"], "doctor": "Dr. Behruz Rustamov", "date": "2026-12-01", "time": "10:00",
+        "type": "Konsultatsiya"}).json()
+    emr = client.post("/emr", headers=auth("doctor"), json={
+        "patient_id": dup["id"], "doctor": "Dr. Behruz Rustamov", "diagnosis": "Test", "prescription": "Aspirin",
+        "visit_date": "2026-11-03"}).json()
+
+    res = client.post(f"/patients/{keep['id']}/merge", json={"source_id": dup["id"]}, headers=admin)
+    assert res.status_code == 200
+    merged = res.json()
+    assert merged["pinfl"] == "55555555555555" and merged["blood_type"] == "B+"  # bo'sh maydonlar to'ldirildi
+
+    src = client.get(f"/patients/{dup['id']}", headers=admin).json()  # o'chirilmagan
+    assert src["status"] == "Inactive" and src["merged_into"] == keep["id"] and src["pinfl"] is None
+    assert client.get("/appointments", params={"patient_id": keep["id"]}, headers=admin).json()[0]["id"] == appt["id"]
+    assert client.get("/appointments", params={"patient_id": dup["id"]}, headers=admin).json() == []
+    assert client.get(f"/emr/{emr['id']}", headers=admin).json()["patient_id"] == keep["id"]
+
+    audit = client.get("/security/audit", params={"entity_type": "patient", "limit": 50}, headers=admin).json()["items"]
+    assert any(e["action"] == "merge" and e["entity_id"] == keep["id"] for e in audit)
+
+    # qayta birlashtirib bo'lmaydi; o'zi bilan ham
+    assert client.post(f"/patients/{keep['id']}/merge", json={"source_id": dup["id"]}, headers=admin).status_code == 409
+    assert client.post(f"/patients/{keep['id']}/merge", json={"source_id": keep["id"]}, headers=admin).status_code == 422
+
+
+def test_merge_requires_delete_permission(client, auth):
+    a = client.post("/patients", json=NEW, headers=auth("admin")).json()
+    b = client.post("/patients", json={**NEW, "name": "Ikkinchi"}, headers=auth("admin")).json()
+    res = client.post(f"/patients/{a['id']}/merge", json={"source_id": b["id"]}, headers=auth("receptionist"))
+    assert res.status_code == 403

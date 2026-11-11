@@ -19,7 +19,8 @@ def patient_out(p: Patient, doctor_name: str | None, last_visit: date | None) ->
         "id": str(p.id), "name": p.full_name, "phone": p.phone, "age": age_from(p.birth_date),
         "birth_date": p.birth_date, "gender": p.gender, "pinfl": p.pinfl, "doctor": doctor_name,
         "address": p.address, "blood_type": p.blood_type, "allergies": p.allergies, "status": p.status,
-        "last_visit": _d(last_visit), "created_at": _d(p.created_at),
+        "last_visit": _d(last_visit),
+        "merged_into": str(p.merged_into_id) if p.merged_into_id else None, "created_at": _d(p.created_at),
     }
 
 

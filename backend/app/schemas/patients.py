@@ -77,4 +77,9 @@ class Patient(BaseModel):
     allergies: Optional[str] = None
     status: StatusEnum
     last_visit: Optional[str] = None
+    merged_into: Optional[str] = None
     created_at: str
+
+
+class PatientMerge(BaseModel):
+    source_id: str = Field(..., description="Dublikat: uning yozuvlari ushbu bemorga ko'chiriladi")
