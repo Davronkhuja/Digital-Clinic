@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-11-11
+### Added
+- 2-bosqich, bemor: qidiruv telefon raqamlari bo'yicha (`+998 (93) 555-12-34`, `935551234` bir xil topiladi) va tug'ilgan sana bo'yicha (`YYYY-MM-DD`, `DD.MM.YYYY`).
+- `GET /patients/duplicates`: bir xil ism va (telefon raqamlari yoki tug'ilgan sana) bo'lgan faol bemorlar guruhlari (birlashtirish v1.6.1 da).
+- PINFL tekshiruvi (14 raqam, unikal, null mumkin) avvaldan bor edi: testlar bilan tasdiqlandi.
+
 ## [1.5.20] - 2026-11-09
 ### Changed
 - `CLAUDE.md`: HTTPS remote va `gh auth setup-git`, CI qoidalari (tag trigger yo'q, ruff pin), Docker disk ogohlantirishi, `workflow` scope talabi, ochiq masalalar yangilandi.

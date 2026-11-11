@@ -119,3 +119,26 @@ def test_data_survives_restart_and_seed_is_idempotent(client, auth):
 
 def test_reset_helper_gives_clean_slate():
     reset_data()
+
+
+def test_search_phone_digits_and_birth_date(client, auth):
+    h = auth("admin")
+    client.post("/patients", json={**NEW, "name": "Qidiruv Sinov", "phone": "+998 (93) 555-12-34",
+                                   "birth_date": "1990-05-17"}, headers=h)
+    for q in ("998935551234", "93 555 12", "555-12-34", "1990-05-17", "17.05.1990"):
+        names = [p["name"] for p in client.get("/patients", params={"search": q}, headers=h).json()]
+        assert "Qidiruv Sinov" in names, q
+    assert client.get("/patients", params={"search": "18.05.1990"}, headers=h).json() == []
+
+
+def test_duplicates_by_phone_and_birth_date(client, auth):
+    h = auth("receptionist")
+    a = {**NEW, "name": "Dublikat Bemor", "phone": "+998 90 111 22 33", "birth_date": "1985-01-01"}
+    client.post("/patients", json=a, headers=h)
+    client.post("/patients", json={**a, "name": "dublikat bemor ", "phone": "998901112233"}, headers=h)
+    client.post("/patients", json={**NEW, "name": "Yakka Bemor", "phone": "+998 90 999 99 99"}, headers=h)
+    groups = client.get("/patients/duplicates", headers=h).json()
+    mine = [g for g in groups if g["patients"][0]["name"].lower().strip() == "dublikat bemor"]
+    assert len(mine) == 1 and len(mine[0]["patients"]) == 2
+    assert set(mine[0]["reasons"]) == {"phone", "birth_date"}
+    assert all("Yakka" not in p["name"] for g in groups for p in g["patients"])

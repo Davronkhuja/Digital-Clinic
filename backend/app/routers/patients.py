@@ -28,10 +28,10 @@ def _birth_date(age: int | None, birth_date: date | None) -> date | None:
 
 
 @router.get("/patients", tags=["👥 Patients"], response_model=List[PatientOut], summary="Bemorlar ro'yxati",
-            description="Qidiruv (ism, telefon, PINFL) va filtrlash.")
+            description="Qidiruv (ism, telefon raqamlari, PINFL, tug'ilgan sana) va filtrlash.")
 def get_patients(
     request: Request,
-    search: Optional[str] = Query(None, description="Ism, telefon yoki PINFL bo'yicha qidiruv"),
+    search: Optional[str] = Query(None, description="Ism, telefon, PINFL yoki tug'ilgan sana (YYYY-MM-DD, DD.MM.YYYY)"),
     status: Optional[StatusEnum] = Query(None, description="Status bo'yicha filter"),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
@@ -41,6 +41,15 @@ def get_patients(
     result = queries.list_patients(db, search, status, skip, limit)
     audit.record_read(db, user, request, "patient", details={"search": search, "count": len(result)})
     return result
+
+
+@router.get("/patients/duplicates", tags=["👥 Patients"], summary="Ehtimoliy dublikatlar",
+            description="Bir xil ism va (telefon raqamlari yoki tug'ilgan sana) bo'lgan faol bemorlar guruhlari.")
+def get_patient_duplicates(request: Request, db: Session = Depends(get_db),
+                           user: CurrentUser = Depends(require("patients:read"))):
+    groups = queries.patient_duplicate_groups(db)
+    audit.record_read(db, user, request, "patient", details={"duplicates": len(groups)})
+    return groups
 
 
 @router.post("/patients", tags=["👥 Patients"], response_model=PatientOut, status_code=201,
