@@ -82,6 +82,8 @@
       </div>
     </div>
 
+    <WaitlistPanel :doctors="doctorList" :types="appointmentTypes" @booked="fetchAppointments" />
+
     <!-- Modal -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal">
@@ -152,6 +154,7 @@
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import WaitlistPanel from '@/components/WaitlistPanel.vue'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 

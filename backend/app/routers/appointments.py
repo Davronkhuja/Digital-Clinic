@@ -19,7 +19,7 @@ from app.schemas import (
     AppointmentUpdate,
 )
 from app.services import availability, queries
-from app.services.booking import commit_booking, resolve_room
+from app.services.booking import build_appointment, commit_booking, resolve_room
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ
 from app.services.scheduling import appointment_window, resolve_duration
@@ -49,18 +49,8 @@ def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db),
                        user: CurrentUser = Depends(require("appointments:write"))):
     patient = get_patient_or_404(db, data.patient_id)
     doctor = resolve_doctor(db, data.doctor_id, data.doctor)
-    duration = resolve_duration(db, doctor, data.type, data.duration_min)
-    try:
-        starts_at, ends_at = appointment_window(data.date, data.time, duration)
-    except ValueError:
-        raise HTTPException(422, "Sana yoki vaqt noto'g'ri")
-    availability.ensure_working(db, doctor, starts_at, ends_at)
-    room = resolve_room(db, data.room_id, doctor)
-    appt = Appointment(
-        patient_id=patient.id, doctor_id=doctor.id, room_id=room.id if room else None, starts_at=starts_at,
-        ends_at=ends_at, type=data.type, notes=data.notes, branch_id=user.branch_id, created_by=user.id,
-    )
-    db.add(appt)
+    appt = build_appointment(db, user, patient, doctor, data.date, data.time, data.type, data.duration_min,
+                             data.room_id, data.notes)
     commit_booking(db)
     return queries.list_appointments(db, appt_id=appt.id)[0]
 

@@ -9,9 +9,10 @@ from app.models.schedule import DoctorSchedule, ScheduleException
 from app.models.settings import ClinicSettings
 from app.models.staff import Staff, User
 from app.models.transaction import Transaction
+from app.models.waitlist import WaitlistEntry
 
 __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
     "Permission", "Role", "Room",
-    "DoctorSchedule", "ScheduleException", "role_permissions", "ClinicSettings", "Staff", "User", "Transaction",
+    "DoctorSchedule", "ScheduleException", "WaitlistEntry", "role_permissions", "ClinicSettings", "Staff", "User", "Transaction",
 ]

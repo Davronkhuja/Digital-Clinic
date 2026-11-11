@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -93,3 +93,55 @@ class RoomOut(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: bool
+
+
+class WaitlistCreate(BaseModel):
+    patient_id: uuid.UUID
+    doctor_id: Optional[uuid.UUID] = None
+    doctor: Optional[str] = Field(None, examples=["Dr. Rustamov"], description="doctor_id bo'lmasa, nom bo'yicha")
+    type: str = Field("Konsultatsiya", examples=["Konsultatsiya"])
+    date_from: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Bo'lmasa: bugun")
+    date_to: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Bo'lmasa: cheklovsiz")
+    notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _doctor_required(self):
+        if not self.doctor_id and not (self.doctor and self.doctor.strip()):
+            raise ValueError("doctor_id yoki doctor ko'rsatilishi kerak")
+        return self
+
+
+class WaitlistUpdate(BaseModel):
+    date_from: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    date_to: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    notes: Optional[str] = None
+    status: Optional[Literal["Cancelled"]] = Field(None, description="Faqat bekor qilish; band qilish /book orqali")
+
+
+class WaitlistBook(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    room_id: Optional[uuid.UUID] = None
+    duration_min: Optional[int] = Field(None, ge=5, le=480)
+
+
+class WaitlistOut(BaseModel):
+    id: str
+    patient_id: str
+    patient_name: str
+    patient_phone: str
+    doctor_id: str
+    doctor: str
+    type: str
+    date_from: str
+    date_to: Optional[str] = None
+    status: str
+    appointment_id: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: str
+
+
+class WaitlistSuggestion(BaseModel):
+    date: str
+    time: str
+    end_time: str

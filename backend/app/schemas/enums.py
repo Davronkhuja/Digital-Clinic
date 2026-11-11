@@ -33,3 +33,8 @@ class ExceptionKind(str, Enum):
     vacation = "Vacation"
     sick = "Sick"
     extra_work = "ExtraWork"
+
+class WaitlistStatus(str, Enum):
+    waiting = "Waiting"
+    booked = "Booked"
+    cancelled = "Cancelled"

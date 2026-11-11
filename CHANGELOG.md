@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.8] - 2026-11-11
+### Added
+- Shifokor jadvali (4/5): kutish ro'yxati (`waitlist`, migratsiya 0008): bemor + shifokor + qabul turi + xohlagan sana oralig'i. Bir bemor bir shifokorni bir vaqtda bir marta kutadi (qisman unikal indeks, 409).
+- `GET /waitlist` (FIFO; `status`, `doctor_id`, `for_date`: shu sanani xohlovchilar, masalan bekor bo'lgan qabul o'rniga), `POST /waitlist`, `PATCH /waitlist/{id}` (oraliq, izoh, bekor qilish), `GET /waitlist/{id}/suggestions` (eng yaqin bo'sh vaqtlar), `POST /waitlist/{id}/book` (qabulga yozish: oddiy qoidalar, bitta tranzaksiyada `Booked`; ish vaqti 422, band 409 bo'lsa yozuv `Waiting` qoladi).
+- `services/booking.py`: qabul qoidalari (`build_appointment`) va band vaqt -> 409 (`booking_conflicts`) umumiy; qabul yozish va kutish ro'yxatidan yozish bir xil mantiq.
+- Frontend: Uchrashuvlar sahifasida "Kutish ro'yxati" bo'limi (qo'shish, vaqt tanlash va yozish, bekor qilish). Bildirishnoma yuborish 4-bosqichda.
+
 ## [1.6.7] - 2026-11-11
 ### Added
 - Shifokor jadvali (3/5): haftalik shablon (`doctor_schedules`: hafta kuni, ish soatlari, tanaffus) va istisnolar (`schedule_exceptions`: `Vacation`, `Sick`, `DayOff` oralig'i; `ExtraWork` bir kunlik, o'z soatlari va tanaffusi bilan). Ustuvorlik: `ExtraWork` > ta'til/kasallik/dam olish > shablon. Vaqtlar klinika devor soati (takrorlanuvchi shablon), qabullar timestamptz.
