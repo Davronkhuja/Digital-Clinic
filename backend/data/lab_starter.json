@@ -1,0 +1,410 @@
+{
+ "tests": [
+  {
+   "code": "HGB",
+   "name": "Gemoglobin",
+   "unit": "g/L",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 130,
+     "high": 170
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 120,
+     "high": 150
+    }
+   ]
+  },
+  {
+   "code": "RBC",
+   "name": "Eritrotsitlar",
+   "unit": "x10^12/L",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 4.3,
+     "high": 5.7
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 3.8,
+     "high": 5.1
+    }
+   ]
+  },
+  {
+   "code": "WBC",
+   "name": "Leykotsitlar",
+   "unit": "x10^9/L",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 4.0,
+     "high": 9.0
+    }
+   ]
+  },
+  {
+   "code": "PLT",
+   "name": "Trombotsitlar",
+   "unit": "x10^9/L",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 150,
+     "high": 400
+    }
+   ]
+  },
+  {
+   "code": "HCT",
+   "name": "Gematokrit",
+   "unit": "%",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 40,
+     "high": 50
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 36,
+     "high": 46
+    }
+   ]
+  },
+  {
+   "code": "ESR",
+   "name": "EChT (SOE)",
+   "unit": "mm/soat",
+   "category": "UQT",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 2,
+     "high": 10
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 2,
+     "high": 15
+    }
+   ]
+  },
+  {
+   "code": "GLU",
+   "name": "Glyukoza (och qoringa)",
+   "unit": "mmol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 3.9,
+     "high": 5.9
+    }
+   ]
+  },
+  {
+   "code": "ALT",
+   "name": "ALT",
+   "unit": "U/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "high": 41
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "high": 33
+    }
+   ]
+  },
+  {
+   "code": "AST",
+   "name": "AST",
+   "unit": "U/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "high": 40
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "high": 32
+    }
+   ]
+  },
+  {
+   "code": "BIL",
+   "name": "Umumiy bilirubin",
+   "unit": "umol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 3.4,
+     "high": 20.5
+    }
+   ]
+  },
+  {
+   "code": "CREA",
+   "name": "Kreatinin",
+   "unit": "umol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 62,
+     "high": 106
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 44,
+     "high": 80
+    }
+   ]
+  },
+  {
+   "code": "UREA",
+   "name": "Mochevina",
+   "unit": "mmol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 2.5,
+     "high": 8.3
+    }
+   ]
+  },
+  {
+   "code": "UA",
+   "name": "Siydik kislotasi",
+   "unit": "umol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 200,
+     "high": 420
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 140,
+     "high": 340
+    }
+   ]
+  },
+  {
+   "code": "TP",
+   "name": "Umumiy oqsil",
+   "unit": "g/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 64,
+     "high": 83
+    }
+   ]
+  },
+  {
+   "code": "K",
+   "name": "Kaliy",
+   "unit": "mmol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 3.5,
+     "high": 5.1
+    }
+   ]
+  },
+  {
+   "code": "NA",
+   "name": "Natriy",
+   "unit": "mmol/L",
+   "category": "Biokimyo",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 136,
+     "high": 145
+    }
+   ]
+  },
+  {
+   "code": "CHOL",
+   "name": "Umumiy xolesterin",
+   "unit": "mmol/L",
+   "category": "Lipid profili",
+   "ranges": [
+    {
+     "age_min": 18,
+     "high": 5.2
+    }
+   ]
+  },
+  {
+   "code": "LDL",
+   "name": "LPNP xolesterin (LDL)",
+   "unit": "mmol/L",
+   "category": "Lipid profili",
+   "ranges": [
+    {
+     "age_min": 18,
+     "high": 3.0
+    }
+   ]
+  },
+  {
+   "code": "HDL",
+   "name": "LPVP xolesterin (HDL)",
+   "unit": "mmol/L",
+   "category": "Lipid profili",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 1.0
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 1.2
+    }
+   ]
+  },
+  {
+   "code": "TG",
+   "name": "Triglitseridlar",
+   "unit": "mmol/L",
+   "category": "Lipid profili",
+   "ranges": [
+    {
+     "age_min": 18,
+     "high": 1.7
+    }
+   ]
+  },
+  {
+   "code": "CRP",
+   "name": "S-reaktiv oqsil (SRO)",
+   "unit": "mg/L",
+   "category": "Yallig'lanish",
+   "ranges": [
+    {
+     "age_min": 18,
+     "high": 5
+    }
+   ]
+  },
+  {
+   "code": "TSH",
+   "name": "TTG",
+   "unit": "mIU/L",
+   "category": "Gormonlar",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 0.4,
+     "high": 4.0
+    }
+   ]
+  },
+  {
+   "code": "HBA1C",
+   "name": "Glikozillangan gemoglobin (HbA1c)",
+   "unit": "%",
+   "category": "Qandli diabet",
+   "ranges": [
+    {
+     "age_min": 18,
+     "low": 4.0,
+     "high": 6.0
+    }
+   ]
+  },
+  {
+   "code": "FERR",
+   "name": "Ferritin",
+   "unit": "ug/L",
+   "category": "Temir almashinuvi",
+   "ranges": [
+    {
+     "age_min": 18,
+     "sex": "male",
+     "low": 30,
+     "high": 400
+    },
+    {
+     "age_min": 18,
+     "sex": "female",
+     "low": 13,
+     "high": 150
+    }
+   ]
+  }
+ ],
+ "panels": [
+  {
+   "name": "Umumiy qon tahlili (UQT)",
+   "tests": [
+    "HGB",
+    "RBC",
+    "WBC",
+    "PLT",
+    "HCT",
+    "ESR"
+   ]
+  },
+  {
+   "name": "Biokimyo (asosiy)",
+   "tests": [
+    "GLU",
+    "ALT",
+    "AST",
+    "BIL",
+    "CREA",
+    "UREA",
+    "TP"
+   ]
+  },
+  {
+   "name": "Lipid profili",
+   "tests": [
+    "CHOL",
+    "LDL",
+    "HDL",
+    "TG"
+   ]
+  }
+ ]
+}

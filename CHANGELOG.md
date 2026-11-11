@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.12] - 2026-11-12
+### Added
+- Laboratoriya (1/2, backend): katalog `lab_tests` + jins/yosh bo'yicha me'yorlar `lab_reference_ranges` (faqat past yoki faqat yuqori chegara mumkin), to'plamlar (natija shablonlari) `lab_panels`, buyurtmalar `lab_orders` + `lab_order_items` (migratsiya 0012). Yangi ruxsatlar `lab:read`, `lab:write` (admin, shifokor, hamshira; migratsiya mavjud rollarga beradi).
+- `GET/POST/PUT /lab/tests`, `GET/POST/PUT /lab/panels` (o'qish `lab:read`, yozish `settings:write`; tahlil o'chirilmaydi, faolsizlantiriladi).
+- `POST /lab/orders` (to'plam va/yoki alohida tahlillar, takrorlar bir marta), `GET /lab/orders[?patient_id&status]`, `GET /lab/orders/{id}`, `PUT /lab/orders/{id}/results`, `POST /lab/orders/{id}/cancel`. Buyurtma o'chirilmaydi (bekor qilinadi); o'qish va yozish auditda.
+- Natija bemorning jinsi va yoshiga mos me'yor bilan solishtiriladi: `Low`/`Normal`/`High`; chegarada qiymat me'yor. Mos me'yor bo'lmasa (masalan, bola uchun kattalar me'yori, yosh noma'lum) `flag` null: noto'g'ri me'yor bilan solishtirilmaydi. Nom, birlik va me'yor natijaga nusxalanadi: katalog keyin o'zgarsa ham yozilgan natija o'zgarmaydi. Natijani tuzatish mumkin, hamma tahlil natijali bo'lsa buyurtma `Completed`.
+- Starter katalog (`data/lab_starter.json`): 24 ta oddiy ko'rsatkich (UQT, biokimyo, lipid profili, SRO, TTG, HbA1c, ferritin), 3 to'plam, kattalar (18+) me'yorlari. **Rasmiy me'yor emas**: klinika va laboratoriya tasdiqlashi, kerak bo'lsa tahrirlashi shart (ochiq masala).
+- PDF va frontend keyingi versiyada (v1.6.13).
+
 ## [1.6.11] - 2026-11-12
 ### Added
 - EMR (3/4): INN bo'yicha tuzilgan retsept. `POST/GET /emr/{id}/prescriptions` (`inn`, `dose`, `route`, `frequency`, `duration_days` 1-365, `instructions`); INN ma'lumotnomada bo'lishi shart (422), kanonik nomga keltiriladi; yuborish usullari: Oral, Intravenous, Intramuscular, Subcutaneous, Topical, Inhalation, Sublingual, Rectal, Ophthalmic, Nasal, Otic, Vaginal. Yig'ma matn `medication` ("amlodipine 5 mg, ichga, kuniga 1 marta, 30 kun") ro'yxat va DMED ga ko'chirish uchun. `EMRRecord.prescriptions` ro'yxati.

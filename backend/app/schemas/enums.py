@@ -52,3 +52,14 @@ class RouteEnum(str, Enum):
     nasal = "Nasal"
     otic = "Otic"
     vaginal = "Vaginal"
+
+class LabOrderStatus(str, Enum):
+    ordered = "Ordered"
+    completed = "Completed"
+    cancelled = "Cancelled"
+
+
+class LabFlag(str, Enum):
+    low = "Low"
+    normal = "Normal"
+    high = "High"

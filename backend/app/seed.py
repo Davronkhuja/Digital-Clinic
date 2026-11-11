@@ -35,6 +35,7 @@ from app.models.appointment import clinic_datetime
 from app.schemas.enums import AppointmentStatus, GenderEnum, StaffRole, StatusEnum, TransactionType
 from app.services.icd10 import seed_starter
 from app.services.inn import seed_starter as seed_inn
+from app.services.lab import seed_starter as seed_lab
 
 log = logging.getLogger("seed")
 
@@ -81,6 +82,7 @@ def seed_essentials(db: Session) -> Branch:
             db.add(Role(code=code, name=name, is_system=True, permissions=[perms[c] for c in codes]))
     seed_starter(db)
     seed_inn(db)
+    seed_lab(db)
     existing_templates = set(db.scalars(select(ExamTemplate.name)).all())
     for tpl in EXAM_TEMPLATES:
         if tpl["name"] not in existing_templates:
