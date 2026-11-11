@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import (
+    ClinicSettings,
     LabOrder,
     LabOrderItem,
     LabPanel,
@@ -22,7 +23,7 @@ from app.models import (
 )
 from app.schemas import LabOrderCreate, LabOrderOut, LabTestIn, LabTestOut, LabTestUpdate, PanelIn, PanelOut, PanelUpdate, ResultsIn
 from app.schemas.enums import LabOrderStatus
-from app.services import audit, lab
+from app.services import audit, lab, pdf
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ, clinic_today
 
@@ -291,3 +292,21 @@ def cancel_order(order_id: uuid.UUID, request: Request, db: Session = Depends(ge
     audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "status": "Cancelled"})
     db.commit()
     return order_out(db, order)
+
+
+@router.get("/lab/orders/{order_id}/pdf", tags=[TAG], summary="Natijalar PDF",
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def order_pdf(order_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("lab:read"))):
+    order = _get_order(db, order_id)
+    patient = db.get(Patient, order.patient_id)
+    clinic = db.scalar(select(ClinicSettings).where(ClinicSettings.branch_id == order.branch_id))
+    content = pdf.lab_order_pdf(
+        order_out(db, order),
+        {"name": patient.full_name, "birth_date": patient.birth_date.isoformat() if patient.birth_date else None,
+         "gender": patient.gender.value},
+        {"name": clinic.clinic_name if clinic else None, "address": clinic.address if clinic else None,
+         "phone": clinic.phone if clinic else None},
+    )
+    audit.record_read(db, user, request, "lab_order", order.id, {"patient_id": str(order.patient_id), "pdf": True})
+    return Response(content, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="lab-{str(order.id)[:8]}.pdf"'})

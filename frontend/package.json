@@ -1,6 +1,6 @@
 {
   "name": "digital-clinic-vue",
-  "version": "1.6.12",
+  "version": "1.6.13",
   "type": "module",
   "private": true,
   "scripts": {

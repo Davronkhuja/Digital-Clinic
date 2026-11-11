@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.13] - 2026-11-12
+### Added
+- Laboratoriya (2/2): `GET /lab/orders/{id}/pdf` (`lab:read`): klinika sarlavhasi, bemor (ism, tug'ilgan sana, jins), shifokor, jadval (tahlil, natija, birlik, me'yor, belgi); me'yordan tashqari qiymat qalin va qizil; natijasiz tahlil "—". Kirill va lotin DejaVu shrifti bilan (Dockerfile: `fonts-dejavu-core`; topilmasa Helvetica). PDF ochilishi auditga yoziladi. Kutubxona: reportlab 4.2.2 (testlarda pypdf bilan matn tekshiriladi).
+- Frontend: "Laboratoriya" sahifasi (menyu, `lab:read`): buyurtmalar ro'yxati (holat, me'yordan tashqari soni), yangi buyurtma (to'plam va alohida tahlillar), natija kiritish va me'yor bilan belgi, buyurtmani bekor qilish, PDF.
+
 ## [1.6.12] - 2026-11-12
 ### Added
 - Laboratoriya (1/2, backend): katalog `lab_tests` + jins/yosh bo'yicha me'yorlar `lab_reference_ranges` (faqat past yoki faqat yuqori chegara mumkin), to'plamlar (natija shablonlari) `lab_panels`, buyurtmalar `lab_orders` + `lab_order_items` (migratsiya 0012). Yangi ruxsatlar `lab:read`, `lab:write` (admin, shifokor, hamshira; migratsiya mavjud rollarga beradi).

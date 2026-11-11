@@ -157,3 +157,39 @@ def test_catalog_management_admin_only(client, auth):
     assert client.post("/lab/panels", headers=admin, json={"name": "Noto'g'ri", "test_codes": ["NOPE"]}).status_code == 422
     assert client.put(f"/lab/tests/{created.json()['id']}", headers=admin, json={"is_active": False}).status_code == 200
     assert "XYZ" not in _tests(client, auth)
+
+
+def _pdf_text(content: bytes) -> str:
+    import io
+
+    from pypdf import PdfReader
+
+    return "\n".join(page.extract_text() for page in PdfReader(io.BytesIO(content)).pages)
+
+
+def test_pdf_contains_patient_results_reference_and_is_audited(client, auth):
+    tests = _tests(client, auth)
+    admin = auth("admin")
+    pid = client.post("/patients", json={**NEW, "name": "Абдуллаев Ўктам", "gender": "male", "birth_date": "1990-01-01", "age": None},
+                      headers=admin).json()["id"]
+    order = _order(client, auth, pid, test_ids=[tests["HGB"]["id"], tests["GLU"]["id"]], notes="Och qoringa").json()
+    client.put(f"/lab/orders/{order['id']}/results", headers=auth("doctor"),
+               json={"results": [{"item_id": order["items"][0]["id"], "value": 125}, {"item_id": order["items"][1]["id"], "value": 5.0}]})
+    res = client.get(f"/lab/orders/{order['id']}/pdf", headers=auth("nurse"))
+    assert res.status_code == 200 and res.headers["content-type"] == "application/pdf"
+    assert res.content.startswith(b"%PDF") and "inline" in res.headers["content-disposition"]
+    text = _pdf_text(res.content)
+    for needle in ("Gemoglobin", "125", "130 - 170", "Past", "Glyukoza", "5", "3.9 - 5.9", "Me'yorda", "Digital Clinic", "Och qoringa"):
+        assert needle in text, needle
+    assert "Абдуллаев" in text                                              # kirill DejaVu bilan
+    assert client.get(f"/lab/orders/{order['id']}/pdf", headers=auth("cashier")).status_code == 403
+    assert client.get("/lab/orders/00000000-0000-0000-0000-000000000000/pdf", headers=admin).status_code == 404
+    audit = client.get("/security/audit", params={"entity_type": "lab_order", "limit": 50}, headers=admin).json()["items"]
+    assert any(e["action"] == "read" and (e.get("details") or {}).get("pdf") for e in audit)
+
+
+def test_pdf_pending_order_shows_dashes(client, auth):
+    tests = _tests(client, auth)
+    order = _order(client, auth, _setup(client, auth), test_ids=[tests["ALT"]["id"]]).json()
+    text = _pdf_text(client.get(f"/lab/orders/{order['id']}/pdf", headers=auth("doctor")).content)
+    assert "ALT" in text and "Kutilmoqda" in text

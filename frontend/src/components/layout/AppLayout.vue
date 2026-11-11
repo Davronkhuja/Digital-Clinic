@@ -321,7 +321,7 @@ import {
   LayoutDashboard, Users, Calendar, FileText, DollarSign, BarChart3, Bot,
   FileBarChart, UserCog, CreditCard, Shield, Settings, Bell, PanelLeft,
   Globe, ChevronDown, Check, Sun, Moon, Pencil, LogOut, X, Camera, Trash2,
-  MessageSquare, Palette
+  MessageSquare, Palette, FlaskConical
 } from 'lucide-vue-next'
 
 const auth        = useAuthStore()
@@ -414,6 +414,7 @@ const allMainNav = [
   { to: '/patients',     key: 'nav.patients',     icon: Users, perm: 'patients:read' },
   { to: '/appointments', key: 'nav.appointments', icon: Calendar, perm: 'appointments:read' },
   { to: '/emr',          key: 'nav.emr',          icon: FileText, perm: 'emr:read' },
+  { to: '/lab',          key: 'nav.lab',          icon: FlaskConical, perm: 'lab:read' },
   { to: '/finance',      key: 'nav.finance',      icon: DollarSign, perm: 'finance:read' },
   { to: '/analytics',    key: 'nav.analytics',    icon: BarChart3, perm: 'analytics:read' },
   { to: '/ai',           key: 'nav.ai',           icon: Bot, perm: 'ai:use' },
@@ -432,7 +433,7 @@ const systemNav = computed(() => visible(allSystemNav))
 
 const pageKeyMap = {
   '/': 'page.dashboard', '/patients': 'page.patients', '/appointments': 'page.appointments',
-  '/emr': 'page.emr', '/finance': 'page.finance', '/analytics': 'page.analytics',
+  '/emr': 'page.emr', '/lab': 'page.lab', '/finance': 'page.finance', '/analytics': 'page.analytics',
   '/ai': 'page.ai', '/reports': 'page.reports', '/staff': 'page.staff',
   '/subscription': 'page.subscription', '/security': 'page.security', '/settings': 'page.settings', '/chat': 'nav.chat',
 }
