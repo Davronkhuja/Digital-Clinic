@@ -207,27 +207,7 @@
                 </div>
               </div>
 
-              <!-- Medications -->
-              <div :class="['rounded-2xl border p-5', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center gap-2">
-                    <Pill class="w-4 h-4 text-cyan-500" />
-                    <h4 :class="['font-semibold text-sm', dark ? 'text-white' : 'text-slate-900']">Medications</h4>
-                  </div>
-                  <button type="button" @click="addMed" class="flex items-center gap-1 text-xs text-cyan-500 hover:text-cyan-400 font-medium">
-                    <Plus class="w-3.5 h-3.5" /> Add
-                  </button>
-                </div>
-                <div class="space-y-2">
-                  <div v-for="(med, i) in form.medications" :key="i" class="flex gap-2 items-center">
-                    <input v-model="med.name" class="input flex-1" placeholder="Amoxicillin 500mg" />
-                    <input v-model="med.dose" class="input w-28" placeholder="3x daily" />
-                    <input v-model="med.days" class="input w-24" placeholder="7 days" />
-                    <button type="button" @click="removeMed(i)" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex-shrink-0"><X class="w-3.5 h-3.5" /></button>
-                  </div>
-                  <p v-if="!form.medications.length" :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">No medications added</p>
-                </div>
-              </div>
+              <PrescriptionEditor v-model:rows="form.rxRows" :existing="existingRx" @cancel="cancelRx" />
             </div>
 
             <!-- Right column -->
@@ -309,8 +289,9 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icd10Input from '@/components/Icd10Input.vue'
+import PrescriptionEditor from '@/components/PrescriptionEditor.vue'
 import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
-  Stethoscope, FlaskConical, Pill, ClipboardCheck, TableIcon } from 'lucide-vue-next'
+  Stethoscope, FlaskConical, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
@@ -342,6 +323,7 @@ const defaultForm = () => ({
   patient_name: '', doctor: '', visit_date: new Date().toISOString().slice(0, 10),
   icd_code: '', diagnosis: '', prescription: '', notes: '',
   complaints: '', anamnesis: '', examination: '', recommendations: '', appointment_id: '',
+  rxRows: [],
   symptoms: [], medications: [], labFiles: [], attachments: []
 })
 const form = reactive(defaultForm())
@@ -357,6 +339,23 @@ function applyTemplate() {
   // mavjud matn ustiga yozilmaydi: faqat bo'sh bo'limlar to'ldiriladi
   for (const f of sectionFields) if (!form[f.key] && t[f.key]) form[f.key] = t[f.key]
   if (!form.diagnosis && t.diagnosis) form.diagnosis = t.diagnosis
+}
+const existingRx = ref([])
+async function cancelRx(p) {
+  try {
+    await api.delete(`/prescriptions/${p.id}`)
+    existingRx.value = existingRx.value.filter(x => x.id !== p.id)
+    toast.success('Retsept bekor qilindi')
+  } catch (e) { toast.error(e, "Retseptni bekor qilib bo'lmadi") }
+}
+async function postRx(recordId) {
+  const valid = form.rxRows.filter(r => r.inn.trim())
+  for (const r of valid) {
+    await api.post(`/emr/${recordId}/prescriptions`, {
+      inn: r.inn, dose: r.dose, route: r.route, frequency: r.frequency, duration_days: r.duration_days, instructions: r.instructions || null,
+    })
+  }
+  return valid.length
 }
 const apptOptions = ref([])
 watch(() => form.patient_name, async name => {
@@ -378,8 +377,6 @@ function toggleSymptom(s) {
   const i = form.symptoms.indexOf(s)
   i >= 0 ? form.symptoms.splice(i, 1) : form.symptoms.push(s)
 }
-function addMed() { form.medications.push({ name: '', dose: '', days: '' }) }
-function removeMed(i) { form.medications.splice(i, 1) }
 
 function onLabFile(e) { Array.from(e.target.files).forEach(f => form.labFiles.push({ name: f.name, file: f })); e.target.value = '' }
 function onLabDrop(e) { Array.from(e.dataTransfer.files).forEach(f => form.labFiles.push({ name: f.name })); dragLabOver.value = false }
@@ -389,9 +386,10 @@ function onAttFile(e) { Array.from(e.target.files).forEach(f => form.attachments
 function onAttDrop(e) { Array.from(e.dataTransfer.files).forEach(f => form.attachments.push({ name: f.name })); dragAttOver.value = false }
 function removeAtt(f) { form.attachments = form.attachments.filter(x => x.name !== f.name) }
 
-function openNew() { editingId.value = null; Object.assign(form, defaultForm()); showForm.value = true }
+function openNew() { editingId.value = null; existingRx.value = []; Object.assign(form, defaultForm()); showForm.value = true }
 function openEdit(r) {
   editingId.value = r.id
+  existingRx.value = [...(r.prescriptions || [])]
   Object.assign(form, { patient_name: r.patient_name, doctor: r.doctor, visit_date: r.visit_date,
     icd_code: r.icd_code || '', diagnosis: r.diagnosis, prescription: r.prescription, notes: r.notes || '',
     complaints: r.complaints || '', anamnesis: r.anamnesis || '', examination: r.examination || '',
@@ -429,6 +427,17 @@ async function saveRecord() {
     const idx = records.value.findIndex(r => r.id === data.id)
     if (idx >= 0) records.value[idx] = { ...records.value[idx], ...merged }
     else records.value.unshift(merged)
+    try {
+      const added = await postRx(data.id)
+      if (added) await loadRecords()
+    } catch (e) {
+      // ko'rik saqlandi, retsept yo'q: forma ochiq qoladi (tahrirlash rejimida), shifokor tuzatib qayta saqlaydi
+      editingId.value = data.id
+      form.rxRows = []
+      existingRx.value = (await api.get(`/emr/${data.id}/prescriptions`)).data
+      toast.error(e, "Ko'rik saqlandi, lekin retseptni saqlab bo'lmadi")
+      return
+    }
     toast.success('Yozuv saqlandi')
     closeForm()
   } catch (e) {

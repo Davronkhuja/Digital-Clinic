@@ -1,7 +1,7 @@
 from app.models.appointment import Appointment, AppointmentType
 from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
-from app.models.emr import Encounter, ExamTemplate, Prescription
+from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.icd10 import Icd10Code
 from app.models.patient import Patient
 from app.models.rbac import Permission, Role, role_permissions
@@ -15,6 +15,7 @@ from app.models.waitlist import WaitlistEntry
 __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
     "Permission", "Role", "Room",
-    "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate", "role_permissions", "ClinicSettings", "Staff",
+    "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate",
+    "InnDrug", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

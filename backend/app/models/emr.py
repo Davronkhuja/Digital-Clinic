@@ -5,7 +5,8 @@ from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text, 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BaseModel, BranchScoped, SoftDeleteMixin
+from app.db.base import BaseModel, BranchScoped, SoftDeleteMixin, enum_col
+from app.schemas.enums import RouteEnum
 
 
 class Encounter(SoftDeleteMixin, BranchScoped, BaseModel):
@@ -44,6 +45,10 @@ class Prescription(SoftDeleteMixin, BranchScoped, BaseModel):
     dosage: Mapped[str | None] = mapped_column(String(100))
     frequency: Mapped[str | None] = mapped_column(String(100))
     duration_days: Mapped[int | None] = mapped_column(Integer)
+    # INN bo'yicha tuzilgan retsept: `medication` ko'rsatish uchun yig'ma matn, `dosage` doza
+    inn: Mapped[str | None] = mapped_column(String(200))
+    route: Mapped[RouteEnum | None] = mapped_column(enum_col(RouteEnum, "route", 16))
+    instructions: Mapped[str | None] = mapped_column(Text)
 
 
 class ExamTemplate(BaseModel):
@@ -59,4 +64,15 @@ class ExamTemplate(BaseModel):
     examination: Mapped[str | None] = mapped_column(Text)
     diagnosis: Mapped[str | None] = mapped_column(Text)
     recommendations: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+
+class InnDrug(BaseModel):
+    """INN (xalqaro nomsiz nom) ma'lumotnomasi. `scripts/import_inn.py` bilan to'ldiriladi."""
+
+    __tablename__ = "inn_drugs"
+    __table_args__ = (Index("uq_inn_drugs_inn_lower", func.lower(text("inn")), unique=True),)
+
+    inn: Mapped[str] = mapped_column(String(200))
+    group_uz: Mapped[str | None] = mapped_column(String(200))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")

@@ -38,3 +38,17 @@ class WaitlistStatus(str, Enum):
     waiting = "Waiting"
     booked = "Booked"
     cancelled = "Cancelled"
+
+class RouteEnum(str, Enum):
+    oral = "Oral"
+    intravenous = "Intravenous"
+    intramuscular = "Intramuscular"
+    subcutaneous = "Subcutaneous"
+    topical = "Topical"
+    inhalation = "Inhalation"
+    sublingual = "Sublingual"
+    rectal = "Rectal"
+    ophthalmic = "Ophthalmic"
+    nasal = "Nasal"
+    otic = "Otic"
+    vaginal = "Vaginal"

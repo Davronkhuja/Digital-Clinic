@@ -129,7 +129,14 @@ def list_encounters(
         stmt = stmt.where(Encounter.patient_id == patient_id)
     if record_id:
         stmt = stmt.where(Encounter.id == record_id)
-    return [ser.encounter_out(e, pn, dn, r or "") for e, pn, dn, r in db.execute(stmt).all()]
+    rows = db.execute(stmt).all()
+    by_encounter: dict[uuid.UUID, list[Prescription]] = {}
+    if rows:
+        for p in db.scalars(select(Prescription).where(
+                Prescription.encounter_id.in_([e.id for e, *_ in rows]), Prescription.deleted_at.is_(None),
+                Prescription.inn.is_not(None)).order_by(Prescription.created_at)):
+            by_encounter.setdefault(p.encounter_id, []).append(p)
+    return [ser.encounter_out(e, pn, dn, r or "", by_encounter.get(e.id)) for e, pn, dn, r in rows]
 
 
 def list_transactions(

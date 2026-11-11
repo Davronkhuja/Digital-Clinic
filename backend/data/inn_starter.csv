@@ -1,0 +1,147 @@
+inn,group_uz
+paracetamol,Og'riq qoldiruvchi va isitma tushiruvchi
+ibuprofen,Nosteroid yallig'lanishga qarshi
+diclofenac,Nosteroid yallig'lanishga qarshi
+naproxen,Nosteroid yallig'lanishga qarshi
+ketorolac,Nosteroid yallig'lanishga qarshi
+meloxicam,Nosteroid yallig'lanishga qarshi
+acetylsalicylic acid,Antiagregant / nosteroid yallig'lanishga qarshi
+tramadol,Opioid analgetik
+amoxicillin,Antibiotik (penitsillin)
+amoxicillin and clavulanic acid,Antibiotik (penitsillin)
+ampicillin,Antibiotik (penitsillin)
+benzylpenicillin,Antibiotik (penitsillin)
+cefazolin,Antibiotik (sefalosporin)
+cefuroxime,Antibiotik (sefalosporin)
+ceftriaxone,Antibiotik (sefalosporin)
+cefixime,Antibiotik (sefalosporin)
+azithromycin,Antibiotik (makrolid)
+clarithromycin,Antibiotik (makrolid)
+erythromycin,Antibiotik (makrolid)
+doxycycline,Antibiotik (tetratsiklin)
+ciprofloxacin,Antibiotik (ftorxinolon)
+levofloxacin,Antibiotik (ftorxinolon)
+gentamicin,Antibiotik (aminoglikozid)
+metronidazole,Mikroblarga va protozoylarga qarshi
+nitrofurantoin,Siydik yo'li antiseptigi
+sulfamethoxazole and trimethoprim,Antibakterial kombinatsiya
+fluconazole,Zamburug'ga qarshi
+nystatin,Zamburug'ga qarshi
+terbinafine,Zamburug'ga qarshi
+acyclovir,Virusga qarshi
+oseltamivir,Virusga qarshi
+albendazole,Gijjaga qarshi
+mebendazole,Gijjaga qarshi
+amlodipine,Kalsiy kanallari blokatori
+nifedipine,Kalsiy kanallari blokatori
+verapamil,Kalsiy kanallari blokatori
+enalapril,AAF ingibitori
+lisinopril,AAF ingibitori
+perindopril,AAF ingibitori
+captopril,AAF ingibitori
+losartan,Angiotenzin retseptorlari blokatori
+valsartan,Angiotenzin retseptorlari blokatori
+bisoprolol,Beta-blokator
+metoprolol,Beta-blokator
+atenolol,Beta-blokator
+carvedilol,Beta-blokator
+propranolol,Beta-blokator
+hydrochlorothiazide,Siydik haydovchi
+indapamide,Siydik haydovchi
+furosemide,Siydik haydovchi
+spironolactone,Siydik haydovchi
+atorvastatin,Statin
+rosuvastatin,Statin
+simvastatin,Statin
+clopidogrel,Antiagregant
+warfarin,Antikoagulyant
+rivaroxaban,Antikoagulyant
+heparin,Antikoagulyant
+digoxin,Yurak glikozidi
+isosorbide mononitrate,Nitrat
+nitroglycerin,Nitrat
+amiodarone,Antiaritmik
+trimetazidine,Yurak metabolizmi vositasi
+metformin,Qandli diabetga qarshi
+gliclazide,Qandli diabetga qarshi
+glibenclamide,Qandli diabetga qarshi
+glimepiride,Qandli diabetga qarshi
+sitagliptin,Qandli diabetga qarshi
+empagliflozin,Qandli diabetga qarshi
+insulin human,Insulin
+insulin glargine,Insulin
+levothyroxine sodium,Qalqonsimon bez gormoni
+thiamazole,Antitireoid
+omeprazole,Proton nasosi ingibitori
+pantoprazole,Proton nasosi ingibitori
+esomeprazole,Proton nasosi ingibitori
+famotidine,H2-retseptor blokatori
+ranitidine,H2-retseptor blokatori
+domperidone,Prokinetik
+metoclopramide,Prokinetik
+drotaverine,Spazmolitik
+hyoscine butylbromide,Spazmolitik
+loperamide,Diareyaga qarshi
+lactulose,Surgi
+bisacodyl,Surgi
+macrogol,Surgi
+ondansetron,Qusishga qarshi
+ursodeoxycholic acid,Jigar va o't yo'llari vositasi
+pancreatin,Ferment vositasi
+simethicone,Meteorizmga qarshi
+oral rehydration salts,Regidratatsiya
+salbutamol,Bronxolitik (beta-2 agonist)
+formoterol,Bronxolitik (beta-2 agonist)
+ipratropium bromide,Bronxolitik (xolinolitik)
+budesonide,Inhalyatsion glyukokortikoid
+beclometasone,Inhalyatsion glyukokortikoid
+fluticasone,Glyukokortikoid
+montelukast,Leykotrien retseptorlari antagonisti
+ambroxol,Balg'am ko'chiruvchi
+acetylcysteine,Balg'am ko'chiruvchi
+bromhexine,Balg'am ko'chiruvchi
+xylometazoline,Burun shilliq qavatini shishdan chiqaruvchi
+loratadine,Antigistamin
+cetirizine,Antigistamin
+chlorphenamine,Antigistamin
+desloratadine,Antigistamin
+prednisolone,Glyukokortikoid
+dexamethasone,Glyukokortikoid
+hydrocortisone,Glyukokortikoid
+methylprednisolone,Glyukokortikoid
+sodium chloride,Eritma / regidratatsiya
+glucose,Eritma / regidratatsiya
+potassium chloride,Elektrolit
+magnesium sulfate,Elektrolit
+ferrous sulfate,Temir preparati
+folic acid,Vitamin
+cyanocobalamin,Vitamin
+colecalciferol,Vitamin
+ascorbic acid,Vitamin
+calcium carbonate,Kalsiy preparati
+alendronic acid,Osteoporozga qarshi
+gabapentin,Antikonvulsant / neyropatik og'riq
+pregabalin,Antikonvulsant / neyropatik og'riq
+carbamazepine,Antikonvulsant
+valproic acid,Antikonvulsant
+levetiracetam,Antikonvulsant
+sertraline,Antidepressant
+escitalopram,Antidepressant
+amitriptyline,Antidepressant
+diazepam,Trankvilizator
+alprazolam,Trankvilizator
+zolpidem,Uyqu dori
+betahistine,Vestibulyar buzilishlarga qarshi
+piracetam,Nootrop
+tamsulosin,Prostata giperplaziyasi vositasi
+finasteride,Prostata giperplaziyasi vositasi
+sildenafil,Fosfodiesteraza-5 ingibitori
+oxytocin,Uterotonik
+progesterone,Gestagen
+tranexamic acid,Gemostatik
+chloramphenicol,Antibiotik (ko'z tomchisi va malham)
+tobramycin,Antibiotik (ko'z tomchisi)
+timolol,Glaukomaga qarshi (ko'z tomchisi)
+lidocaine,Mahalliy og'riqsizlantiruvchi
+povidone-iodine,Antiseptik
+chlorhexidine,Antiseptik

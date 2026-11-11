@@ -1,7 +1,9 @@
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+from app.schemas.enums import RouteEnum
 
 
 class EMRCreate(BaseModel):
@@ -27,6 +29,28 @@ class EMRCreate(BaseModel):
         return self
 
 
+class PrescriptionIn(BaseModel):
+    inn: str = Field(..., min_length=2, max_length=200, examples=["amlodipine"])
+    dose: str = Field(..., min_length=1, max_length=100, examples=["5 mg"])
+    route: RouteEnum = Field(RouteEnum.oral)
+    frequency: str = Field(..., min_length=1, max_length=100, examples=["kuniga 1 marta"])
+    duration_days: int = Field(..., ge=1, le=365)
+    instructions: Optional[str] = Field(None, examples=["Ovqatdan keyin"])
+
+
+class PrescriptionOut(BaseModel):
+    id: str
+    encounter_id: str
+    inn: Optional[str] = None
+    dose: Optional[str] = None
+    route: Optional[RouteEnum] = None
+    frequency: Optional[str] = None
+    duration_days: Optional[int] = None
+    instructions: Optional[str] = None
+    medication: str
+    created_at: str
+
+
 class EMRRecord(BaseModel):
     id: str
     patient_id: str
@@ -42,6 +66,7 @@ class EMRRecord(BaseModel):
     examination: Optional[str] = None
     recommendations: Optional[str] = None
     appointment_id: Optional[str] = None
+    prescriptions: List[PrescriptionOut] = Field(default_factory=list)
     visit_date: str
     created_at: str
 
@@ -88,3 +113,13 @@ class ExamTemplateUpdate(BaseModel):
 
 class ExamTemplateOut(ExamTemplateIn):
     id: str
+
+
+class InnOut(BaseModel):
+    inn: str
+    group_uz: Optional[str] = None
+
+
+class InnIn(BaseModel):
+    inn: str = Field(..., min_length=2, max_length=200)
+    group_uz: Optional[str] = Field(None, max_length=200)

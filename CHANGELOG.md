@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.11] - 2026-11-12
+### Added
+- EMR (3/4): INN bo'yicha tuzilgan retsept. `POST/GET /emr/{id}/prescriptions` (`inn`, `dose`, `route`, `frequency`, `duration_days` 1-365, `instructions`); INN ma'lumotnomada bo'lishi shart (422), kanonik nomga keltiriladi; yuborish usullari: Oral, Intravenous, Intramuscular, Subcutaneous, Topical, Inhalation, Sublingual, Rectal, Ophthalmic, Nasal, Otic, Vaginal. Yig'ma matn `medication` ("amlodipine 5 mg, ichga, kuniga 1 marta, 30 kun") ro'yxat va DMED ga ko'chirish uchun. `EMRRecord.prescriptions` ro'yxati.
+- `DELETE /prescriptions/{id}`: retsept o'chirilmaydi, `deleted_at` bilan bekor qilinadi (audit `create`/`delete`).
+- INN ma'lumotnomasi (`inn_drugs`, migratsiya 0011): `GET /inn?search=` (nom/so'z boshi/guruh), `POST /inn` (`settings:write`), import skripti `scripts/import_inn.py <fayl.csv>` (`inn[,group_uz]`, idempotent). Bo'sh ma'lumotnomaga `data/inn_starter.csv` (146 ta) yuklanadi. **Starter rasmiy ro'yxat emas**: guruh nomlari muallif tomonidan yozilgan, shifokor tekshirishi shart (ochiq masala).
+- Frontend: EMR formasida retsept muharriri (INN avtoto'ldirish, doza, usul, chastota, muddat), saqlangan retseptlarni bekor qilish. Eski saqlanmaydigan "Medications" jadvali olib tashlandi.
+
 ## [1.6.10] - 2026-11-12
 ### Added
 - EMR (2/4): ko'rik bo'limlari `complaints`, `anamnesis`, `examination`, `recommendations` (tashxis va MKB-10 avvaldan) DMED ko'rik kartasi tartibida; `POST /emr` va `EMRRecord` da.

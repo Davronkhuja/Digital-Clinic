@@ -3,16 +3,28 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Appointment, Encounter, ExamTemplate, Prescription
-from app.schemas import EMRCreate, EMRRecord, EMRUpdate, ExamTemplateIn, ExamTemplateOut, ExamTemplateUpdate
+from app.models import Appointment, Encounter, ExamTemplate, InnDrug, Prescription
+from app.schemas import (
+    EMRCreate,
+    EMRRecord,
+    EMRUpdate,
+    ExamTemplateIn,
+    ExamTemplateOut,
+    ExamTemplateUpdate,
+    InnIn,
+    InnOut,
+    PrescriptionIn,
+    PrescriptionOut,
+)
 from app.schemas.enums import AppointmentStatus
-from app.services import audit, icd10, queries
+from app.services import audit, icd10, inn, queries
+from app.services import serializers as ser
 from app.services.lookup import get_patient_or_404, resolve_doctor
 
 router = APIRouter()
@@ -151,3 +163,74 @@ def update_emr(record_id: uuid.UUID, data: EMRUpdate, request: Request, db: Sess
     audit.record(db, user, request, "update", "emr", enc.id, {"patient_id": str(enc.patient_id), "fields": changed})
     db.commit()
     return queries.list_encounters(db, record_id=enc.id)[0]
+
+
+def _live_encounter(db: Session, record_id: uuid.UUID) -> Encounter:
+    enc = db.scalar(select(Encounter).where(Encounter.id == record_id, Encounter.deleted_at.is_(None)))
+    if not enc:
+        raise HTTPException(404, "Yozuv topilmadi")
+    return enc
+
+
+@router.get("/emr/{record_id}/prescriptions", tags=["💊 Prescriptions"], response_model=List[PrescriptionOut],
+            summary="Ko'rik retseptlari")
+def get_prescriptions(record_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                      user: CurrentUser = Depends(require("emr:read"))):
+    enc = _live_encounter(db, record_id)
+    rows = db.scalars(select(Prescription).where(Prescription.encounter_id == enc.id, Prescription.deleted_at.is_(None))
+                      .order_by(Prescription.created_at)).all()
+    audit.record_read(db, user, request, "emr", enc.id, {"patient_id": str(enc.patient_id), "prescriptions": len(rows)})
+    return [ser.prescription_out(p) for p in rows]
+
+
+@router.post("/emr/{record_id}/prescriptions", tags=["💊 Prescriptions"], response_model=PrescriptionOut, status_code=201,
+             summary="INN bo'yicha retsept qo'shish",
+             description="`inn` INN ma'lumotnomasida bo'lishi shart (422). Doza, yuborish usuli, chastota va muddat tuzilgan.")
+def add_prescription(record_id: uuid.UUID, data: PrescriptionIn, request: Request, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("emr:write"))):
+    enc = _live_encounter(db, record_id)
+    drug = inn.canonical(db, data.inn)
+    if not drug:
+        raise HTTPException(422, f"INN ro'yxatida yo'q: {data.inn}")
+    p = Prescription(
+        encounter_id=enc.id, patient_id=enc.patient_id, inn=drug.inn, dosage=data.dose.strip(), route=data.route,
+        frequency=data.frequency.strip(), duration_days=data.duration_days, instructions=data.instructions,
+        medication=ser.prescription_summary(drug.inn, data.dose.strip(), data.route, data.frequency.strip(), data.duration_days),
+        branch_id=user.branch_id, created_by=user.id,
+    )
+    db.add(p)
+    db.flush()
+    audit.record(db, user, request, "create", "prescription", p.id, {"patient_id": str(enc.patient_id), "inn": drug.inn})
+    db.commit()
+    return ser.prescription_out(p)
+
+
+@router.delete("/prescriptions/{prescription_id}", tags=["💊 Prescriptions"],
+               summary="Retseptni bekor qilish (o'chirilmaydi, deleted_at)")
+def cancel_prescription(prescription_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                        user: CurrentUser = Depends(require("emr:write"))):
+    p = db.scalar(select(Prescription).where(Prescription.id == prescription_id, Prescription.deleted_at.is_(None)))
+    if not p:
+        raise HTTPException(404, "Retsept topilmadi")
+    p.deleted_at = func.now()
+    audit.record(db, user, request, "delete", "prescription", p.id, {"patient_id": str(p.patient_id), "inn": p.inn})
+    db.commit()
+    return {"message": "Retsept bekor qilindi"}
+
+
+@router.get("/inn", tags=["💊 Prescriptions"], response_model=List[InnOut], summary="INN qidiruvi",
+            description="Nom boshi, so'z boshi yoki farmakologik guruh bo'yicha.")
+def search_inn(search: Optional[str] = Query(None), limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db),
+               user: CurrentUser = Depends(require("emr:read"))):
+    return [{"inn": d.inn, "group_uz": d.group_uz} for d in inn.search(db, search, limit)]
+
+
+@router.post("/inn", tags=["💊 Prescriptions"], response_model=InnOut, status_code=201, summary="INN qo'shish")
+def add_inn(data: InnIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    name = " ".join(data.inn.split())
+    if inn.canonical(db, name):
+        raise HTTPException(409, "Bu INN allaqachon mavjud")
+    drug = InnDrug(inn=name, group_uz=data.group_uz, created_by=user.id)
+    db.add(drug)
+    db.commit()
+    return {"inn": drug.inn, "group_uz": drug.group_uz}

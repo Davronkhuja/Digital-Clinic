@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from app.models import Appointment, Encounter, Patient, Staff, Transaction
+from app.models import Appointment, Encounter, Patient, Prescription, Staff, Transaction
 from app.services.periods import CLINIC_TZ
 
 
@@ -36,8 +36,30 @@ def appointment_out(a: Appointment, patient_name: str, doctor_name: str, room_na
     }
 
 
-def encounter_out(e: Encounter, patient_name: str, doctor_name: str, prescription: str) -> dict:
+ROUTE_UZ = {
+    "Oral": "ichga", "Intravenous": "vena ichiga", "Intramuscular": "mushak ichiga", "Subcutaneous": "teri ostiga",
+    "Topical": "tashqi", "Inhalation": "ingalyatsiya", "Sublingual": "til ostiga", "Rectal": "to'g'ri ichakka",
+    "Ophthalmic": "ko'zga", "Nasal": "burunga", "Otic": "quloqqa", "Vaginal": "qinga",
+}
+
+
+def prescription_summary(inn: str, dose: str, route, frequency: str, duration_days: int) -> str:
+    """Yig'ma matn (ro'yxat va DMED ga ko'chirish uchun): 'amlodipine 5 mg, ichga, kuniga 1 marta, 30 kun'."""
+    return f"{inn} {dose}, {ROUTE_UZ.get(getattr(route, 'value', route), route)}, {frequency}, {duration_days} kun"
+
+
+def prescription_out(p: Prescription) -> dict:
     return {
+        "id": str(p.id), "encounter_id": str(p.encounter_id), "inn": p.inn, "dose": p.dosage, "route": p.route,
+        "frequency": p.frequency, "duration_days": p.duration_days, "instructions": p.instructions,
+        "medication": p.medication, "created_at": _d(p.created_at),
+    }
+
+
+def encounter_out(e: Encounter, patient_name: str, doctor_name: str, prescription: str,
+                  prescriptions: list[Prescription] | None = None) -> dict:
+    return {
+        "prescriptions": [prescription_out(p) for p in prescriptions or []],
         "id": str(e.id), "patient_id": str(e.patient_id), "patient_name": patient_name,
         "doctor_id": str(e.doctor_id), "doctor": doctor_name, "diagnosis": e.diagnosis,
         "icd_code": e.icd_code, "prescription": prescription, "notes": e.notes, "complaints": e.complaints,
