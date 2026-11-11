@@ -32,6 +32,7 @@ from app.models import (
 )
 from app.models.appointment import clinic_datetime
 from app.schemas.enums import AppointmentStatus, GenderEnum, StaffRole, StatusEnum, TransactionType
+from app.services.icd10 import seed_starter
 
 log = logging.getLogger("seed")
 
@@ -61,6 +62,7 @@ def seed_essentials(db: Session) -> Branch:
     for code, (name, codes) in ROLES.items():
         if code not in existing_roles:  # mavjud rolning ruxsatlariga tegilmaydi (admin sozlagan bo'lishi mumkin)
             db.add(Role(code=code, name=name, is_system=True, permissions=[perms[c] for c in codes]))
+    seed_starter(db)
     existing_types = set(db.scalars(select(AppointmentType.name)).all())
     for name, minutes in APPOINTMENT_TYPES.items():
         if name not in existing_types:

@@ -34,3 +34,9 @@ class EMRRecord(BaseModel):
     notes: Optional[str] = None
     visit_date: str
     created_at: str
+
+
+class Icd10Out(BaseModel):
+    code: str
+    name_uz: str
+    name_en: Optional[str] = None

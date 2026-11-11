@@ -9,7 +9,7 @@ from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Encounter, Prescription
 from app.schemas import EMRCreate, EMRRecord
-from app.services import audit, queries
+from app.services import audit, icd10, queries
 from app.services.lookup import get_patient_or_404, resolve_doctor
 
 router = APIRouter()
@@ -32,7 +32,10 @@ def create_emr(data: EMRCreate, request: Request, db: Session = Depends(get_db),
         visit_date = date.fromisoformat(data.visit_date)
     except ValueError:
         raise HTTPException(422, "visit_date noto'g'ri")
-    enc = Encounter(patient_id=patient.id, doctor_id=doctor.id, visit_date=visit_date, icd_code=data.icd_code,
+    icd_code = icd10.normalize_code(data.icd_code) if data.icd_code else None
+    if icd_code and (not icd10.CODE_RE.match(icd_code) or not icd10.code_known(db, icd_code)):
+        raise HTTPException(422, f"MKB-10 kodi topilmadi: {data.icd_code}")
+    enc = Encounter(patient_id=patient.id, doctor_id=doctor.id, visit_date=visit_date, icd_code=icd_code,
                     diagnosis=data.diagnosis, notes=data.notes, branch_id=user.branch_id, created_by=user.id)
     db.add(enc)
     db.flush()

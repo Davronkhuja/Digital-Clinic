@@ -130,7 +130,7 @@
                   </div>
                   <div>
                     <label :class="lbl">ICD Code</label>
-                    <input v-model="form.icd_code" class="input" placeholder="e.g. J06.9" />
+                    <Icd10Input v-model="form.icd_code" @pick="c => { if (!form.diagnosis) form.diagnosis = c.name_uz }" />
                   </div>
                   <div>
                     <label :class="lbl">Doctor *</label>
@@ -286,6 +286,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import Icd10Input from '@/components/Icd10Input.vue'
 import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
   Stethoscope, FlaskConical, Pill, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'

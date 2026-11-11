@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.9] - 2026-11-12
+### Added
+- EMR (1/4): MKB-10 ma'lumotnomasi (`icd10_codes`, migratsiya 0009). `GET /icd10?search=` (kod boshi, o'zbekcha yoki inglizcha nom), `GET /icd10/{code}` (`emr:read`).
+- Import skripti `backend/scripts/import_mkb10.py <fayl.csv>` (ustunlar: `code,name_uz[,name_en]`; idempotent upsert, noto'g'ri qatorlar o'tkazib yuboriladi). Bo'sh ma'lumotnomaga `data/mkb10_starter.csv` (142 ta uch belgili toifa) avtomatik yuklanadi.
+- **Starter to'plam rasmiy MKB-10 emas**: nomlar muallif tomonidan yozilgan, shifokor tekshirishi shart; to'liq rasmiy fayl skript bilan yuklanadi (ochiq masala).
+- `POST /emr`: `icd_code` normallashadi (katta harf), formati va ma'lumotnomada borligi tekshiriladi (I10.9 uchun toifa I10), aks holda 422.
+- Frontend: EMR formasida MKB-10 avtoto'ldirish (`Icd10Input`).
+
 ## [1.6.8] - 2026-11-11
 ### Added
 - Shifokor jadvali (4/5): kutish ro'yxati (`waitlist`, migratsiya 0008): bemor + shifokor + qabul turi + xohlagan sana oralig'i. Bir bemor bir shifokorni bir vaqtda bir marta kutadi (qisman unikal indeks, 409).

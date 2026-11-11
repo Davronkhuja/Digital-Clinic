@@ -1,0 +1,143 @@
+code,name_uz,name_en
+A09,Infeksion kelib chiqishli diareya va gastroenterit,Infectious gastroenteritis and colitis
+A15,Nafas organlari sili (bakteriologik tasdiqlangan),Respiratory tuberculosis confirmed
+A41,Boshqa sepsis,Other sepsis
+B01,Suvchechak,Varicella
+B18,Surunkali virusli gepatit,Chronic viral hepatitis
+B20,OIV kasalligi,HIV disease
+B34,Virusli infeksiya (joyi aniqlanmagan),Viral infection of unspecified site
+B35,Dermatofitiya,Dermatophytosis
+B37,Kandidoz,Candidiasis
+B80,Enterobioz,Enterobiasis
+D50,Temir tanqisligi anemiyasi,Iron deficiency anaemia
+D51,B12-vitamin tanqisligi anemiyasi,Vitamin B12 deficiency anaemia
+D64,Boshqa anemiyalar,Other anaemias
+E03,Gipotireoz (boshqa turlari),Other hypothyroidism
+E04,Zob (toksik bo'lmagan),Other nontoxic goitre
+E05,Tireotoksikoz,Thyrotoxicosis
+E10,1-tur qandli diabet,Type 1 diabetes mellitus
+E11,2-tur qandli diabet,Type 2 diabetes mellitus
+E14,Qandli diabet (aniqlanmagan),Unspecified diabetes mellitus
+E55,D-vitamin tanqisligi,Vitamin D deficiency
+E66,Semizlik,Obesity
+E78,Lipoproteinlar almashinuvi buzilishi (dislipidemiya),Disorders of lipoprotein metabolism
+E86,Suvsizlanish,Volume depletion
+F32,Depressiv epizod,Depressive episode
+F41,Boshqa xavotir buzilishlari,Other anxiety disorders
+F43,Stressga reaksiya va moslashuv buzilishi,Reaction to severe stress and adjustment disorders
+F51,Noorganik uyqu buzilishlari,Nonorganic sleep disorders
+G20,Parkinson kasalligi,Parkinson disease
+G35,Tarqoq skleroz,Multiple sclerosis
+G40,Epilepsiya,Epilepsy
+G43,Migren,Migraine
+G44,Bosh og'rig'ining boshqa sindromlari,Other headache syndromes
+G47,Uyqu buzilishlari,Sleep disorders
+G54,Nerv ildizlari va chigallari shikastlanishi,Nerve root and plexus disorders
+G56,Qo'l mononevropatiyasi (karpal kanal sindromi),Mononeuropathies of upper limb
+G62,Boshqa polinevropatiyalar,Other polyneuropathies
+G93,Bosh miyaning boshqa buzilishlari,Other disorders of brain
+H00,Qovoq arpasi va xalazion,Hordeolum and chalazion
+H10,Konyunktivit,Conjunctivitis
+H25,Qarilik kataraktasi,Senile cataract
+H40,Glaukoma,Glaucoma
+H52,Refraksiya va akkomodatsiya buzilishlari,Disorders of refraction and accommodation
+H60,Tashqi quloq yallig'lanishi (otit),Otitis externa
+H65,Yiringsiz (yallig'lanmagan) o'rta otit,Nonsuppurative otitis media
+H66,O'rta quloqning yiringli yallig'lanishi,Suppurative and unspecified otitis media
+H91,Eshitishning boshqa yo'qolishi,Other hearing loss
+I10,Muhim (birlamchi) gipertenziya,Essential (primary) hypertension
+I11,Yurak shikastlanishi bilan gipertoniya kasalligi,Hypertensive heart disease
+I20,Stenokardiya,Angina pectoris
+I21,O'tkir miokard infarkti,Acute myocardial infarction
+I25,Surunkali ishemik yurak kasalligi,Chronic ischaemic heart disease
+I34,Mitral klapan buzilishlari,Nonrheumatic mitral valve disorders
+I48,Bo'lmachalar fibrillyatsiyasi va chayqalishi,Atrial fibrillation and flutter
+I50,Yurak yetishmovchiligi,Heart failure
+I63,Miya infarkti,Cerebral infarction
+I67,Boshqa serebrovaskulyar kasalliklar,Other cerebrovascular diseases
+I83,Oyoq venalarining varikoz kengayishi,Varicose veins of lower extremities
+I84,Gemorroy,Haemorrhoids
+J00,O'tkir nazofaringit (shamollash),Acute nasopharyngitis (common cold)
+J01,O'tkir sinusit,Acute sinusitis
+J02,O'tkir faringit,Acute pharyngitis
+J03,O'tkir tonzillit,Acute tonsillitis
+J04,O'tkir laringit va traxeit,Acute laryngitis and tracheitis
+J06,O'tkir yuqori nafas yo'llari infeksiyasi,Acute upper respiratory infections
+J11,Gripp (virus aniqlanmagan),Influenza virus not identified
+J18,Pnevmoniya (qo'zg'atuvchi aniqlanmagan),Pneumonia organism unspecified
+J20,O'tkir bronxit,Acute bronchitis
+J30,Vazomotor va allergik rinit,Vasomotor and allergic rhinitis
+J31,Surunkali rinit va nazofaringit,Chronic rhinitis and nasopharyngitis
+J32,Surunkali sinusit,Chronic sinusitis
+J35,Bodomsimon bezlar va adenoidlarning surunkali kasalliklari,Chronic diseases of tonsils and adenoids
+J40,Bronxit (o'tkir yoki surunkali emas deb ko'rsatilmagan),Bronchitis not specified as acute or chronic
+J44,Surunkali obstruktiv o'pka kasalligi,Other chronic obstructive pulmonary disease
+J45,Bronxial astma,Asthma
+K02,Tish kariesi,Dental caries
+K04,Pulpa va periapikal to'qima kasalliklari,Diseases of pulp and periapical tissues
+K05,Gingivit va parodont kasalliklari,Gingivitis and periodontal diseases
+K21,Gastroezofageal reflyuks kasalligi,Gastro-oesophageal reflux disease
+K25,Oshqozon yarasi,Gastric ulcer
+K26,O'n ikki barmoq ichak yarasi,Duodenal ulcer
+K29,Gastrit va duodenit,Gastritis and duodenitis
+K30,Dispepsiya,Dyspepsia
+K35,O'tkir appenditsit,Acute appendicitis
+K40,Chov churrasi,Inguinal hernia
+K52,Boshqa noinfeksion gastroenterit va kolit,Other noninfective gastroenteritis and colitis
+K58,Ta'sirlangan ichak sindromi,Irritable bowel syndrome
+K59,Ichakning boshqa funksional buzilishlari (qabziyat),Other functional intestinal disorders
+K76,Jigarning boshqa kasalliklari (yog'li gepatoz),Other diseases of liver
+K80,O't-tosh kasalligi,Cholelithiasis
+K81,Xolesistit,Cholecystitis
+K86,Oshqozon osti bezining boshqa kasalliklari (pankreatit),Other diseases of pancreas
+L20,Atopik dermatit,Atopic dermatitis
+L23,Allergik kontakt dermatit,Allergic contact dermatitis
+L30,Boshqa dermatit,Other dermatitis
+L40,Psoriaz,Psoriasis
+L50,Qichima (urtikariya),Urticaria
+L70,Husnbuzar (akne),Acne
+M15,Poliartroz,Polyosteoarthritis
+M17,Tizza bo'g'imi artrozi (gonartroz),Gonarthrosis
+M19,Boshqa artrozlar,Other arthrosis
+M25,Bo'g'imning boshqa kasalliklari,Other joint disorders
+M40,Kifoz va lordoz,Kyphosis and lordosis
+M41,Skolioz,Scoliosis
+M47,Spondiloz,Spondylosis
+M51,Boshqa umurtqalararo disk buzilishlari,Other intervertebral disc disorders
+M54,Dorsalgiya (bel va umurtqa og'rig'i),Dorsalgia
+M75,Yelka shikastlanishlari,Shoulder lesions
+M79,Yumshoq to'qimalarning boshqa kasalliklari,Other soft tissue disorders
+M81,Osteoporoz,Osteoporosis without pathological fracture
+N10,O'tkir tubulointerstitsial nefrit (pielonefrit),Acute tubulo-interstitial nephritis
+N18,Surunkali buyrak kasalligi,Chronic kidney disease
+N20,Buyrak va siydik yo'li toshlari,Calculus of kidney and ureter
+N30,Sistit,Cystitis
+N39,Siydik tizimining boshqa kasalliklari,Other disorders of urinary system
+N40,Prostata giperplaziyasi,Hyperplasia of prostate
+N41,Prostataning yallig'lanish kasalliklari (prostatit),Inflammatory diseases of prostate
+N76,Qinning va vulvaning boshqa yallig'lanishi,Other inflammation of vagina and vulva
+N83,Tuxumdon va bachadon naychalarining yallig'lanmagan kasalliklari,Noninflammatory disorders of ovary and fallopian tube
+N92,Ko'p, tez-tez va tartibsiz hayz,Excessive frequent and irregular menstruation
+N94,Ayol jinsiy a'zolari va hayz davriga oid og'riq,Pain associated with female genital organs and menstrual cycle
+O20,Erta homiladorlikda qon ketish,Haemorrhage in early pregnancy
+O80,Tug'ruq (bitta, spontan),Single spontaneous delivery
+R04,Nafas yo'llaridan qon ketish,Haemorrhage from respiratory passages
+R05,Yo'tal,Cough
+R07,Tomoq va ko'krak qafasidagi og'riq,Pain in throat and chest
+R10,Qorin va chanoq og'rig'i,Abdominal and pelvic pain
+R11,Ko'ngil aynishi va qusish,Nausea and vomiting
+R42,Bosh aylanishi,Dizziness and giddiness
+R50,Noma'lum kelib chiqishli isitma,Fever of other and unknown origin
+R51,Bosh og'rig'i,Headache
+R53,Holsizlik va charchoq,Malaise and fatigue
+R55,Hushdan ketish,Syncope and collapse
+S06,Bosh suyagi ichi jarohati (miya chayqalishi),Intracranial injury
+S52,Bilak suyaklari sinishi,Fracture of forearm
+S82,Boldir suyaklari sinishi,Fracture of lower leg
+S93,To'piq va oyoq panjasi bo'g'imlari cho'zilishi,Dislocation sprain and strain of ankle and foot
+T78,Salbiy ta'sirlarning boshqa turlari (allergiya),Adverse effects not elsewhere classified
+Z00,Umumiy ko'rik (shikoyatsiz),General examination and investigation of persons without complaint
+Z01,Boshqa maxsus ko'riklar,Other special examinations
+Z23,Immunizatsiya,Need for immunization against single bacterial diseases
+Z34,Normal homiladorlik nazorati,Supervision of normal pregnancy
+Z76,Tibbiy yordamga murojaat qilgan boshqa holatlar,Persons encountering health services in other circumstances
