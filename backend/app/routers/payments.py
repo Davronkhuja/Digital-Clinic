@@ -1,22 +1,25 @@
 import uuid
+from datetime import UTC, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Invoice, Payment, PaymentRefund, Staff, User
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus
 from app.schemas.payments import PaymentCreate, PaymentOut, RefundCreate
-from app.services import audit, fiscal, payments
+from app.services import audit, fiscal, payme, payments
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ
 
 router = APIRouter()
 TAG = "💳 Payments"
 CASHIER_METHODS = (PaymentMethod.cash, PaymentMethod.card)
+ONLINE_METHODS = (PaymentMethod.payme,)  # Click v1.7.4 da
 
 
 def _refund_out(r: PaymentRefund) -> dict:
@@ -24,7 +27,8 @@ def _refund_out(r: PaymentRefund) -> dict:
             "receipt_status": r.receipt_status, "receipt_id": r.receipt_id, "created_at": r.created_at.astimezone(CLINIC_TZ).isoformat()}
 
 
-def payment_out(db: Session, p: Payment, checkout_url: str | None = None) -> dict:
+def payment_out(db: Session, p: Payment) -> dict:
+    checkout_url = payme.checkout_url(p) if p.method == PaymentMethod.payme and p.status == PaymentStatus.pending else None
     inv = db.get(Invoice, p.invoice_id)
     refunds = list(db.scalars(select(PaymentRefund).where(PaymentRefund.payment_id == p.id).order_by(PaymentRefund.created_at)))
     who = db.scalar(select(Staff.full_name).join(User, User.staff_id == Staff.id).where(User.id == p.created_by)) if p.created_by else None
@@ -49,8 +53,8 @@ def _invoice(db: Session, invoice_id: uuid.UUID) -> Invoice:
 def create_payment(invoice_id: uuid.UUID, data: PaymentCreate, request: Request, db: Session = Depends(get_db),
                    user: CurrentUser = Depends(require("finance:write"))):
     inv = _invoice(db, invoice_id)
-    if data.method not in CASHIER_METHODS:
-        raise HTTPException(422, "Kassada faqat naqd yoki karta; Click/Payme to'lovi onlayn oqim orqali")
+    if data.method not in CASHIER_METHODS + ONLINE_METHODS:
+        raise HTTPException(422, "To'lov usuli hozircha qo'llab-quvvatlanmaydi")
     if inv.status not in (InvoiceStatus.issued, InvoiceStatus.partially_paid):
         raise HTTPException(409, "To'lov faqat chiqarilgan (Issued) yoki qisman to'langan hisob-fakturaga qabul qilinadi")
     balance = payments.available_balance(db, inv)
@@ -59,10 +63,17 @@ def create_payment(invoice_id: uuid.UUID, data: PaymentCreate, request: Request,
         raise HTTPException(409, "To'lanadigan qoldiq yo'q")
     if amount > balance:
         raise HTTPException(422, f"Summa qoldiqdan katta (qoldiq: {balance})")
+    if data.method in ONLINE_METHODS and not settings.payme_merchant_id:
+        raise HTTPException(503, "Payme sozlanmagan (PAYME_MERCHANT_ID .env da)")
     p = Payment(invoice_id=inv.id, method=data.method, status=PaymentStatus.pending, amount=amount, reference=data.reference,
                 branch_id=user.branch_id, created_by=user.id)
     db.add(p)
     db.flush()
+    if data.method in ONLINE_METHODS:  # onlayn: pul provayder chaqiruvi bilan keladi; summa qoldiqdan band qilinadi
+        audit.record(db, user, request, "create", "payment", p.id, {"invoice": inv.number, "method": p.method.value,
+                                                                     "amount": str(amount), "status": "Pending"})
+        db.commit()
+        return payment_out(db, p)
     try:
         payments.mark_paid(db, p, inv, user.id, strict_receipt=True)
     except fiscal.FiscalError:
@@ -99,6 +110,21 @@ def retry_receipt(payment_id: uuid.UUID, request: Request, db: Session = Depends
         db.rollback()
         raise HTTPException(502, "Fiskal chek berilmadi, keyinroq qayta urinib ko'ring")
     audit.record(db, user, request, "update", "payment", p.id, {"receipt_id": p.receipt_id})
+    db.commit()
+    return payment_out(db, p)
+
+
+@router.post("/payments/{payment_id}/cancel", tags=[TAG], response_model=PaymentOut, summary="Kutilayotgan onlayn to'lovni bekor qilish",
+             description="Faqat `Pending` va provayder tranzaksiyasi boshlanmagan to'lov (summa qoldiqqa qaytadi).")
+def cancel_pending_payment(payment_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                           user: CurrentUser = Depends(require("finance:write"))):
+    p = db.get(Payment, payment_id)
+    if not p:
+        raise HTTPException(404, "To'lov topilmadi")
+    if p.status != PaymentStatus.pending or p.provider_state is not None:
+        raise HTTPException(409, "Faqat provayder tranzaksiyasi boshlanmagan kutilayotgan to'lovni bekor qilish mumkin")
+    p.status, p.cancelled_at = PaymentStatus.cancelled, datetime.now(UTC)
+    audit.record(db, user, request, "update", "payment", p.id, {"status": "Cancelled"})
     db.commit()
     return payment_out(db, p)
 

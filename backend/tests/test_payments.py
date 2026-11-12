@@ -82,8 +82,8 @@ def test_payment_guards(client, auth):
     draft = client.post("/invoices", headers=cashier, json={"patient_id": pid, "lines": [{"service_id": svc["id"]}]}).json()
     assert client.post(f"/invoices/{draft['id']}/payments", headers=cashier, json={"method": "Cash"}).status_code == 409   # Draft
     inv = _issued_invoice(client, auth)
-    for method in ("Click", "Payme"):
-        assert client.post(f"/invoices/{inv['id']}/payments", headers=cashier, json={"method": method}).status_code == 422
+    assert client.post(f"/invoices/{inv['id']}/payments", headers=cashier, json={"method": "Click"}).status_code == 422   # v1.7.4
+    assert client.post(f"/invoices/{inv['id']}/payments", headers=cashier, json={"method": "Payme"}).status_code == 503   # sozlanmagan
     assert client.post(f"/invoices/{inv['id']}/payments", headers=cashier, json={"method": "Cash", "amount": 0}).status_code == 422
     assert client.post(f"/invoices/{inv['id']}/payments", headers=auth("doctor"), json={"method": "Cash"}).status_code == 403
     assert client.get(f"/invoices/{inv['id']}/payments", headers=auth("nurse")).status_code == 403

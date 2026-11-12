@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.3] - 2026-11-12
+### Added
+- Moliya (4/6): Payme Merchant API (JSON-RPC 2.0, `POST /payments/payme`, Payme chaqiradi). Metodlar: `CheckPerformTransaction` (javobda chek `detail`: qatorlar tiyinda, MXIK `code`, `package_code`, `units`, `vat_percent`, yig'indisi to'lov summasiga teng), `CreateTransaction`, `PerformTransaction`, `CancelTransaction`, `CheckTransaction`, `GetStatement`. Holatlar 1/2/-1/-2, vaqt ms, summa tiyin, 12 soatlik timeout (muddati o'tsa bekor, sabab 4), xato kodlari -32504, -32700..-32400, -31001, -31003, -31007, -31008, -31050, -31051, -31099 (uch tilli xabar).
+- Autentifikatsiya `Basic base64("Paycom:KEY")`, doimiy vaqtda solishtirish; test rejimida `PAYME_TEST_KEY`, productionda `PAYME_KEY`; kalit bo'sh bo'lsa hamma so'rov rad etiladi. Hamma kalit va `PAYME_MERCHANT_ID` faqat `.env` (`.env.example` bo'sh).
+- Idempotentlik: bir xil `id` bilan `CreateTransaction`/`PerformTransaction`/`CancelTransaction` qayta kelsa o'sha natija; buyurtmada boshqa faol tranzaksiya bo'lsa -31099. Qator qulfi (`FOR UPDATE`) poygadan himoya qiladi.
+- Oqim: kassir `POST /invoices/{id}/payments {method: Payme}` -> `Pending` to'lov (summa qoldiqdan band) va `checkout_url` (`m=...;ac.order_id=<payment id>;a=<tiyin>`); Payme `PerformTransaction` -> `Paid`, daromad yozuvi va fiskal chek (chek berilmasa ham Payme'ga xato qaytarilmaydi: `receipt_status=Failed`, `POST /payments/{id}/receipt` bilan qayta). Bajarilishdan oldin bekor -> `Cancelled`; bajarilgandan keyin bekor (-2) -> to'liq qaytarish (chek, xarajat) avtomatik. `POST /payments/{id}/cancel` kassir uchun (tranzaksiya boshlanmagan `Pending`).
+- Tiyin o'tkazish faqat `services/money.py` orqali.
+- **Taxmin va cheklov**: haqiqiy merchant/kalit yo'q: mock/test bilan qurilgan, ishga tushirishdan oldin Payme sandbox'da sinash shart; `PAYME_UNITS_CODE=796` (dona) taxmin; qisman qaytarilgan to'lovni Payme bekor qila olmaydi (-31007).
+
 ## [1.7.2] - 2026-11-12
 ### Added
 - Moliya (3/6): to'lovlar va qaytarishlar (`payments`, `payment_refunds`, migratsiya 0019). `POST /invoices/{id}/payments` (naqd/karta, `finance:write`): hisob-faktura `Issued`/`PartiallyPaid` bo'lishi, summa qoldiqdan oshmasligi (qisman to'lov mumkin); hisob-faktura holati to'lovlardan `PartiallyPaid`/`Paid` ga hisoblanadi, `paid_amount`/`refunded_amount`/`balance` javobda.

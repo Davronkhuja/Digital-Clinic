@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     # Fiskal chek (virtual kassa): hozircha faqat mock. Real adapter uchun operator hujjatlari va kalitlar kerak
     fiscal_backend: str = "mock"
 
+    # Payme Merchant API (kalitlar faqat .env da). Bo'sh kalit: Payme endpoint hamma so'rovni rad etadi.
+    # payme_test_mode=true: sandbox (PAYME_TEST_KEY, test checkout); productionda false va PAYME_KEY
+    payme_merchant_id: str = ""
+    payme_key: str = ""
+    payme_test_key: str = ""
+    payme_test_mode: bool = True
+    payme_units_code: int = 796  # chek qatorida o'lchov birligi kodi (taxmin: 796 = dona); Payme hujjatidagi klassifikatordan tasdiqlang
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"
