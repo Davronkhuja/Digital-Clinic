@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     payme_test_mode: bool = True
     payme_units_code: int = 796  # chek qatorida o'lchov birligi kodi (taxmin: 796 = dona); Payme hujjatidagi klassifikatordan tasdiqlang
 
+    # Click SHOP API (kalitlar faqat .env da). Bo'sh maxfiy kalit: Click endpoint hamma so'rovni rad etadi (sign check failed).
+    # click_test_mode=true: sandbox (CLICK_TEST_SECRET_KEY); productionda false va CLICK_SECRET_KEY
+    click_service_id: str = ""
+    click_merchant_id: str = ""
+    click_secret_key: str = ""
+    click_test_secret_key: str = ""
+    click_test_mode: bool = True
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"

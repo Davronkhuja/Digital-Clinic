@@ -12,14 +12,14 @@ from app.db.session import get_db
 from app.models import Invoice, Payment, PaymentRefund, Staff, User
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus
 from app.schemas.payments import PaymentCreate, PaymentOut, RefundCreate
-from app.services import audit, fiscal, payme, payments
+from app.services import audit, click, fiscal, payme, payments
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ
 
 router = APIRouter()
 TAG = "💳 Payments"
 CASHIER_METHODS = (PaymentMethod.cash, PaymentMethod.card)
-ONLINE_METHODS = (PaymentMethod.payme,)  # Click v1.7.4 da
+ONLINE_METHODS = (PaymentMethod.payme, PaymentMethod.click)
 
 
 def _refund_out(r: PaymentRefund) -> dict:
@@ -28,7 +28,9 @@ def _refund_out(r: PaymentRefund) -> dict:
 
 
 def payment_out(db: Session, p: Payment) -> dict:
-    checkout_url = payme.checkout_url(p) if p.method == PaymentMethod.payme and p.status == PaymentStatus.pending else None
+    checkout_url = None
+    if p.status == PaymentStatus.pending:
+        checkout_url = {PaymentMethod.payme: payme.checkout_url, PaymentMethod.click: click.checkout_url}.get(p.method, lambda _: None)(p)
     inv = db.get(Invoice, p.invoice_id)
     refunds = list(db.scalars(select(PaymentRefund).where(PaymentRefund.payment_id == p.id).order_by(PaymentRefund.created_at)))
     who = db.scalar(select(Staff.full_name).join(User, User.staff_id == Staff.id).where(User.id == p.created_by)) if p.created_by else None
@@ -63,8 +65,10 @@ def create_payment(invoice_id: uuid.UUID, data: PaymentCreate, request: Request,
         raise HTTPException(409, "To'lanadigan qoldiq yo'q")
     if amount > balance:
         raise HTTPException(422, f"Summa qoldiqdan katta (qoldiq: {balance})")
-    if data.method in ONLINE_METHODS and not settings.payme_merchant_id:
+    if data.method == PaymentMethod.payme and not settings.payme_merchant_id:
         raise HTTPException(503, "Payme sozlanmagan (PAYME_MERCHANT_ID .env da)")
+    if data.method == PaymentMethod.click and not (settings.click_service_id and settings.click_merchant_id):
+        raise HTTPException(503, "Click sozlanmagan (CLICK_SERVICE_ID va CLICK_MERCHANT_ID .env da)")
     p = Payment(invoice_id=inv.id, method=data.method, status=PaymentStatus.pending, amount=amount, reference=data.reference,
                 branch_id=user.branch_id, created_by=user.id)
     db.add(p)
@@ -139,7 +143,7 @@ def refund_payment(payment_id: uuid.UUID, data: RefundCreate, request: Request, 
     if not p:
         raise HTTPException(404, "To'lov topilmadi")
     if p.method not in CASHIER_METHODS:
-        raise HTTPException(409, "Click/Payme to'lovi provayder orqali qaytariladi (provayder bekor qilishi bilan avtomatik yoziladi)")
+        raise HTTPException(409, "Click/Payme to'lovi provayder orqali qaytariladi (Payme bekor qilishi avtomatik yoziladi)")
     inv = db.get(Invoice, p.invoice_id)
     amount = q2(data.amount) if data.amount is not None else payments.refundable(db, p)
     try:

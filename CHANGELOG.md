@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.4] - 2026-11-12
+### Added
+- Moliya (5/6): Click SHOP API (Prepare/Complete, `POST /payments/click`, Click chaqiradi; form-urlencoded yoki JSON). `action=0` Prepare, `action=1` Complete; imzo `md5(click_trans_id + service_id + SECRET_KEY + merchant_trans_id [+ merchant_prepare_id] + amount + action + sign_time)` doimiy vaqtda tekshiriladi (birinchi navbatda); maxfiy kalit bo'sh bo'lsa imzo hech qachon to'g'ri emas. Xato kodlari 0, -1..-9 (`error_note` bilan). Test rejimi: `CLICK_TEST_MODE=true` -> `CLICK_TEST_SECRET_KEY`, productionda `CLICK_SECRET_KEY`. Kalitlar faqat `.env`.
+- Idempotentlik: bir xil Prepare qayta kelsa o'sha `merchant_prepare_id`; qayta Complete va to'langanga Prepare -> -4 (Click kutganidek); boshqa `click_trans_id` bilan band buyurtma yoki boshqa buyurtmada ishlatilgan `click_trans_id` -> -8; Click `error<0` yuborsa to'lov `Cancelled` (-9) va summa qoldiqqa qaytadi. Summa so'm (kasrli) tiyinga `money.to_tiyin` orqali solishtiriladi (tiyindan kichik kasr -2).
+- Oqim: `POST /invoices/{id}/payments {method: Click}` -> `Pending` (summa band) + `checkout_url` (`my.click.uz/services/pay?service_id&merchant_id&amount&transaction_param=<payment id>`); Complete -> `Paid`, daromad yozuvi, fiskal chek (chek xatosi Click'ga qaytmaydi: `receipt_status=Failed`, qayta berish mumkin). Sozlanmagan bo'lsa 503.
+- Payme va Click tiyin/so'm o'tkazishni faqat `services/money.py` dan oladi (testda tekshiriladi).
+- **Cheklov**: Click to'lovini qaytarish (reverse) Click merchant API va haqiqiy kalitni talab qiladi: yozilmadi, kassir/admin Click to'lovini tizimda qo'lda qaytara olmaydi (409); kalit berilgach qo'shiladi. Mock/test bilan qurilgan; ishga tushirishdan oldin Click sandbox'da sinash shart.
+
 ## [1.7.3] - 2026-11-12
 ### Added
 - Moliya (4/6): Payme Merchant API (JSON-RPC 2.0, `POST /payments/payme`, Payme chaqiradi). Metodlar: `CheckPerformTransaction` (javobda chek `detail`: qatorlar tiyinda, MXIK `code`, `package_code`, `units`, `vat_percent`, yig'indisi to'lov summasiga teng), `CreateTransaction`, `PerformTransaction`, `CancelTransaction`, `CheckTransaction`, `GetStatement`. Holatlar 1/2/-1/-2, vaqt ms, summa tiyin, 12 soatlik timeout (muddati o'tsa bekor, sabab 4), xato kodlari -32504, -32700..-32400, -31001, -31003, -31007, -31008, -31050, -31051, -31099 (uch tilli xabar).
