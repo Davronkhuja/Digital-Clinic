@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -14,7 +14,7 @@ from app.schemas import Appointment as AppointmentOut
 from app.schemas.appointments import WaitlistBook, WaitlistCreate, WaitlistOut, WaitlistSuggestion, WaitlistUpdate
 from app.schemas.enums import WaitlistStatus
 from app.services import availability, queries
-from app.services.booking import booking_conflicts, build_appointment, resolve_room
+from app.services.booking import build_appointment, resolve_room, save_booking
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ, clinic_today
 from app.services.scheduling import resolve_duration
@@ -140,16 +140,17 @@ def waitlist_suggestions(entry_id: uuid.UUID, limit: int = Query(10, ge=1, le=50
              summary="Kutuvchini qabulga yozish",
              description="Oddiy qabul qoidalari (ish vaqti, band vaqt) amal qiladi; muvaffaqiyatda yozuv `Booked` bo'ladi, "
                          "bitta tranzaksiyada.")
-def book_from_waitlist(entry_id: uuid.UUID, data: WaitlistBook, db: Session = Depends(get_db),
+def book_from_waitlist(entry_id: uuid.UUID, data: WaitlistBook, request: Request, db: Session = Depends(get_db),
                        user: CurrentUser = Depends(require("appointments:write"))):
     entry, patient, doctor = _load(db, entry_id)
     if entry.status != WaitlistStatus.waiting:
         raise HTTPException(409, "Faqat kutilayotgan yozuvni band qilish mumkin")
-    appt = build_appointment(db, user, patient, doctor, data.date, data.time, entry.type, data.duration_min,
-                             data.room_id, entry.notes)
-    with booking_conflicts(db):
-        db.flush()
+    appt, violation = build_appointment(db, user, patient, doctor, data.date, data.time, entry.type, data.duration_min,
+                                        data.room_id, entry.notes, data.override_reason)
+
+    def mark_booked() -> None:
         entry.appointment_id = appt.id
         entry.status = WaitlistStatus.booked
-        db.commit()
+
+    save_booking(db, user, request, appt, violation, mark_booked)
     return queries.list_appointments(db, appt_id=appt.id)[0]

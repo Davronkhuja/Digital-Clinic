@@ -31,7 +31,8 @@ def appointment_out(a: Appointment, patient_name: str, doctor_name: str, room_na
         "doctor_id": str(a.doctor_id), "doctor": doctor_name, "date": a.date.isoformat(),
         "time": a.time.strftime("%H:%M"), "end_time": a.ends_at.astimezone(CLINIC_TZ).strftime("%H:%M"),
         "duration_min": a.duration_min, "starts_at": a.starts_at.isoformat(),
-        "room_id": str(a.room_id) if a.room_id else None, "room": room_name, "type": a.type, "notes": a.notes, "status": a.status,
+        "room_id": str(a.room_id) if a.room_id else None, "room": room_name,
+        "override_reason": a.override_reason, "type": a.type, "notes": a.notes, "status": a.status,
         "created_at": _d(a.created_at),
     }
 

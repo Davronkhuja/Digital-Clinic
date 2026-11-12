@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -18,8 +18,8 @@ from app.schemas import (
     AppointmentTypeUpdate,
     AppointmentUpdate,
 )
-from app.services import availability, queries
-from app.services.booking import build_appointment, commit_booking, resolve_room
+from app.services import queries
+from app.services.booking import apply_working_rule, build_appointment, commit_booking, resolve_room, save_booking
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ
 from app.services.scheduling import appointment_window, resolve_duration
@@ -45,13 +45,13 @@ def get_appointments(
 
 @router.post("/appointments", tags=["📅 Appointments"], response_model=AppointmentOut, status_code=201,
              summary="Uchrashuv rejalashtirish")
-def create_appointment(data: AppointmentCreate, db: Session = Depends(get_db),
+def create_appointment(data: AppointmentCreate, request: Request, db: Session = Depends(get_db),
                        user: CurrentUser = Depends(require("appointments:write"))):
     patient = get_patient_or_404(db, data.patient_id)
     doctor = resolve_doctor(db, data.doctor_id, data.doctor)
-    appt = build_appointment(db, user, patient, doctor, data.date, data.time, data.type, data.duration_min,
-                             data.room_id, data.notes)
-    commit_booking(db)
+    appt, violation = build_appointment(db, user, patient, doctor, data.date, data.time, data.type, data.duration_min,
+                                        data.room_id, data.notes, data.override_reason)
+    save_booking(db, user, request, appt, violation)
     return queries.list_appointments(db, appt_id=appt.id)[0]
 
 
@@ -70,7 +70,7 @@ def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db:
 @router.patch("/appointments/{appt_id}", tags=["📅 Appointments"], response_model=AppointmentOut,
               summary="Uchrashuvni ko'chirish yoki o'zgartirish",
               description="Faqat `Scheduled` uchrashuv. Vaqt, shifokor yoki kabinet band bo'lsa 409.")
-def update_appointment(appt_id: uuid.UUID, data: AppointmentUpdate, db: Session = Depends(get_db),
+def update_appointment(appt_id: uuid.UUID, data: AppointmentUpdate, request: Request, db: Session = Depends(get_db),
                        user: CurrentUser = Depends(require("appointments:write"))):
     appt = db.get(Appointment, appt_id)
     if not appt:
@@ -100,9 +100,10 @@ def update_appointment(appt_id: uuid.UUID, data: AppointmentUpdate, db: Session 
                 fields.get("date") or local.date().isoformat(), fields.get("time") or local.strftime("%H:%M"), duration)
         except ValueError:
             raise HTTPException(422, "Sana yoki vaqt noto'g'ri")
+    violation = None
     if {"date", "time", "duration_min", "type", "doctor_id", "doctor"} & fields.keys():
-        availability.ensure_working(db, doctor, appt.starts_at, appt.ends_at)
-    commit_booking(db)
+        violation = apply_working_rule(db, user, doctor, appt, fields.get("override_reason"))
+    save_booking(db, user, request, appt, violation)
     return queries.list_appointments(db, appt_id=appt_id)[0]
 
 

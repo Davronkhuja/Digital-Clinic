@@ -72,7 +72,8 @@ def list_users(db: Session = Depends(get_db), user: CurrentUser = Depends(requir
 
 
 STAFF_ROLE_FOR = {"admin": StaffRole.admin, "doctor": StaffRole.doctor, "nurse": StaffRole.nurse,
-                  "receptionist": StaffRole.receptionist, "cashier": StaffRole.cashier}
+                  "receptionist": StaffRole.receptionist, "senior_receptionist": StaffRole.receptionist,
+                  "cashier": StaffRole.cashier}
 
 
 @router.post("/users", tags=["🛡️ Access"], response_model=UserOut, status_code=201,

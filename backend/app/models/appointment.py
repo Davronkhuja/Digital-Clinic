@@ -73,6 +73,9 @@ class Appointment(BranchScoped, BaseModel):
         enum_col(AppointmentStatus, "status", 12), default=AppointmentStatus.scheduled
     )
     notes: Mapped[str | None] = mapped_column(Text)
+    # Ish vaqtidan tashqari majburan yozilgan (appointments:override): sabab va kim; band vaqtga baribir yozib bo'lmaydi
+    override_reason: Mapped[str | None] = mapped_column(Text)
+    override_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
     @hybrid_property
     def date(self) -> date:  # klinika vaqti bo'yicha sana

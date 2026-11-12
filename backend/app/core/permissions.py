@@ -11,6 +11,7 @@ PERMISSIONS: dict[str, str] = {
     "patients:merge": "Bemor dublikatlarini birlashtirish",
     "appointments:read": "Uchrashuvlarni ko'rish",
     "appointments:write": "Uchrashuv yozish va o'zgartirish",
+    "appointments:override": "Ish vaqtidan tashqari majburan yozish (sabab bilan; band vaqtga emas)",
     "emr:read": "Tibbiy yozuvlarni (EMR) ko'rish",
     "emr:write": "Tibbiy yozuv va retsept yozish",
     "lab:read": "Laboratoriya buyurtma va natijalarini ko'rish",
@@ -46,5 +47,9 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     "cashier": ("Kassir", [
         "patients:read", "appointments:read", "finance:read", "finance:write",
         "staff:read", "settings:read", "analytics:read", "reports:read",
+    ]),
+    "senior_receptionist": ("Katta registrator", [
+        "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
+        "appointments:override", "staff:read", "settings:read",
     ]),
 }

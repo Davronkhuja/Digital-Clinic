@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.18] - 2026-11-12
+### Added
+- Majburan yozish: `appointments:override` ruxsati (admin va yangi "Katta registrator" roli `senior_receptionist`; migratsiya 0016 mavjud bazaga ruxsat va rolni qo'shadi, bo'sh bazada seed). Ish vaqtidan tashqari (soat, tanaffus, dam olish kuni, ta'til, qo'shimcha slot) yozishda `override_reason` majburiy (kamida 5 belgi): sabab yo'q 422, sabab bor lekin ruxsat yo'q 403.
+- Shifokor va kabinet to'qnashuvi override bilan ham taqiqlangan (409, bazadagi cheklov).
+- Har override auditga alohida `override` hodisasi bilan (sabab, buzilish matni, shifokor, bemor, vaqt, kim); qabulda `override_reason`/`override_by` saqlanadi. Ish vaqtiga qaytarilsa iz tozalanadi.
+- Yozish (`POST /appointments`), ko'chirish (`PATCH`) va kutish ro'yxatidan yozish (`POST /waitlist/{id}/book`) bir xil qoida bilan (`services/booking.py`: `apply_working_rule`, `save_booking`).
+- Frontend: ruxsati borlarga qabul formasida "Majburan yozish sababi", ro'yxatda "majburan" belgisi.
+
 ## [1.6.17] - 2026-11-12
 ### Added
 - Ma'lumotnomalarda `verified` (bool) va `source`: MKB-10, INN, lab tahlil va lab me'yor (migratsiya 0015). Starter yozuvlar `verified=false`, `source="starter (namuna)"` (mavjud bazadagilar ham). API javoblarida (`/icd10`, `/inn`, `/lab/tests`) ko'rinadi.

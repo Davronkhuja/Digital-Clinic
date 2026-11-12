@@ -45,12 +45,21 @@ def day_windows(db: Session, staff_id: uuid.UUID, day: date) -> list[Window]:
     return [(_at(day, time.min), _at(day, time.min) + timedelta(days=1))]
 
 
-def ensure_working(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime) -> None:
-    """Qabul to'liq bitta ish oynasi ichida bo'lishi shart, aks holda 422."""
+VIOLATION = "Shifokor bu vaqtda ishlamaydi (ish soatlari, tanaffus, ta'til yoki dam olish kuni)"
+
+
+def working_violation(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime) -> str | None:
+    """Qabul to'liq bitta ish oynasi ichida bo'lishi kerak; aks holda buzilish matni (yoki None)."""
     start, end = starts_at.astimezone(CLINIC_TZ), ends_at.astimezone(CLINIC_TZ)
     if any(w_start <= start and end <= w_end for w_start, w_end in day_windows(db, doctor.id, start.date())):
-        return
-    raise HTTPException(422, "Shifokor bu vaqtda ishlamaydi (ish soatlari, tanaffus, ta'til yoki dam olish kuni)")
+        return None
+    return VIOLATION
+
+
+def ensure_working(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime) -> None:
+    violation = working_violation(db, doctor, starts_at, ends_at)
+    if violation:
+        raise HTTPException(422, violation)
 
 
 def free_slots(db: Session, doctor: Staff, day: date, duration_min: int, step_min: int = 15,

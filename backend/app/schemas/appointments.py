@@ -16,6 +16,7 @@ class AppointmentCreate(BaseModel):
     type: str = Field(..., examples=["Konsultatsiya"])
     duration_min: Optional[int] = Field(None, ge=5, le=480, description="Bo'lmasa: xizmat turi, so'ng shifokor standarti")
     room_id: Optional[uuid.UUID] = Field(None, description="Bo'lmasa: shifokorning standart kabineti")
+    override_reason: Optional[str] = Field(None, max_length=500, description="Ish vaqtidan tashqari majburan yozish sababi")
     notes: Optional[str] = Field(None, examples=["Qon bosimi tekshiruvi"])
 
     @model_validator(mode="after")
@@ -39,6 +40,7 @@ class Appointment(BaseModel):
     type: str
     room_id: Optional[str] = None
     room: Optional[str] = None
+    override_reason: Optional[str] = None
     notes: Optional[str] = None
     status: AppointmentStatus
     created_at: str
@@ -74,6 +76,7 @@ class AppointmentUpdate(BaseModel):
     type: Optional[str] = None
     duration_min: Optional[int] = Field(None, ge=5, le=480)
     notes: Optional[str] = None
+    override_reason: Optional[str] = Field(None, max_length=500)
 
 
 class RoomIn(BaseModel):
@@ -123,6 +126,7 @@ class WaitlistBook(BaseModel):
     time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     room_id: Optional[uuid.UUID] = None
     duration_min: Optional[int] = Field(None, ge=5, le=480)
+    override_reason: Optional[str] = Field(None, max_length=500)
 
 
 class WaitlistOut(BaseModel):

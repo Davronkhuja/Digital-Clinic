@@ -57,7 +57,7 @@
               <td class="font-medium text-slate-900">{{ a.patient_name }}</td>
               <td class="text-slate-600">{{ a.doctor }}</td>
               <td class="font-mono text-slate-600">{{ a.date }} <span class="text-cyan-600">{{ a.time }}–{{ a.end_time }}</span> <span class="text-xs text-slate-400">({{ a.duration_min }} daq)</span></td>
-              <td><span class="badge badge-blue">{{ a.type }}</span></td>
+              <td><span class="badge badge-blue">{{ a.type }}</span><span v-if="a.override_reason" class="badge-yellow ml-1 text-[10px]" :title="'Majburan yozilgan: ' + a.override_reason">majburan</span></td>
               <td class="font-mono text-sm text-slate-500">{{ a.room || '—' }}</td>
               <td>
                 <span :class="{
@@ -139,6 +139,10 @@
                 <option v-for="r in roomList" :key="r.id" :value="r.id">{{ r.name }}{{ r.description ? ' — ' + r.description : '' }}</option>
               </select>
             </div>
+            <div v-if="auth.can('appointments:override')">
+              <label class="text-sm font-medium text-slate-700 block mb-1.5">Majburan yozish sababi <span class="text-xs text-slate-400 font-normal">(faqat ish vaqtidan tashqari bo'lsa; band vaqtga yozib bo'lmaydi)</span></label>
+              <input v-model="form.override_reason" class="input" maxlength="500" placeholder="Masalan: shoshilinch holat, shifokor bilan kelishilgan" />
+            </div>
             <div class="flex gap-3 pt-2">
               <button type="button" class="btn-secondary flex-1" @click="showModal = false">Bekor</button>
               <button type="submit" class="btn-primary flex-1">Saqlash</button>
@@ -155,12 +159,14 @@ import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { Plus, X } from 'lucide-vue-next'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import WaitlistPanel from '@/components/WaitlistPanel.vue'
+import { useAuthStore } from '@/stores/auth'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 
 const appointments = ref([])
 const loading = ref(true)
 const loadError = ref(false)
+const auth = useAuthStore()
 const doctorList = ref([])
 const doctorIds = {}
 const filterDate = ref('')
@@ -168,7 +174,7 @@ const filterStatus = ref('')
 const showModal = ref(false)
 const today = new Date().toLocaleDateString('uz-UZ')
 
-const form = reactive({ patient_name: '', doctor: '', date: '', time: '10:00', type: 'Konsultatsiya', room_id: '', notes: '' })
+const form = reactive({ patient_name: '', doctor: '', date: '', time: '10:00', type: 'Konsultatsiya', room_id: '', override_reason: '', notes: '' })
 
 const filtered = computed(() => {
   let list = appointments.value
@@ -259,7 +265,7 @@ async function addAppointment() {
       toast.error(`"${form.patient_name}" nomli bemor topilmadi`)
       return
     }
-    const { data } = await api.post('/appointments', { ...form, room_id: form.room_id || null, patient_id: patient.id, patient_name: patient.name })
+    const { data } = await api.post('/appointments', { ...form, room_id: form.room_id || null, override_reason: form.override_reason || null, patient_id: patient.id, patient_name: patient.name })
     appointments.value.push(data)
     toast.success('Uchrashuv rejalashtirildi')
     showModal.value = false
