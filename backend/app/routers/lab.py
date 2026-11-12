@@ -29,6 +29,7 @@ from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ, clinic_today
 
 router = APIRouter()
+CUSTOM_SOURCE = "klinika (qo'lda kiritilgan)"
 TAG = "🧪 Laboratory"
 
 
@@ -60,8 +61,9 @@ def _test_out(db: Session, t: LabTest) -> dict:
     ranges = db.scalars(select(LabReferenceRange).where(LabReferenceRange.test_id == t.id).order_by(LabReferenceRange.created_at)).all()
     return {
         "id": str(t.id), "code": t.code, "name": t.name, "unit": t.unit, "category": t.category, "is_active": t.is_active,
+        "verified": t.verified, "source": t.source,
         "ranges": [{"id": str(r.id), "sex": r.sex, "age_min": r.age_min, "age_max": r.age_max, "low": _f(r.low),
-                    "high": _f(r.high), "note": r.note} for r in ranges],
+                    "high": _f(r.high), "note": r.note, "verified": r.verified, "source": r.source} for r in ranges],
     }
 
 
@@ -71,7 +73,7 @@ def _replace_ranges(db: Session, test: LabTest, ranges) -> None:
     db.flush()
     for r in ranges:
         db.add(LabReferenceRange(test_id=test.id, sex=r.sex, age_min=r.age_min, age_max=r.age_max, low=r.low, high=r.high,
-                                 note=r.note))
+                                 note=r.note, verified=r.verified, source=r.source or (CUSTOM_SOURCE if r.verified else None)))
 
 
 @router.get("/lab/tests", tags=[TAG], response_model=List[LabTestOut], summary="Tahlil ko'rsatkichlari va me'yorlari")
@@ -85,7 +87,8 @@ def get_lab_tests(include_inactive: bool = False, db: Session = Depends(get_db),
 @router.post("/lab/tests", tags=[TAG], response_model=LabTestOut, status_code=201, summary="Tahlil ko'rsatkichi qo'shish")
 def create_lab_test(data: LabTestIn, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
     test = LabTest(code=data.code.strip().upper(), name=data.name.strip(), unit=data.unit, category=data.category,
-                   is_active=data.is_active, created_by=user.id)
+                   is_active=data.is_active, verified=data.verified, source=data.source or (CUSTOM_SOURCE if data.verified else None),
+                   created_by=user.id)
     db.add(test)
     try:
         db.flush()
@@ -194,6 +197,7 @@ def order_out(db: Session, order: LabOrder) -> dict:
         "created_at": _ts(order.created_at), "completed_at": _ts(order.completed_at),
         "items": [{"id": str(i.id), "test_id": str(i.test_id), "code": code, "name": i.test_name, "unit": i.unit,
                    "value": _f(i.value), "flag": i.flag, "ref_low": _f(i.ref_low), "ref_high": _f(i.ref_high),
+                   "ref_verified": i.ref_verified,
                    "reference": reference_text(i.ref_low, i.ref_high), "resulted_at": _ts(i.resulted_at)} for i, code in rows],
     }
 
@@ -276,7 +280,7 @@ def put_results(order_id: uuid.UUID, data: ResultsIn, request: Request, db: Sess
         if not item:
             raise HTTPException(422, f"Tahlil bu buyurtmada yo'q: {r.item_id}")
         item.value = r.value
-        item.flag, item.ref_low, item.ref_high = lab.evaluate(db, item.test_id, patient, r.value, on)
+        item.flag, item.ref_low, item.ref_high, item.ref_verified = lab.evaluate(db, item.test_id, patient, r.value, on)
         item.resulted_at = now
     if all(i.value is not None for i in items.values()):
         order.status, order.completed_at = LabOrderStatus.completed, order.completed_at or now

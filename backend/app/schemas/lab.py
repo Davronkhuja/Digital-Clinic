@@ -14,6 +14,8 @@ class RangeIn(BaseModel):
     low: Optional[Decimal] = None
     high: Optional[Decimal] = None
     note: Optional[str] = Field(None, max_length=200)
+    verified: bool = Field(True, description="Administrator kiritgan/tasdiqlagan me'yor; starter namuna false")
+    source: Optional[str] = Field(None, max_length=200, description="Manba (masalan: analizator reagent yo'riqnomasi)")
 
     @model_validator(mode="after")
     def _valid(self):
@@ -28,6 +30,7 @@ class RangeIn(BaseModel):
 
 class RangeOut(RangeIn):
     id: str
+    verified: bool = False
     low: Optional[float] = None
     high: Optional[float] = None
 
@@ -38,6 +41,8 @@ class LabTestIn(BaseModel):
     unit: Optional[str] = Field(None, max_length=30, examples=["g/L"])
     category: Optional[str] = Field(None, max_length=60)
     is_active: bool = True
+    verified: bool = True
+    source: Optional[str] = Field(None, max_length=200)
     ranges: List[RangeIn] = Field(default_factory=list)
 
 
@@ -46,6 +51,8 @@ class LabTestUpdate(BaseModel):
     unit: Optional[str] = Field(None, max_length=30)
     category: Optional[str] = Field(None, max_length=60)
     is_active: Optional[bool] = None
+    verified: Optional[bool] = None
+    source: Optional[str] = Field(None, max_length=200)
     ranges: Optional[List[RangeIn]] = Field(None, description="Yuborilsa, me'yorlar to'liq almashtiriladi")
 
 
@@ -56,6 +63,8 @@ class LabTestOut(BaseModel):
     unit: Optional[str] = None
     category: Optional[str] = None
     is_active: bool
+    verified: bool
+    source: Optional[str] = None
     ranges: List[RangeOut]
 
 
@@ -115,6 +124,7 @@ class LabItemOut(BaseModel):
     flag: Optional[LabFlag] = None
     ref_low: Optional[float] = None
     ref_high: Optional[float] = None
+    ref_verified: Optional[bool] = Field(None, description="false: solishtirilgan me'yor namuna (tasdiqlanmagan)")
     reference: Optional[str] = Field(None, description="Me'yor matni: '3.9 - 5.9', '<= 41', '>= 1.0'")
     resulted_at: Optional[str] = None
 

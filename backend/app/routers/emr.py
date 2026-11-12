@@ -23,6 +23,8 @@ from app.schemas import (
     InnOut,
     PrescriptionIn,
     PrescriptionOut,
+    VerifyIn,
+    VerifyOut,
 )
 from app.schemas.enums import AppointmentStatus
 from app.services import audit, emr_card, icd10, inn, pdf, queries
@@ -224,7 +226,7 @@ def cancel_prescription(prescription_id: uuid.UUID, request: Request, db: Sessio
             description="Nom boshi, so'z boshi yoki farmakologik guruh bo'yicha.")
 def search_inn(search: Optional[str] = Query(None), limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db),
                user: CurrentUser = Depends(require("emr:read"))):
-    return [{"inn": d.inn, "group_uz": d.group_uz} for d in inn.search(db, search, limit)]
+    return [{"inn": d.inn, "group_uz": d.group_uz, "verified": d.verified, "source": d.source} for d in inn.search(db, search, limit)]
 
 
 @router.post("/inn", tags=["💊 Prescriptions"], response_model=InnOut, status_code=201, summary="INN qo'shish")
@@ -232,10 +234,26 @@ def add_inn(data: InnIn, db: Session = Depends(get_db), user: CurrentUser = Depe
     name = " ".join(data.inn.split())
     if inn.canonical(db, name):
         raise HTTPException(409, "Bu INN allaqachon mavjud")
-    drug = InnDrug(inn=name, group_uz=data.group_uz, created_by=user.id)
+    drug = InnDrug(inn=name, group_uz=data.group_uz, verified=True, source="klinika (qo'lda kiritilgan)", created_by=user.id)
     db.add(drug)
     db.commit()
-    return {"inn": drug.inn, "group_uz": drug.group_uz}
+    return {"inn": drug.inn, "group_uz": drug.group_uz, "verified": drug.verified, "source": drug.source}
+
+
+@router.post("/inn/verify", tags=["💊 Prescriptions"], response_model=VerifyOut, summary="INN yozuvlarini tasdiqlash",
+             description="`items` (INN nomlari) yoki `all=true`: `verified=true`, `source` yoziladi. Auditga yoziladi.")
+def verify_inn(data: VerifyIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:write"))):
+    stmt = select(InnDrug).where(InnDrug.verified.is_(False))
+    if not data.all:
+        if not data.items:
+            raise HTTPException(422, "items yoki all=true kerak")
+        stmt = stmt.where(func.lower(InnDrug.inn).in_([" ".join(i.split()).lower() for i in data.items]))
+    rows = db.scalars(stmt).all()
+    for r in rows:
+        r.verified, r.source = True, data.source
+    audit.record(db, user, request, "update", "inn", details={"verified": len(rows), "source": data.source, "all": data.all})
+    db.commit()
+    return {"verified": len(rows)}
 
 
 @router.get("/emr/{record_id}/card", tags=["📋 EMR"], response_model=EMRCard, summary="Ko'rik kartasi (DMED maydonlari tartibida)",

@@ -1,10 +1,10 @@
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BaseModel
+from app.db.base import BaseModel, VerifiedMixin
 
 
-class Icd10Code(BaseModel):
+class Icd10Code(VerifiedMixin, BaseModel):
     """MKB-10 ma'lumotnomasi. Import skripti (`scripts/import_mkb10.py`) bilan to'ldiriladi."""
 
     __tablename__ = "icd10_codes"

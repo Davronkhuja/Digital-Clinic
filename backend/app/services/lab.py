@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import LabPanel, LabPanelTest, LabReferenceRange, LabTest, Patient
 from app.schemas.enums import GenderEnum, LabFlag
 
+STARTER_SOURCE = "starter (namuna)"
 STARTER_JSON = Path(__file__).resolve().parent.parent.parent / "data" / "lab_starter.json"
 
 
@@ -39,8 +40,11 @@ def classify(value: Decimal, low: Decimal | None, high: Decimal | None) -> LabFl
     return LabFlag.normal
 
 
-def evaluate(db: Session, test_id, patient: Patient, value: Decimal, on: date) -> tuple[LabFlag | None, Decimal | None, Decimal | None]:
-    """(flag, ref_low, ref_high). Mos me'yor bo'lmasa flag None."""
+Evaluation = tuple[LabFlag | None, Decimal | None, Decimal | None, bool | None]
+
+
+def evaluate(db: Session, test_id, patient: Patient, value: Decimal, on: date) -> Evaluation:
+    """(flag, ref_low, ref_high, ref_verified). Mos me'yor bo'lmasa hammasi None."""
     ranges = list(db.scalars(select(LabReferenceRange).where(LabReferenceRange.test_id == test_id)))
     born = patient.birth_date
     age = None
@@ -48,8 +52,8 @@ def evaluate(db: Session, test_id, patient: Patient, value: Decimal, on: date) -
         age = on.year - born.year - ((on.month, on.day) < (born.month, born.day))
     rng = pick_range(ranges, patient.gender, age)
     if not rng:
-        return None, None, None
-    return classify(value, rng.low, rng.high), rng.low, rng.high
+        return None, None, None, None
+    return classify(value, rng.low, rng.high), rng.low, rng.high, rng.verified
 
 
 def seed_starter(db: Session) -> None:
@@ -60,7 +64,8 @@ def seed_starter(db: Session) -> None:
     data = json.loads(STARTER_JSON.read_text(encoding="utf-8"))
     by_code: dict[str, LabTest] = {}
     for item in data["tests"]:
-        test = LabTest(code=item["code"], name=item["name"], unit=item["unit"], category=item["category"])
+        test = LabTest(code=item["code"], name=item["name"], unit=item["unit"], category=item["category"],
+                       verified=False, source=STARTER_SOURCE)
         db.add(test)
         db.flush()
         by_code[item["code"]] = test
@@ -68,7 +73,8 @@ def seed_starter(db: Session) -> None:
             db.add(LabReferenceRange(test_id=test.id, sex=GenderEnum(r["sex"]) if r.get("sex") else None,
                                      age_min=r.get("age_min"), age_max=r.get("age_max"),
                                      low=Decimal(str(r["low"])) if "low" in r else None,
-                                     high=Decimal(str(r["high"])) if "high" in r else None))
+                                     high=Decimal(str(r["high"])) if "high" in r else None, verified=False,
+                                     source=STARTER_SOURCE))
     for panel in data["panels"]:
         p = LabPanel(name=panel["name"])
         db.add(p)

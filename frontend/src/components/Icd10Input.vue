@@ -6,6 +6,7 @@
         <button type="button" class="w-full text-left px-3 py-2 hover:bg-cyan-50 dark:hover:bg-slate-700" @mousedown.prevent="pick(c)">
           <span class="font-mono font-semibold text-cyan-600">{{ c.code }}</span>
           <span class="ml-2 text-slate-600 dark:text-slate-300">{{ c.name_uz }}</span>
+          <span v-if="!c.verified" class="ml-2 badge-yellow text-[10px]" title="Starter namuna: rasmiy MKB-10 bilan tasdiqlanmagan">namuna</span>
         </button>
       </li>
     </ul>

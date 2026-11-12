@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.17] - 2026-11-12
+### Added
+- Ma'lumotnomalarda `verified` (bool) va `source`: MKB-10, INN, lab tahlil va lab me'yor (migratsiya 0015). Starter yozuvlar `verified=false`, `source="starter (namuna)"` (mavjud bazadagilar ham). API javoblarida (`/icd10`, `/inn`, `/lab/tests`) ko'rinadi.
+- Import skriptlari (`import_mkb10.py`, `import_inn.py`) importdan keyin `verified=true` va `source` (`--source`, standart fayl nomi) qo'yadi; fayl nomida "starter" bo'lsa namuna (false) qoladi.
+- `POST /icd10/verify`, `POST /inn/verify` (`settings:write`): `items` yoki `all=true` va `source` bilan tasdiqlash, auditga yoziladi.
+- Lab me'yorlarini administrator tahrirlaydi (`PUT /lab/tests/{id}`, `ranges` har biri `verified`/`source` bilan; qo'lda kiritilgan me'yor tasdiqlangan, manba berilmasa "klinika (qo'lda kiritilgan)"). Natijaga solishtirilgan me'yorning tasdig'i nusxalanadi (`ref_verified`): eski natijalar o'zgarmaydi. PDF namuna me'yor ishlatilgan bo'lsa ogohlantiradi.
+- Frontend: MKB-10, INN, ko'rik kartasi va laboratoriya natijalarida "namuna" belgisi; Sozlamalar > "Laboratoriya me'yorlari" (jins/yosh/chegara/manba tahriri, saqlangach tasdiqlangan).
+
 ## [1.6.16] - 2026-11-12
 ### Added
 - EMR fayl ilovalari: `POST /patients/{id}/attachments` (multipart, ixtiyoriy `encounter_id` va `note`; `emr:write`), `GET /patients/{id}/attachments[?encounter_id]`, `GET /attachments/{id}/download` (`emr:read`, `attachment` + `nosniff` + `no-store`), `DELETE /attachments/{id}` (yozuv `deleted_at`, fayl saqlashda qoladi). Hammasi auditga yoziladi (yuklash, ro'yxat, yuklab olish, olib tashlash).

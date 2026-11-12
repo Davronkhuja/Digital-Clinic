@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.models import InnDrug
 
+STARTER_SOURCE = "starter (namuna)"
 STARTER_CSV = Path(__file__).resolve().parent.parent.parent / "data" / "inn_starter.csv"
 
 
-def import_csv(db: Session, path: Path) -> dict[str, int]:
+def import_csv(db: Session, path: Path, verified: bool = False, source: str | None = None) -> dict[str, int]:
     """CSV ustunlari: inn[, group_uz]. Registrsiz moslik bo'yicha yangilanadi."""
     existing = {d.inn.lower(): d for d in db.scalars(select(InnDrug))}
     stats = {"created": 0, "updated": 0, "skipped": 0}
@@ -24,9 +25,10 @@ def import_csv(db: Session, path: Path) -> dict[str, int]:
             if name.lower() in existing:
                 rec = existing[name.lower()]
                 rec.group_uz, rec.is_active = group, True
+                rec.verified, rec.source = verified, source
                 stats["updated"] += 1
             else:
-                rec = InnDrug(inn=name, group_uz=group)
+                rec = InnDrug(inn=name, group_uz=group, verified=verified, source=source)
                 db.add(rec)
                 existing[name.lower()] = rec
                 stats["created"] += 1
@@ -36,7 +38,7 @@ def import_csv(db: Session, path: Path) -> dict[str, int]:
 
 def seed_starter(db: Session) -> None:
     if not db.scalar(select(func.count()).select_from(InnDrug)) and STARTER_CSV.exists():
-        import_csv(db, STARTER_CSV)
+        import_csv(db, STARTER_CSV, verified=False, source=STARTER_SOURCE)
 
 
 def search(db: Session, query: str | None, limit: int = 20) -> list[InnDrug]:

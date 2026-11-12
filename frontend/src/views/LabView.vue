@@ -96,7 +96,7 @@
                 <span v-else :class="flagText(i.flag)">{{ i.value ?? '—' }}</span>
               </td>
               <td class="text-slate-500">{{ i.unit }}</td>
-              <td class="text-slate-500 font-mono text-xs">{{ i.reference || '—' }}</td>
+              <td class="text-slate-500 font-mono text-xs">{{ i.reference || '—' }}<span v-if="i.ref_verified === false" class="ml-1 badge-yellow text-[9px]" title="Namuna me'yor: laboratoriya tasdiqlashi kerak">namuna</span></td>
               <td><span v-if="i.value != null" :class="flagBadge[i.flag] || 'badge-slate'">{{ flagLabel[i.flag] || "Me'yor yo'q" }}</span></td>
             </tr>
           </tbody>

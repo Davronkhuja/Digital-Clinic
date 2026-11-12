@@ -18,7 +18,8 @@
         <div class="relative">
           <input v-model="r.inn" class="input" placeholder="INN (masalan amlodipine)" autocomplete="off" @input="lookup(i)" @blur="hide(i)" />
           <ul v-if="r.open && r.options.length" class="absolute z-30 left-0 right-0 mt-1 max-h-44 overflow-y-auto rounded-xl border bg-white dark:bg-slate-800 dark:border-slate-700 shadow-xl text-sm">
-            <li v-for="o in r.options" :key="o.inn"><button type="button" class="w-full text-left px-3 py-1.5 hover:bg-cyan-50 dark:hover:bg-slate-700" @mousedown.prevent="r.inn = o.inn; r.open = false">{{ o.inn }} <span class="text-xs text-slate-400">{{ o.group_uz }}</span></button></li>
+            <li v-for="o in r.options" :key="o.inn"><button type="button" class="w-full text-left px-3 py-1.5 hover:bg-cyan-50 dark:hover:bg-slate-700" @mousedown.prevent="r.inn = o.inn; r.open = false">{{ o.inn }} <span class="text-xs text-slate-400">{{ o.group_uz }}</span>
+              <span v-if="!o.verified" class="ml-1 badge-yellow text-[10px]" title="Starter namuna: tasdiqlanmagan">namuna</span></button></li>
           </ul>
         </div>
       </div>

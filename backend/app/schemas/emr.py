@@ -76,6 +76,8 @@ class Icd10Out(BaseModel):
     code: str
     name_uz: str
     name_en: Optional[str] = None
+    verified: bool = False
+    source: Optional[str] = None
 
 
 class EMRUpdate(BaseModel):
@@ -119,6 +121,20 @@ class ExamTemplateOut(ExamTemplateIn):
 class InnOut(BaseModel):
     inn: str
     group_uz: Optional[str] = None
+    verified: bool = False
+    source: Optional[str] = None
+
+
+class VerifyIn(BaseModel):
+    """Katalog yozuvlarini tasdiqlash: ro'yxat (`items`) yoki hamma tasdiqlanmaganlar (`all=true`)."""
+
+    items: List[str] = Field(default_factory=list)
+    all: bool = False
+    source: str = Field(..., min_length=3, max_length=200, examples=["MKB-10 rasmiy ro'yxati bilan solishtirildi, Dr. Karimova"])
+
+
+class VerifyOut(BaseModel):
+    verified: int
 
 
 class InnIn(BaseModel):
@@ -148,6 +164,7 @@ class CardLabItem(BaseModel):
     unit: Optional[str] = None
     reference: Optional[str] = None
     flag: Optional[str] = None
+    ref_verified: Optional[bool] = None
 
 
 class EMRCard(BaseModel):
@@ -159,6 +176,7 @@ class EMRCard(BaseModel):
     sections: List[CardField]
     icd_code: Optional[str] = None
     icd_name: Optional[str] = None
+    icd_verified: Optional[bool] = None
     prescriptions: List[CardPrescription]
     lab_results: List[CardLabItem]
     dmed_copied_at: Optional[str] = None

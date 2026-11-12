@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Stri
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BaseModel, BranchScoped, SoftDeleteMixin, enum_col
+from app.db.base import BaseModel, BranchScoped, SoftDeleteMixin, VerifiedMixin, enum_col
 from app.schemas.enums import RouteEnum
 
 
@@ -70,7 +70,7 @@ class ExamTemplate(BaseModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
-class InnDrug(BaseModel):
+class InnDrug(VerifiedMixin, BaseModel):
     """INN (xalqaro nomsiz nom) ma'lumotnomasi. `scripts/import_inn.py` bilan to'ldiriladi."""
 
     __tablename__ = "inn_drugs"

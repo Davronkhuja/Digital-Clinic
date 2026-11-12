@@ -81,6 +81,9 @@ def lab_order_pdf(order: dict, patient: dict, clinic: dict) -> bytes:
     story += [table, Spacer(1, 6 * mm)]
     if order.get("notes"):
         story += [_p(f"Izoh: {order['notes']}", base), Spacer(1, 3 * mm)]
+    if any(i.get("ref_verified") is False for i in order["items"]):
+        story += [_p("Diqqat: ishlatilgan me'yorlar namuna (tasdiqlanmagan); laboratoriya o'z me'yorini tasdiqlashi kerak.", abnormal),
+                  Spacer(1, 2 * mm)]
     story.append(_p("Me'yor oralig'i bemorning jinsi va yoshiga ko'ra tanlangan; \"—\": mos me'yor yo'q. "
                     "Natijalarni shifokor baholaydi.", small))
     doc.build(story)

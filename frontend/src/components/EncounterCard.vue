@@ -20,6 +20,7 @@
               {{ f.value || '—' }}
               <p v-if="f.key === 'diagnosis' && card.icd_code" class="mt-1 font-mono text-xs text-cyan-600">
                 MKB-10: {{ card.icd_code }}<span v-if="card.icd_name"> — {{ card.icd_name }}</span>
+                <span v-if="card.icd_verified === false" class="ml-2 badge-yellow text-[10px]" title="Starter namuna: tasdiqlanmagan">namuna</span>
                 <button class="ml-2 inline-flex items-center text-slate-400 hover:text-cyan-600" title="MKB-10 kodini nusxalash" @click="copy(card.icd_code, 'MKB-10 kodi')"><Copy class="w-3.5 h-3.5" /></button>
               </p>
             </div>
@@ -46,7 +47,7 @@
           <div v-for="(l, i) in card.lab_results" :key="i" class="flex gap-3 py-1 text-sm">
             <span class="flex-1">{{ l.name }}</span>
             <span :class="['font-mono', l.flag === 'High' || l.flag === 'Low' ? 'text-red-600 font-semibold' : '']">{{ l.value }} {{ l.unit }}</span>
-            <span class="w-24 text-xs text-slate-400 font-mono">{{ l.reference || '—' }}</span>
+            <span class="w-24 text-xs text-slate-400 font-mono">{{ l.reference || '—' }}<span v-if="l.ref_verified === false" class="ml-1 badge-yellow text-[9px]" title="Namuna me'yor">namuna</span></span>
           </div>
         </section>
       </div>

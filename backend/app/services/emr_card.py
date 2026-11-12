@@ -12,11 +12,11 @@ GENDER_UZ = {"male": "Erkak", "female": "Ayol", "other": "Boshqa"}
 def build_card(db: Session, enc: Encounter) -> dict:
     patient = db.get(Patient, enc.patient_id)
     doctor = db.get(Staff, enc.doctor_id)
-    icd_name = None
+    icd_name = icd_verified = None
     if enc.icd_code:
         row = db.scalar(select(Icd10Code).where(Icd10Code.code.in_({enc.icd_code, enc.icd_code.split(".")[0]}))
                         .order_by(Icd10Code.code.desc()))
-        icd_name = row.name_uz if row else None
+        icd_name, icd_verified = (row.name_uz, row.verified) if row else (None, None)
     rx = db.scalars(select(Prescription).where(Prescription.encounter_id == enc.id, Prescription.deleted_at.is_(None),
                                                Prescription.inn.is_not(None)).order_by(Prescription.created_at)).all()
     labs = db.execute(
@@ -44,7 +44,7 @@ def build_card(db: Session, enc: Encounter) -> dict:
             field("examination", "Ob'ektiv ko'rik", enc.examination), field("diagnosis", "Tashxis", enc.diagnosis),
             field("recommendations", "Tavsiyalar", enc.recommendations),
         ],
-        "icd_code": enc.icd_code, "icd_name": icd_name,
+        "icd_code": enc.icd_code, "icd_name": icd_name, "icd_verified": icd_verified,
         "prescriptions": [
             {"inn": p.inn, "dose": p.dosage, "route": ser.ROUTE_UZ.get(p.route.value) if p.route else None,
              "frequency": p.frequency, "duration_days": p.duration_days, "instructions": p.instructions, "text": p.medication}
@@ -52,7 +52,7 @@ def build_card(db: Session, enc: Encounter) -> dict:
         ],
         "lab_results": [
             {"name": i.test_name, "value": float(i.value), "unit": i.unit, "flag": i.flag.value if i.flag else None,
-             "reference": _reference(i)} for i in labs
+             "reference": _reference(i), "ref_verified": i.ref_verified} for i in labs
         ],
         "dmed_copied_at": enc.dmed_copied_at.isoformat() if enc.dmed_copied_at else None,
         "dmed_copied_by": copied_by,

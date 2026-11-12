@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, MetaData, func, text
+from sqlalchemy import Boolean, DateTime, MetaData, String, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
@@ -61,3 +61,11 @@ class SoftDeleteMixin:
     """EMR, retsept va to'lov yozuvlari hech qachon o'chirilmaydi: deleted_at qo'yiladi."""
 
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class VerifiedMixin:
+    """Ma'lumotnoma yozuvi tekshirilganmi (`verified`) va qayerdan (`source`). Starter/namuna yozuvlar `verified=false`;
+    rasmiy fayl import qilinganda yoki administrator tasdiqlaganda `true`."""
+
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    source: Mapped[str | None] = mapped_column(String(200))

@@ -19,11 +19,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BaseModel, BranchScoped, enum_col
+from app.db.base import BaseModel, BranchScoped, VerifiedMixin, enum_col
 from app.schemas.enums import GenderEnum, LabFlag, LabOrderStatus
 
 
-class LabTest(BaseModel):
+class LabTest(VerifiedMixin, BaseModel):
     """Tahlil ko'rsatkichi (katalog). Me'yorlar `LabReferenceRange` da (jins va yosh bo'yicha)."""
 
     __tablename__ = "lab_tests"
@@ -36,7 +36,7 @@ class LabTest(BaseModel):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
-class LabReferenceRange(BaseModel):
+class LabReferenceRange(VerifiedMixin, BaseModel):
     """Me'yor oralig'i. `sex` null: ikkala jins; yosh chegaralari (yil, ikkalasi ham kiritilgan) ixtiyoriy.
     Faqat `low` yoki faqat `high` bo'lishi mumkin (masalan, xolesterin <= 5.2)."""
 
@@ -103,6 +103,7 @@ class LabOrderItem(BaseModel):
     flag: Mapped[LabFlag | None] = mapped_column(enum_col(LabFlag, "flag", 8))
     ref_low: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
     ref_high: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
+    ref_verified: Mapped[bool | None] = mapped_column(Boolean)  # solishtirilgan me'yor tasdiqlanganmi (null: me'yor yo'q)
     resulted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
