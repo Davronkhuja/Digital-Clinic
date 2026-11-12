@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.2] - 2026-11-12
+### Added
+- Moliya (3/6): to'lovlar va qaytarishlar (`payments`, `payment_refunds`, migratsiya 0019). `POST /invoices/{id}/payments` (naqd/karta, `finance:write`): hisob-faktura `Issued`/`PartiallyPaid` bo'lishi, summa qoldiqdan oshmasligi (qisman to'lov mumkin); hisob-faktura holati to'lovlardan `PartiallyPaid`/`Paid` ga hisoblanadi, `paid_amount`/`refunded_amount`/`balance` javobda.
+- Har to'lov fiskal chek bilan yopiladi: `services/fiscal.py` adapter interfeysi (`sale`/`refund`) va `MockFiscalAdapter` (chek ID `MOCK-...`, fiscal_sign, tashqi so'rov yo'q); `FISCAL_BACKEND=mock` (real operator uchun hujjat va kalit kerak). Chek qatorlari: nom, MXIK, package_code, soni, summa va QQS (tiyinda, `money.to_tiyin`); qisman to'lovda qatorlarga proporsional, yig'indi aynan to'lovga teng. Kassada chek berilmasa to'lov yozilmaydi (502); `POST /payments/{id}/receipt` chekni qayta beradi (provayder to'lovlari uchun).
+- Daromad avtomatik: to'lov `transactions` ga `income` ("Xizmat to'lovi"), qaytarish `expense` ("Qaytarish") bo'lib yoziladi (`transactions.payment_id/refund_id`), shuning uchun mavjud moliya va tahlil raqamlari ularni ko'radi.
+- `POST /payments/{id}/refunds` (`finance:refund`, faqat admin; sabab majburiy): to'liq yoki qisman, jami to'langanidan oshmaydi, qaytarish fiskal cheki, xarajat yozuvi, hisob-faktura holati qayta hisoblanadi, auditga `refund`. Click/Payme to'lovi provayder orqali qaytariladi (v1.7.3-1.7.4).
+- To'lovi bor hisob-fakturani bekor qilib bo'lmaydi (qaytarish orqali). `GET /invoices/{id}/payments`. Hammasi auditda.
+
 ## [1.7.1] - 2026-11-12
 ### Added
 - Moliya (2/6): hisob-fakturalar. `invoices` + `invoice_lines` (migratsiya 0018), raqam `INV-000123` (DB ketma-ketligi). Qatorda xizmat nomi, MXIK, package_code, QQS foizi va narx nusxalanadi: narxnoma keyin o'zgarsa ham hisob-faktura o'zgarmaydi. Faqat sotiladigan xizmat (MXIK, package_code, QQS to'liq, faol), aks holda 422 (qaysi maydon yetishmasligi ko'rsatiladi).

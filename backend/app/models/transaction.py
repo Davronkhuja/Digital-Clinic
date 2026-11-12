@@ -24,3 +24,8 @@ class Transaction(SoftDeleteMixin, BranchScoped, BaseModel):
     patient_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("patients.id", ondelete="RESTRICT")
     )
+    # To'lov/qaytarishdan avtomatik yozilgan daromad/xarajat (qo'lda kiritilganlarda null)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("payments.id", ondelete="RESTRICT"), unique=True)
+    refund_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("payment_refunds.id", ondelete="RESTRICT"), unique=True)

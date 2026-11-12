@@ -70,3 +70,22 @@ class InvoiceStatus(str, Enum):
     partially_paid = "PartiallyPaid"
     paid = "Paid"
     cancelled = "Cancelled"
+
+class PaymentMethod(str, Enum):
+    cash = "Cash"
+    card = "Card"
+    click = "Click"
+    payme = "Payme"
+
+
+class PaymentStatus(str, Enum):
+    pending = "Pending"
+    paid = "Paid"
+    failed = "Failed"
+    cancelled = "Cancelled"
+
+
+class ReceiptStatus(str, Enum):
+    pending = "Pending"
+    issued = "Issued"
+    failed = "Failed"

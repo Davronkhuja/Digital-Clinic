@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     storage_dir: str = "/data/uploads"
     max_upload_mb: int = 20
 
+    # Fiskal chek (virtual kassa): hozircha faqat mock. Real adapter uchun operator hujjatlari va kalitlar kerak
+    fiscal_backend: str = "mock"
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"
