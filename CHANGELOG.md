@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.7] - 2026-11-12
+### Added
+- Moliya (8/9, frontend): "Kassa" sahifasi (`/cashier`, `finance:read`): kassa smenasi (ochish, yopish: kutilgan va sanalgan naqd, farq jonli, X/Z PDF, kutilgan naqd va cheki berilmaganlar ogohlantirishi), hisob-fakturalar ro'yxati (holat, to'langan, qoldiq), yangi hisob-faktura (faqat sotiladigan xizmatlar, soni, chegirma maydonlari `finance:discount` bilan), hisob-faktura tafsiloti (qatorlar MXIK/QQS bilan, to'lovlar, fiskal chek ID), to'lov qabul qilish (naqd, karta, Payme/Click havolasi nusxalash bilan), chekni qayta berish, kutilayotgan onlayn to'lovni bekor qilish, qaytarish (`finance:refund`, sabab majburiy), hisob-fakturani bekor qilish.
+- "Shifokor foizi" sahifasi (`/commissions`, `commissions:read`): oy bo'yicha shifokorlar hisobi (hisoblangan, qaytarilgan, sof, yozuvlar tafsiloti), oyni yopish va qoidalarni boshqarish (`commissions:manage`); shifokor faqat o'zinikini ko'radi. Menyu va 3 tilda sarlavhalar.
+
 ## [1.7.6] - 2026-11-12
 ### Added
 - Moliya (7/8): kassa smenasi (migratsiya 0021). `POST /cash-shifts/open` (boshlang'ich naqd), `GET /cash-shifts/current` (X: ochiq smena joriy hisobot yoki null), `GET /cash-shifts`, `GET /cash-shifts/{id}/report`, `POST /cash-shifts/{id}/close` (`counted_cash`), `GET /cash-shifts/{id}/z-report/pdf`. Bitta kassirda bir vaqtda bitta ochiq smena (DB qisman unikal indeks). Boshqa kassir smenasini ko'rish/yopish faqat `finance:shifts` (admin).

@@ -16,6 +16,8 @@ const routes = [
       { path: 'appointments', name: 'Appointments', component: () => import('@/views/AppointmentsView.vue'), meta: { perm: 'appointments:read' } },
       { path: 'emr',          name: 'EMR',          component: () => import('@/views/EMRView.vue'), meta: { perm: 'emr:read' } },
       { path: 'lab',          name: 'Lab',          component: () => import('@/views/LabView.vue'), meta: { perm: 'lab:read' } },
+      { path: 'cashier',      name: 'Cashier',      component: () => import('@/views/CashierView.vue'), meta: { perm: 'finance:read' } },
+      { path: 'commissions',  name: 'Commissions',  component: () => import('@/views/CommissionsView.vue'), meta: { perm: 'commissions:read' } },
       { path: 'finance',      name: 'Finance',      component: () => import('@/views/FinanceView.vue'), meta: { perm: 'finance:read' } },
       { path: 'analytics',    name: 'Analytics',    component: () => import('@/views/AnalyticsView.vue'), meta: { perm: 'analytics:read' } },
       { path: 'ai',           name: 'AIAssistant',  component: () => import('@/views/AIAssistantView.vue'), meta: { perm: 'ai:use' } },
@@ -37,7 +39,7 @@ const router = createRouter({
 })
 
 const firstAllowed = [
-  ['/patients', 'patients:read'], ['/appointments', 'appointments:read'], ['/emr', 'emr:read'], ['/lab', 'lab:read'],
+  ['/patients', 'patients:read'], ['/appointments', 'appointments:read'], ['/emr', 'emr:read'], ['/lab', 'lab:read'], ['/cashier', 'finance:read'], ['/commissions', 'commissions:read'],
   ['/finance', 'finance:read'], ['/analytics', 'analytics:read'], ['/ai', 'ai:use'],
   ['/reports', 'reports:read'], ['/staff', 'staff:read'], ['/security', 'audit:read'],
   ['/settings', 'settings:read'],
