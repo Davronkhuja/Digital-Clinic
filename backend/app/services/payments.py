@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import CurrentUser
 from app.models import Invoice, InvoiceLine, Payment, PaymentRefund, Transaction
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus, TransactionType
-from app.services import fiscal
+from app.services import commissions, fiscal
+from app.services.invoicing import allocate
 from app.services.money import q2, to_tiyin
 from app.services.periods import clinic_today
 
@@ -53,20 +54,6 @@ def recompute_status(db: Session, inv: Invoice) -> None:
         inv.status = InvoiceStatus.paid
     else:
         inv.status = InvoiceStatus.partially_paid if net > 0 else InvoiceStatus.issued
-
-
-def allocate(lines: list[InvoiceLine], amount: Decimal) -> list[tuple[InvoiceLine, Decimal]]:
-    """To'lov summasini qatorlarga net_total ga proporsional taqsimlash (qoldiq oxirgisiga); to'liq to'lovda aynan net_total."""
-    total = sum((ln.net_total for ln in lines), ZERO)
-    if amount == total:
-        return [(ln, ln.net_total) for ln in lines]
-    out, left = [], amount
-    for i, ln in enumerate(lines):
-        share = left if i == len(lines) - 1 else q2(amount * ln.net_total / total) if total else ZERO
-        share = min(share, left)
-        out.append((ln, share))
-        left -= share
-    return out
 
 
 def build_receipt(inv: Invoice, lines: list[InvoiceLine], amount: Decimal, method: PaymentMethod, kind: str) -> dict:
@@ -115,6 +102,7 @@ def mark_paid(db: Session, payment: Payment, inv: Invoice, user_id: uuid.UUID | 
     issue_payment_receipt(db, payment, inv, strict_receipt)
     record_income(db, payment, inv, user_id)
     db.flush()
+    commissions.accrue(db, payment, inv)
     recompute_status(db, inv)
 
 
@@ -149,5 +137,6 @@ def create_refund(db: Session, payment: Payment, inv: Invoice, amount: Decimal, 
                        description=f"Qaytarish: hisob-faktura {inv.number} ({payment.method.value})", patient_id=inv.patient_id,
                        refund_id=refund.id, branch_id=payment.branch_id, created_by=user.id if user else None))
     db.flush()
+    commissions.reverse(db, refund, payment)
     recompute_status(db, inv)
     return refund

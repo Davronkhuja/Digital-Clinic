@@ -89,3 +89,17 @@ class ReceiptStatus(str, Enum):
     pending = "Pending"
     issued = "Issued"
     failed = "Failed"
+
+class CommissionKind(str, Enum):
+    percent = "Percent"
+    fixed = "Fixed"
+
+
+class CommissionBase(str, Enum):
+    with_vat = "WithVat"  # to'langan summa (QQS bilan)
+    net_of_vat = "NetOfVat"  # QQS ajratilgan
+
+
+class CommissionEntryKind(str, Enum):
+    accrual = "Accrual"
+    reversal = "Reversal"

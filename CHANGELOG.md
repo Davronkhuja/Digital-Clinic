@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.5] - 2026-11-12
+### Added
+- Moliya (6/7): shifokor foizi (migratsiya 0020). Qoidalar `commission_rules`: shifokor (ixtiyoriy), xizmat (ixtiyoriy), foiz yoki har sotilgan birlik uchun qat'iy summa, asos (QQS bilan yoki QQS ajratilgan), amal qilish sanasi (`valid_from`/`valid_to`), faolsizlantirish. Tanlash: shifokor+xizmat > shifokor > xizmat > umumiy, teng bo'lsa `valid_from` kechroq. `GET/POST/PUT /commission-rules` (`commissions:manage`).
+- To'lov `Paid` bo'lganda har qator ijrochisiga foiz hisoblanadi (`commission_entries`, `Accrual`): asos qatorga taqsimlangan to'lov ulushi (chegirmadan keyin; qisman to'lovlarda proporsional, yig'indi to'liq summaga teng). Qoida (turi, foiz, summa) yozuvga nusxalanadi: keyingi qoida o'zgarishi eski yozuvlarni o'zgartirmaydi. Ijrochi yoki mos qoida bo'lmasa yozuv yo'q.
+- Qaytarishda foiz ham qaytariladi: har accrual uchun jami qaytarilgan ulushga proporsional manfiy `Reversal` (yaxlitlashda jami accrualdan oshmaydi), qaytarish sanasi bilan (yopilgan oyni o'zgartirmaydi, keyingi oyga tushadi). Payme bekor qilishi (-2) ham shunday.
+- Oylik hisob-kitob: `GET /commissions/report?month=YYYY-MM` (shifokorlar bo'yicha hisoblangan, qaytarilgan, sof, yopilganmi), `GET /commissions/entries`, `POST /commissions/settle {month, doctor_id}` (oy yopiladi, yozuvlar qotadi, bir oy bir shifokor uchun bir marta; kelajak oy 422), `GET /commissions/settlements`. `commissions:read` (admin, shifokor): shifokor faqat o'zinikini ko'radi; `commissions:manage` (admin).
+- **Taxmin**: asos standarti "to'langan summa QQS bilan" (qoida bo'yicha `NetOfVat`); yopish foiz to'lovini (xarajat/chiqim) yozmaydi: faqat hisob-kitobni qotiradi.
+
 ## [1.7.4] - 2026-11-12
 ### Added
 - Moliya (5/6): Click SHOP API (Prepare/Complete, `POST /payments/click`, Click chaqiradi; form-urlencoded yoki JSON). `action=0` Prepare, `action=1` Complete; imzo `md5(click_trans_id + service_id + SECRET_KEY + merchant_trans_id [+ merchant_prepare_id] + amount + action + sign_time)` doimiy vaqtda tekshiriladi (birinchi navbatda); maxfiy kalit bo'sh bo'lsa imzo hech qachon to'g'ri emas. Xato kodlari 0, -1..-9 (`error_note` bilan). Test rejimi: `CLICK_TEST_MODE=true` -> `CLICK_TEST_SECRET_KEY`, productionda `CLICK_SECRET_KEY`. Kalitlar faqat `.env`.

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 
-from app.models import Service
+from app.models import InvoiceLine, Service
 from app.services.money import q2
 
 ZERO = Decimal("0.00")
@@ -103,3 +103,17 @@ def require_sellable(services: dict) -> None:
             problems.append(f"{service.name}: yetishmaydi {', '.join(service.missing_fields)}")
     if problems:
         raise HTTPException(422, "Xizmatni sotib bo'lmaydi (MXIK, package_code va QQS to'liq bo'lishi kerak): " + "; ".join(problems))
+
+
+def allocate(lines: list, amount: Decimal) -> list[tuple[InvoiceLine, Decimal]]:
+    """To'lov summasini qatorlarga net_total ga proporsional taqsimlash (qoldiq oxirgisiga); to'liq to'lovda aynan net_total."""
+    total = sum((ln.net_total for ln in lines), ZERO)
+    if amount == total:
+        return [(ln, ln.net_total) for ln in lines]
+    out, left = [], amount
+    for i, ln in enumerate(lines):
+        share = left if i == len(lines) - 1 else q2(amount * ln.net_total / total) if total else ZERO
+        share = min(share, left)
+        out.append((ln, share))
+        left -= share
+    return out

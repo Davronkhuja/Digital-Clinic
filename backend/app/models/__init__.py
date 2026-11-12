@@ -2,6 +2,7 @@ from app.models.appointment import Appointment, AppointmentType
 from app.models.attachment import Attachment
 from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
+from app.models.commission import CommissionEntry, CommissionRule, CommissionSettlement
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.icd10 import Icd10Code
 from app.models.invoice import Invoice, InvoiceLine
@@ -22,6 +23,7 @@ __all__ = [
     "Permission", "Role", "Room",
     "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate",
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
+    "CommissionEntry", "CommissionRule", "CommissionSettlement",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

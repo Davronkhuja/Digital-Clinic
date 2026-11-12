@@ -22,6 +22,8 @@ PERMISSIONS: dict[str, str] = {
     "finance:write": "To'lov va tranzaksiya kiritish",
     "finance:discount": "Hisob-fakturaga chegirma berish",
     "finance:refund": "To'lovni qaytarish",
+    "commissions:read": "Shifokor foizi hisobotini ko'rish (o'zingiznikini; boshqarish ruxsati bilan hammasini)",
+    "commissions:manage": "Shifokor foizi qoidalari va oylik hisob-kitob",
     "staff:read": "Xodimlarni ko'rish",
     "staff:write": "Xodimlarni boshqarish",
     "settings:read": "Klinika sozlamalarini ko'rish",
@@ -37,8 +39,8 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     "admin": ("Administrator", list(PERMISSIONS)),
     "doctor": ("Shifokor", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
-        "emr:read", "emr:write", "lab:read", "lab:write", "services:read", "staff:read", "settings:read",
-        "analytics:read", "reports:read", "ai:use",
+        "emr:read", "emr:write", "lab:read", "lab:write", "services:read", "commissions:read", "staff:read",
+        "settings:read", "analytics:read", "reports:read", "ai:use",
     ]),
     "nurse": ("Hamshira", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
