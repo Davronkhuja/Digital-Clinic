@@ -103,3 +103,7 @@ class CommissionBase(str, Enum):
 class CommissionEntryKind(str, Enum):
     accrual = "Accrual"
     reversal = "Reversal"
+
+class CashShiftStatus(str, Enum):
+    open = "Open"
+    closed = "Closed"

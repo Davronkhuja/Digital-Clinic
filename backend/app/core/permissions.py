@@ -22,6 +22,7 @@ PERMISSIONS: dict[str, str] = {
     "finance:write": "To'lov va tranzaksiya kiritish",
     "finance:discount": "Hisob-fakturaga chegirma berish",
     "finance:refund": "To'lovni qaytarish",
+    "finance:shifts": "Hamma kassa smenalarini ko'rish va boshqa kassir smenasini yopish",
     "commissions:read": "Shifokor foizi hisobotini ko'rish (o'zingiznikini; boshqarish ruxsati bilan hammasini)",
     "commissions:manage": "Shifokor foizi qoidalari va oylik hisob-kitob",
     "staff:read": "Xodimlarni ko'rish",

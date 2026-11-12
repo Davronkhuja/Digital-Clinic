@@ -12,7 +12,7 @@ from app.db.session import get_db
 from app.models import Invoice, Payment, PaymentRefund, Staff, User
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus
 from app.schemas.payments import PaymentCreate, PaymentOut, RefundCreate
-from app.services import audit, click, fiscal, payme, payments
+from app.services import audit, click, fiscal, payme, payments, shifts
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ
 
@@ -69,8 +69,9 @@ def create_payment(invoice_id: uuid.UUID, data: PaymentCreate, request: Request,
         raise HTTPException(503, "Payme sozlanmagan (PAYME_MERCHANT_ID .env da)")
     if data.method == PaymentMethod.click and not (settings.click_service_id and settings.click_merchant_id):
         raise HTTPException(503, "Click sozlanmagan (CLICK_SERVICE_ID va CLICK_MERCHANT_ID .env da)")
+    shift = shifts.require_open_shift(db, user.id) if data.method in CASHIER_METHODS else None    # onlayn to'lov smenaga bog'lanmaydi
     p = Payment(invoice_id=inv.id, method=data.method, status=PaymentStatus.pending, amount=amount, reference=data.reference,
-                branch_id=user.branch_id, created_by=user.id)
+                shift_id=shift.id if shift else None, branch_id=user.branch_id, created_by=user.id)
     db.add(p)
     db.flush()
     if data.method in ONLINE_METHODS:  # onlayn: pul provayder chaqiruvi bilan keladi; summa qoldiqdan band qilinadi
@@ -145,9 +146,11 @@ def refund_payment(payment_id: uuid.UUID, data: RefundCreate, request: Request, 
     if p.method not in CASHIER_METHODS:
         raise HTTPException(409, "Click/Payme to'lovi provayder orqali qaytariladi (Payme bekor qilishi avtomatik yoziladi)")
     inv = db.get(Invoice, p.invoice_id)
+    shift = shifts.require_open_shift(db, user.id)        # qaytarilgan pul shu kassa smenasidan chiqadi
     amount = q2(data.amount) if data.amount is not None else payments.refundable(db, p)
     try:
         refund = payments.create_refund(db, p, inv, amount, data.reason.strip(), user)
+        refund.shift_id = shift.id
     except fiscal.FiscalError:
         db.rollback()
         raise HTTPException(502, "Qaytarish cheki berilmadi: qaytarish yozilmadi, qayta urinib ko'ring")

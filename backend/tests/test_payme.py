@@ -12,6 +12,9 @@ from tests.test_payments import _issued_invoice
 KEY = "test-key-123"
 
 
+pytestmark = pytest.mark.usefixtures("desk")
+
+
 @pytest.fixture(autouse=True)
 def _payme_config(monkeypatch):
     monkeypatch.setattr(settings, "payme_merchant_id", "merchant-1")

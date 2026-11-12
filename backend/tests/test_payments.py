@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import text
 
 from app.db.session import SessionLocal
@@ -7,6 +8,8 @@ from app.models import InvoiceLine
 from app.services import fiscal
 from app.services.payments import allocate
 from tests.test_patients import NEW
+
+pytestmark = pytest.mark.usefixtures("desk")
 
 
 def _line(net):

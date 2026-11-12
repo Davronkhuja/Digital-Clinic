@@ -119,3 +119,11 @@ def login_admin_only(client) -> str:
     res = client.post("/auth/login", json={"email": "solo@clinic.uz", "password": PASSWORD})
     assert res.status_code == 200, res.text
     return res.json()["access_token"]
+
+
+@pytest.fixture
+def desk(client, auth):
+    """Kassir va administrator uchun ochiq kassa smenasi (to'lov/qaytarish smenasiz bo'lmaydi)."""
+    for role in ("cashier", "admin"):
+        res = client.post("/cash-shifts/open", json={"opening_cash": 0}, headers=auth(role))
+        assert res.status_code == 201, res.text

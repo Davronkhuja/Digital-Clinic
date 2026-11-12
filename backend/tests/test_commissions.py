@@ -1,10 +1,15 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+import pytest
+
 from tests.test_patients import NEW
 
 DOC1, DOC2 = "Dr. Behruz Rustamov", "Dr. Zulfiya Karimova"
 TODAY = date.today()
+
+
+pytestmark = pytest.mark.usefixtures("desk")
 
 
 def _doctor(client, auth, name=DOC1):

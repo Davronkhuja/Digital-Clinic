@@ -10,6 +10,9 @@ from tests.test_payments import _issued_invoice
 SECRET = "click-test-secret"
 
 
+pytestmark = pytest.mark.usefixtures("desk")
+
+
 @pytest.fixture(autouse=True)
 def _click_config(monkeypatch):
     monkeypatch.setattr(settings, "click_service_id", "12345")

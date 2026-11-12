@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """PDF hisobotlar (reportlab). Unicode uchun DejaVu shrifti (Dockerfile); topilmasa Helvetica (lotin belgilar)."""
 import io
 from functools import lru_cache
@@ -145,5 +146,49 @@ def encounter_card_pdf(card: dict, clinic: dict) -> bytes:
         story.append(t)
     story += [Spacer(1, 8 * mm), _p("DMED ga qo'lda kiritish uchun nusxa. " + (
         f"DMED ga ko'chirildi: {card['dmed_copied_at'][:10]}" if card.get("dmed_copied_at") else "DMED ga ko'chirilmagan."), label)]
+    doc.build(story)
+    return buffer.getvalue()
+
+
+def z_report_pdf(rep: dict, clinic: dict) -> bytes:
+    """Z-hisobot (yopilgan smena) yoki X-hisobot (ochiq): to'lov usullari bo'yicha, kutilgan va sanalgan naqd, farq."""
+    regular, bold = _fonts()
+    base = ParagraphStyle("base", fontName=regular, fontSize=9.5, leading=12.5)
+    strong = ParagraphStyle("strong", parent=base, fontName=bold)
+    title = ParagraphStyle("title", parent=base, fontName=bold, fontSize=15, leading=19)
+    label = ParagraphStyle("label", parent=base, fontSize=8.5, textColor=colors.HexColor("#64748b"))
+    bad = ParagraphStyle("bad", parent=strong, textColor=colors.HexColor("#b91c1c"))
+    money = lambda v: f"{v:,.2f}".replace(",", " ")  # noqa: E731
+
+    buffer = io.BytesIO()
+    kind = "Z-hisobot" if rep.get("z_number") else "X-hisobot (smena ochiq)"
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=16 * mm,
+                            title=f"{kind} {rep.get('z_number') or ''}", author=clinic.get("name") or "Digital Clinic")
+    story = [_p(clinic.get("name") or "Digital Clinic", title), _p(" · ".join(x for x in (clinic.get("address"), clinic.get("phone")) if x), label),
+             Spacer(1, 4 * mm), _p(f"{kind} {rep.get('z_number') or ''}".strip(), ParagraphStyle("h", parent=title, fontSize=13)), Spacer(1, 3 * mm)]
+    info = [[_p("Kassir:", label), _p(rep.get("cashier"), base)], [_p("Ochildi:", label), _p((rep["opened_at"] or "")[:19].replace("T", " "), base)],
+            [_p("Yopildi:", label), _p((rep.get("closed_at") or "—")[:19].replace("T", " "), base)]]
+    t = Table(info, colWidths=[30 * mm, 140 * mm])
+    t.setStyle(TableStyle([("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    story += [t, Spacer(1, 4 * mm)]
+    rows = [[_p(h, label) for h in ("Usul", "To'lovlar", "Summa", "Qaytarish", "Qaytarilgan", "Sof")]]
+    for name, key in (("Naqd", "cash"), ("Karta", "card")):
+        m = rep[key]
+        rows.append([_p(name, strong), _p(str(m["payments_count"]), base), _p(money(m["payments_total"]), base), _p(str(m["refunds_count"]), base),
+                     _p(money(m["refunds_total"]), base), _p(money(m["net"]), strong)])
+    t = Table(rows, colWidths=[28 * mm, 25 * mm, 36 * mm, 25 * mm, 32 * mm, 32 * mm])
+    t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1"))]))
+    story += [t, Spacer(1, 4 * mm)]
+    for name, m in rep["online"].items():
+        story.append(_p(f"Onlayn {name.capitalize()} (kassaga kirmaydi): {m['payments_count']} ta, {money(m['payments_total'])}", base))
+    story += [Spacer(1, 3 * mm), _p(f"Sotuv jami: {money(rep['sales_total'])}   Qaytarish: {money(rep['refunds_total'])}   Sof: {money(rep['net_total'])}", strong),
+              Spacer(1, 4 * mm), _p(f"Boshlang'ich naqd: {money(rep['opening_cash'])}", base),
+              _p(f"Kutilgan naqd: {money(rep['expected_cash'])}", strong)]
+    if rep.get("counted_cash") is not None:
+        diff = rep["difference"]
+        story += [_p(f"Sanalgan naqd: {money(rep['counted_cash'])}", base),
+                  _p(f"Farq: {money(diff)} " + ("(kamomad)" if diff < 0 else "(ortiqcha)" if diff > 0 else "(mos)"), bad if diff else strong)]
+    if rep.get("receipts_missing"):
+        story += [Spacer(1, 3 * mm), _p(f"Diqqat: {rep['receipts_missing']} ta to'lovning fiskal cheki berilmagan.", bad)]
     doc.build(story)
     return buffer.getvalue()

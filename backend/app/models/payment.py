@@ -34,6 +34,7 @@ class Payment(BranchScoped, BaseModel):
     receipt_status: Mapped[ReceiptStatus | None] = mapped_column(enum_col(ReceiptStatus, "receipt_status", 8))
     receipt_id: Mapped[str | None] = mapped_column(String(100))
     receipt_data: Mapped[dict | None] = mapped_column(JSONB)
+    shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("cash_shifts.id", ondelete="RESTRICT"), index=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -48,6 +49,7 @@ class PaymentRefund(BranchScoped, BaseModel):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     reason: Mapped[str] = mapped_column(Text)
     provider_reason: Mapped[int | None] = mapped_column(Integer)  # Payme bekor qilish sababi kodi
+    shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("cash_shifts.id", ondelete="RESTRICT"), index=True)
     receipt_status: Mapped[ReceiptStatus | None] = mapped_column(enum_col(ReceiptStatus, "receipt_status", 8))
     receipt_id: Mapped[str | None] = mapped_column(String(100))
     receipt_data: Mapped[dict | None] = mapped_column(JSONB)

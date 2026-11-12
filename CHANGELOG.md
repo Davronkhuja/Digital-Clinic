@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.6] - 2026-11-12
+### Added
+- Moliya (7/8): kassa smenasi (migratsiya 0021). `POST /cash-shifts/open` (boshlang'ich naqd), `GET /cash-shifts/current` (X: ochiq smena joriy hisobot yoki null), `GET /cash-shifts`, `GET /cash-shifts/{id}/report`, `POST /cash-shifts/{id}/close` (`counted_cash`), `GET /cash-shifts/{id}/z-report/pdf`. Bitta kassirda bir vaqtda bitta ochiq smena (DB qisman unikal indeks). Boshqa kassir smenasini ko'rish/yopish faqat `finance:shifts` (admin).
+- Naqd/karta to'lovi va qaytarish ochiq smenasiz bo'lmaydi (409); to'lov va qaytarish `shift_id` bilan smenaga bog'lanadi (qaytarilgan pul qaytarishni bajargan kassirning smenasidan chiqadi). Onlayn Click/Payme smenaga bog'lanmaydi.
+- Yopishda: kutilgan naqd = boshlang'ich + naqd to'lovlar - naqd qaytarishlar; sanalgan naqd bilan farq (manfiy kamomad), ketma-ket Z-raqam (`Z-000001`), hisobot snapshot qotadi (yopilgan smenaga yangi to'lov kirmaydi). Z/X-hisobot: naqd va karta bo'yicha to'lov/qaytarish soni va summalari, onlayn (ma'lumot uchun, kassaga kirmaydi), sotuv/qaytarish/sof jami, fiskal cheki berilmaganlar soni. PDF. Hammasi auditda (ochish, yopish: kutilgan/sanalgan/farq).
+- Qaytarishlar faqat `finance:refund` (admin) ruxsati bilan (avvaldan) va endi ochiq smena bilan.
+- Testlar: `desk` fixture (kassir va admin uchun ochiq smena) to'lov testlarida.
+- **Taxmin**: kassaga kirim/chiqim (inkassatsiya, xarajat) hali yo'q: kutilgan naqd faqat to'lov va qaytarishlardan; smena kassir bo'yicha (bir kassirda bitta ochiq smena).
+
 ## [1.7.5] - 2026-11-12
 ### Added
 - Moliya (6/7): shifokor foizi (migratsiya 0020). Qoidalar `commission_rules`: shifokor (ixtiyoriy), xizmat (ixtiyoriy), foiz yoki har sotilgan birlik uchun qat'iy summa, asos (QQS bilan yoki QQS ajratilgan), amal qilish sanasi (`valid_from`/`valid_to`), faolsizlantirish. Tanlash: shifokor+xizmat > shifokor > xizmat > umumiy, teng bo'lsa `valid_from` kechroq. `GET/POST/PUT /commission-rules` (`commissions:manage`).
