@@ -71,13 +71,6 @@
                 {{ s }}
               </span>
             </div>
-            <!-- Attachments -->
-            <div v-if="r.attachments?.length" class="flex flex-wrap gap-2 mt-1">
-              <div v-for="att in r.attachments" :key="att.name"
-                :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs', dark ? 'border-slate-700 bg-slate-800 text-slate-300' : 'border-slate-200 bg-white text-slate-600']">
-                <Paperclip class="w-3 h-3" />{{ att.name }}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -169,7 +162,7 @@
                 </div>
               </div>
 
-              <p :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">Simptomlar, dorilar jadvali, laboratoriya fayllari va ilovalar hozircha saqlanmaydi</p>
+              <p :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">Tanlangan simptomlar saqlanganda "Shikoyatlar" bo'limiga matn sifatida qo'shiladi</p>
 
               <!-- Symptoms -->
               <div :class="['rounded-2xl border p-5', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
@@ -214,63 +207,8 @@
             <!-- Right column -->
             <div class="w-72 flex-shrink-0 overflow-y-auto p-5 space-y-4">
 
-              <!-- Lab Results -->
-              <div :class="['rounded-2xl border p-4', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
-                <div class="flex items-center gap-2 mb-3">
-                  <FlaskConical class="w-4 h-4 text-cyan-500" />
-                  <h4 :class="['font-semibold text-sm', dark ? 'text-white' : 'text-slate-900']">Lab Results</h4>
-                </div>
-                <div
-                  :class="['border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors',
-                    dragLabOver ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/10' : dark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300']"
-                  @dragover.prevent="dragLabOver=true"
-                  @dragleave="dragLabOver=false"
-                  @drop.prevent="onLabDrop"
-                  @click="labInput?.click()"
-                >
-                  <FlaskConical :class="['w-8 h-8 mx-auto mb-2', dark ? 'text-slate-600' : 'text-slate-300']" />
-                  <p :class="['text-xs', dark ? 'text-slate-400' : 'text-slate-500']">Drop lab files here or click to upload</p>
-                  <button type="button" :class="['mt-2 flex items-center gap-1 mx-auto text-xs px-3 py-1.5 rounded-lg border transition-colors', dark ? 'border-slate-700 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50']">
-                    <Paperclip class="w-3 h-3" />Browse
-                  </button>
-                </div>
-                <input ref="labInput" type="file" accept=".pdf,.jpg,.png" multiple class="hidden" @change="onLabFile" />
-                <div v-if="form.labFiles?.length" class="mt-2 space-y-1">
-                  <div v-for="f in form.labFiles" :key="f.name" :class="['flex items-center justify-between text-xs p-2 rounded-lg', dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600']">
-                    <span class="truncate flex items-center gap-1"><Paperclip class="w-3 h-3" />{{ f.name }}</span>
-                    <button type="button" @click="removeLabFile(f)" class="text-red-500 ml-1"><X class="w-3 h-3" /></button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Attachments -->
-              <div :class="['rounded-2xl border p-4', dark ? 'border-slate-800 bg-slate-800/20' : 'border-slate-200']">
-                <div class="flex items-center gap-2 mb-3">
-                  <Paperclip class="w-4 h-4 text-cyan-500" />
-                  <h4 :class="['font-semibold text-sm', dark ? 'text-white' : 'text-slate-900']">Attachments</h4>
-                </div>
-                <div
-                  :class="['border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors',
-                    dragAttOver ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/10' : dark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300']"
-                  @dragover.prevent="dragAttOver=true"
-                  @dragleave="dragAttOver=false"
-                  @drop.prevent="onAttDrop"
-                  @click="attInput?.click()"
-                >
-                  <Paperclip :class="['w-7 h-7 mx-auto mb-2', dark ? 'text-slate-600' : 'text-slate-300']" />
-                  <p :class="['text-xs', dark ? 'text-slate-400' : 'text-slate-500']">Upload X-rays, reports, etc.</p>
-                  <button type="button" :class="['mt-2 flex items-center gap-1 mx-auto text-xs px-3 py-1.5 rounded-lg border transition-colors', dark ? 'border-slate-700 text-slate-400 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50']">
-                    <Plus class="w-3 h-3" />Upload
-                  </button>
-                </div>
-                <input ref="attInput" type="file" multiple class="hidden" @change="onAttFile" />
-                <div v-if="form.attachments?.length" class="mt-2 space-y-1">
-                  <div v-for="f in form.attachments" :key="f.name" :class="['flex items-center justify-between text-xs p-2 rounded-lg', dark ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600']">
-                    <span class="truncate flex items-center gap-1"><Paperclip class="w-3 h-3" />{{ f.name }}</span>
-                    <button type="button" @click="removeAtt(f)" class="text-red-500 ml-1"><X class="w-3 h-3" /></button>
-                  </div>
-                </div>
-              </div>
+              <AttachmentsPanel v-if="editingId && formPatientId" :patient-id="formPatientId" :encounter-id="editingId" title="Ko'rik ilovalari" />
+              <p v-else :class="['text-xs', dark ? 'text-slate-500' : 'text-slate-400']">Fayl (PDF, JPG, PNG, DICOM) ko'rik saqlangandan keyin biriktiriladi.</p>
 
               <!-- Save button -->
               <button type="button" class="btn-primary w-full justify-center" @click="saveRecord" :disabled="saving">
@@ -293,8 +231,9 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icd10Input from '@/components/Icd10Input.vue'
 import PrescriptionEditor from '@/components/PrescriptionEditor.vue'
 import EncounterCard from '@/components/EncounterCard.vue'
-import { Plus, Search, X, Pencil, Save, Printer, Paperclip, FileText,
-  Stethoscope, FlaskConical, ClipboardCheck, TableIcon } from 'lucide-vue-next'
+import AttachmentsPanel from '@/components/AttachmentsPanel.vue'
+import { Plus, Search, X, Pencil, Save, Printer, FileText,
+  Stethoscope, ClipboardCheck, TableIcon } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import api, { fetchAll } from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
@@ -311,10 +250,6 @@ const search = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
-const labInput = ref(null)
-const attInput = ref(null)
-const dragLabOver = ref(false)
-const dragAttOver = ref(false)
 
 const allSymptoms = ['Fever', 'Headache', 'Cough', 'Fatigue', 'Chest Pain', 'Shortness of Breath', 'Nausea', 'Dizziness', 'Joint Pain', 'Sore Throat']
 const toast = useToast()
@@ -343,7 +278,14 @@ function applyTemplate() {
   for (const f of sectionFields) if (!form[f.key] && t[f.key]) form[f.key] = t[f.key]
   if (!form.diagnosis && t.diagnosis) form.diagnosis = t.diagnosis
 }
+// Eski simptom chiplari "Shikoyatlar" bo'limiga matn sifatida tushadi
+function withSymptoms(text, symptoms) {
+  if (!symptoms.length) return text
+  const line = `Simptomlar: ${symptoms.join(', ')}`
+  return text && text.includes(line) ? text : [text, line].filter(Boolean).join('\n')
+}
 const cardFor = ref(null)
+const formPatientId = computed(() => patientRows.value.find(p => p.name === form.patient_name)?.id || '')
 function onMarked(at) { const r = records.value.find(x => x.id === cardFor.value?.id); if (r) r.dmed_copied_at = at }
 const existingRx = ref([])
 async function cancelRx(p) {
@@ -383,13 +325,7 @@ function toggleSymptom(s) {
   i >= 0 ? form.symptoms.splice(i, 1) : form.symptoms.push(s)
 }
 
-function onLabFile(e) { Array.from(e.target.files).forEach(f => form.labFiles.push({ name: f.name, file: f })); e.target.value = '' }
-function onLabDrop(e) { Array.from(e.dataTransfer.files).forEach(f => form.labFiles.push({ name: f.name })); dragLabOver.value = false }
-function removeLabFile(f) { form.labFiles = form.labFiles.filter(x => x.name !== f.name) }
 
-function onAttFile(e) { Array.from(e.target.files).forEach(f => form.attachments.push({ name: f.name, file: f })); e.target.value = '' }
-function onAttDrop(e) { Array.from(e.dataTransfer.files).forEach(f => form.attachments.push({ name: f.name })); dragAttOver.value = false }
-function removeAtt(f) { form.attachments = form.attachments.filter(x => x.name !== f.name) }
 
 function openNew() { editingId.value = null; existingRx.value = []; Object.assign(form, defaultForm()); showForm.value = true }
 function openEdit(r) {
@@ -419,7 +355,7 @@ async function saveRecord() {
     const payload = { patient_id: patient.id, patient_name: patient.name, doctor: form.doctor,
                       icd_code: form.icd_code || null, diagnosis: form.diagnosis, prescription: form.prescription || '-',
                       notes: form.notes || null, visit_date: form.visit_date,
-                      complaints: form.complaints || null, anamnesis: form.anamnesis || null,
+                      complaints: withSymptoms(form.complaints, form.symptoms) || null, anamnesis: form.anamnesis || null,
                       examination: form.examination || null, recommendations: form.recommendations || null,
                       appointment_id: form.appointment_id || null }
     // tahrirlashda ko'rik yangilanadi (yangi yozuv yaratilmaydi); retsept alohida boshqariladi

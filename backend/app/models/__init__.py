@@ -1,4 +1,5 @@
 from app.models.appointment import Appointment, AppointmentType
+from app.models.attachment import Attachment
 from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
@@ -17,7 +18,7 @@ __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
     "Permission", "Role", "Room",
     "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate",
-    "InnDrug",
+    "InnDrug", "Attachment",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

@@ -15,6 +15,9 @@ _base_url = make_url(os.environ["DATABASE_URL"])
 _test_url = _base_url.set(database=f"{_base_url.database}_test")
 os.environ["DATABASE_URL"] = _test_url.render_as_string(hide_password=False)
 os.environ.setdefault("JWT_SECRET", "t" * 48)
+import tempfile  # noqa: E402
+
+os.environ["STORAGE_DIR"] = tempfile.mkdtemp(prefix="clinic-uploads-")
 os.environ["AI_ENABLED"] = "false"
 os.environ["SEED_DEMO"] = "true"
 os.environ["BCRYPT_ROUNDS"] = "4"

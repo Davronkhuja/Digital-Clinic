@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.6.16] - 2026-11-12
+### Added
+- EMR fayl ilovalari: `POST /patients/{id}/attachments` (multipart, ixtiyoriy `encounter_id` va `note`; `emr:write`), `GET /patients/{id}/attachments[?encounter_id]`, `GET /attachments/{id}/download` (`emr:read`, `attachment` + `nosniff` + `no-store`), `DELETE /attachments/{id}` (yozuv `deleted_at`, fayl saqlashda qoladi). Hammasi auditga yoziladi (yuklash, ro'yxat, yuklab olish, olib tashlash).
+- Tur baytlar bo'yicha aniqlanadi (PDF, JPG, PNG, DICOM `DICM`): kengaytma va Content-Type'ga ishonilmaydi, noma'lum tur 415, bo'sh fayl 422, hajm `MAX_UPLOAD_MB` (standart 20) dan oshsa 413. Fayl nomi tozalanadi (yo'l ajratgichlar olib tashlanadi), kengaytma haqiqiy turga moslanadi. Saqlash kaliti server yaratgan UUID.
+- Saqlash interfeysi `services/storage.py` (`Storage`: save/open/exists); hozir `LocalStorage` (docker volume `uploads` -> `/data/uploads`, atomik yozish, yo'l chiqib ketmaydi), `STORAGE_BACKEND` bilan keyin S3/MinIO. Migratsiya 0014. nginx `client_max_body_size 25m`.
+- Frontend: `AttachmentsPanel` (ko'rik formasida va bemor profilida: yuklash, yuklab olish, olib tashlash).
+### Changed
+- Eski EMR formasidagi simptom chiplari saqlanganda "Shikoyatlar" bo'limiga matn sifatida qo'shiladi ("Simptomlar: ..."); saqlanmaydigan eski "Lab Results" va "Attachments" bloklari olib tashlandi.
+
 ## [1.6.15] - 2026-11-12
 ### Added
 - 2-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage2.py`): bemor qo'shish (kirill/lotin, telefon qidiruvi), bo'sh vaqt (jadval, tanaffus), yozish (davomiylik, kabinet, band vaqt 409), ko'rik (shablon, MKB-10, qabul `Completed`), laboratoriya (to'plam, hamshira natijasi, me'yor belgisi), INN retsept, DMED tartibidagi karta, PDF, "ko'chirildi" belgisi va butun zanjir auditi.

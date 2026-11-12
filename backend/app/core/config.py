@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # CORS: vergul bilan ajratilgan aniq originlar
     cors_origins: str = "http://localhost:5180"
 
+    # Fayl saqlash (EMR ilovalari): storage interfeysi orqali; hozircha lokal (docker volume), keyin S3/MinIO
+    storage_backend: str = "local"
+    storage_dir: str = "/data/uploads"
+    max_upload_mb: int = 20
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"

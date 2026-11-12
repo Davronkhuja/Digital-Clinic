@@ -167,3 +167,15 @@ class EMRCard(BaseModel):
 
 class DmedMark(BaseModel):
     copied: bool = Field(..., description="true: 'DMED ga ko'chirildi' belgisi qo'yiladi; false: olib tashlanadi")
+
+
+class AttachmentOut(BaseModel):
+    id: str
+    patient_id: str
+    encounter_id: Optional[str] = None
+    filename: str
+    content_type: str
+    size_bytes: int
+    note: Optional[str] = None
+    uploaded_by: Optional[str] = None
+    created_at: str

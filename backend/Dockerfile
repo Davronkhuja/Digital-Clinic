@@ -21,7 +21,7 @@ CMD ["pytest"]
 
 # --- runtime (standart; compose target: runtime) ---
 FROM base AS runtime
-RUN useradd -r -u 1001 appuser && chown -R appuser /app
+RUN useradd -r -u 1001 appuser && mkdir -p /data/uploads && chown -R appuser /app /data/uploads
 USER appuser
 
 EXPOSE 8000
