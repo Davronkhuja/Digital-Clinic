@@ -4,6 +4,7 @@ from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.icd10 import Icd10Code
+from app.models.invoice import Invoice, InvoiceLine
 from app.models.lab import LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
 from app.models.patient import Patient
 from app.models.rbac import Permission, Role, role_permissions
@@ -19,7 +20,7 @@ __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
     "Permission", "Role", "Room",
     "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate",
-    "InnDrug", "Attachment", "Service", "ServiceCategory",
+    "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

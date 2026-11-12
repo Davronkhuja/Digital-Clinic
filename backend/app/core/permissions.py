@@ -20,6 +20,7 @@ PERMISSIONS: dict[str, str] = {
     "services:write": "Narxnomani o'zgartirish (narx, MXIK, QQS)",
     "finance:read": "Moliyani ko'rish",
     "finance:write": "To'lov va tranzaksiya kiritish",
+    "finance:discount": "Hisob-fakturaga chegirma berish",
     "staff:read": "Xodimlarni ko'rish",
     "staff:write": "Xodimlarni boshqarish",
     "settings:read": "Klinika sozlamalarini ko'rish",
@@ -47,7 +48,7 @@ ROLES: dict[str, tuple[str, list[str]]] = {
         "services:read", "staff:read", "settings:read",
     ]),
     "cashier": ("Kassir", [
-        "patients:read", "appointments:read", "finance:read", "finance:write", "services:read",
+        "patients:read", "appointments:read", "finance:read", "finance:write", "finance:discount", "services:read",
         "staff:read", "settings:read", "analytics:read", "reports:read",
     ]),
     "senior_receptionist": ("Katta registrator", [

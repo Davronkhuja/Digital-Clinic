@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.1] - 2026-11-12
+### Added
+- Moliya (2/6): hisob-fakturalar. `invoices` + `invoice_lines` (migratsiya 0018), raqam `INV-000123` (DB ketma-ketligi). Qatorda xizmat nomi, MXIK, package_code, QQS foizi va narx nusxalanadi: narxnoma keyin o'zgarsa ham hisob-faktura o'zgarmaydi. Faqat sotiladigan xizmat (MXIK, package_code, QQS to'liq, faol), aks holda 422 (qaysi maydon yetishmasligi ko'rsatiladi).
+- Hisob: pul faqat Decimal, numeric(14,2); qator chegirmasi (foiz yoki summa), hisob-faktura chegirmasi qatorlarga proporsional taqsimlanadi (yaxlitlash qoldig'i aniq taqsimlanadi, yig'indi har doim `total`), QQS narx ichidan: `net * p / (100 + p)`. DB CHECK: `total = subtotal - discount_total`, qator `net_total` ham.
+- `POST /invoices` (`finance:write`; `issue=true` darhol chiqaradi), `GET /invoices[?patient_id&status&number]`, `GET /invoices/{id}`, `PUT /invoices/{id}` (faqat `Draft`), `POST /invoices/{id}/issue`, `POST /invoices/{id}/cancel` (sabab majburiy; to'lovi borini emas). Hisob-faktura o'chirilmaydi. Qabul/ko'rik bemorga tegishli bo'lishi shart; bitta qabulga faol hisob-faktura bitta (409). Ijrochi shifokor qatorda (standart: qabul shifokori) shifokor foizi uchun.
+- Chegirma `finance:discount` ruxsati (admin, kassir) va sabab bilan; foiz va summa birga berilmaydi; hammasi auditga (summa, chegirma).
+- `services/money.py`: pulni yaxlitlash va so'm <-> tiyin o'tkazish bitta joyda (Payme/Click adapterlari shundan foydalanadi).
+- **Taxmin**: `finance:discount` kassirga ham berildi (qoida aniq emas; Sozlamalar > Rollar orqali o'zgartiriladi). Qoldiq/to'langan summa v1.7.2 da to'lovlar bilan.
+
 ## [1.7.0] - 2026-11-12
 ### Added
 - 3-bosqich, moliya (1/6): narxnoma. `services` (migratsiya 0017) va `service_categories`. Har xizmatda `price` (numeric(14,2), QQS bilan), `mxik` (IKPU, aniq 17 raqam; bo'sh joy va chiziqcha tozalanadi), `package_code` (1-10 raqam), `vat_percent` (0-100; 0 = QQSsiz, null = kiritilmagan). Format DB CHECK va API (422) da tekshiriladi.

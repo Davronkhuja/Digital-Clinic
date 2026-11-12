@@ -63,3 +63,10 @@ class LabFlag(str, Enum):
     low = "Low"
     normal = "Normal"
     high = "High"
+
+class InvoiceStatus(str, Enum):
+    draft = "Draft"
+    issued = "Issued"
+    partially_paid = "PartiallyPaid"
+    paid = "Paid"
+    cancelled = "Cancelled"
