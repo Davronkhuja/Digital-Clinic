@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-11-12
+### Added
+- 3-bosqich, moliya (1/6): narxnoma. `services` (migratsiya 0017) va `service_categories`. Har xizmatda `price` (numeric(14,2), QQS bilan), `mxik` (IKPU, aniq 17 raqam; bo'sh joy va chiziqcha tozalanadi), `package_code` (1-10 raqam), `vat_percent` (0-100; 0 = QQSsiz, null = kiritilmagan). Format DB CHECK va API (422) da tekshiriladi.
+- Bularsiz xizmatni sotib bo'lmaydi: MXIK, package_code yoki QQS bo'lmasa xizmat saqlanadi, lekin `sellable=false` (`missing` ro'yxati bilan); faol bo'lmagan xizmat ham sotilmaydi. `GET /services?sellable=true|false&search&category_id&include_inactive`. Hisob-faktura (v1.7.1) faqat `sellable` xizmatni qabul qiladi.
+- `GET/POST/PUT /services`, `GET/POST/PUT /service-categories`; yangi ruxsatlar `services:read` (admin, shifokor, qabulxona, katta registrator, kassir) va `services:write` (faqat admin); xizmat o'zgarishlari (narx va h.k.) auditga eski/yangi qiymat bilan. Xizmat o'chirilmaydi, faolsizlantiriladi.
+- Frontend: Sozlamalar > "Narxnoma" (ro'yxat, filtr: sotiladigan / kodi to'liq emas, qo'shish/tahrirlash, MXIK jonli tekshiruvi).
+- **Taxmin**: `package_code` formati (1-10 raqam) va MXIK uchun faqat uzunlik/raqam tekshiruvi (rasmiy klassifikator bilan solishtirish yo'q); QQS stavkasi qat'iy kodlanmagan (soliq stavkasi o'zgarishi mumkin).
+
 ## [1.6.18] - 2026-11-12
 ### Added
 - Majburan yozish: `appointments:override` ruxsati (admin va yangi "Katta registrator" roli `senior_receptionist`; migratsiya 0016 mavjud bazaga ruxsat va rolni qo'shadi, bo'sh bazada seed). Ish vaqtidan tashqari (soat, tanaffus, dam olish kuni, ta'til, qo'shimcha slot) yozishda `override_reason` majburiy (kamida 5 belgi): sabab yo'q 422, sabab bor lekin ruxsat yo'q 403.

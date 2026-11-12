@@ -10,5 +10,6 @@ from app.schemas.lab import *  # noqa: F401,F403
 from app.schemas.patients import *  # noqa: F401,F403
 from app.schemas.schedule import *  # noqa: F401,F403
 from app.schemas.security import *  # noqa: F401,F403
+from app.schemas.services import *  # noqa: F401,F403
 from app.schemas.settings import *  # noqa: F401,F403
 from app.schemas.staff import *  # noqa: F401,F403

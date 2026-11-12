@@ -16,6 +16,8 @@ PERMISSIONS: dict[str, str] = {
     "emr:write": "Tibbiy yozuv va retsept yozish",
     "lab:read": "Laboratoriya buyurtma va natijalarini ko'rish",
     "lab:write": "Laboratoriya buyurtma berish va natija kiritish",
+    "services:read": "Narxnomani (xizmatlar) ko'rish",
+    "services:write": "Narxnomani o'zgartirish (narx, MXIK, QQS)",
     "finance:read": "Moliyani ko'rish",
     "finance:write": "To'lov va tranzaksiya kiritish",
     "staff:read": "Xodimlarni ko'rish",
@@ -33,8 +35,8 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     "admin": ("Administrator", list(PERMISSIONS)),
     "doctor": ("Shifokor", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
-        "emr:read", "emr:write", "lab:read", "lab:write", "staff:read", "settings:read", "analytics:read",
-        "reports:read", "ai:use",
+        "emr:read", "emr:write", "lab:read", "lab:write", "services:read", "staff:read", "settings:read",
+        "analytics:read", "reports:read", "ai:use",
     ]),
     "nurse": ("Hamshira", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
@@ -42,14 +44,14 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     ]),
     "receptionist": ("Qabulxona", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "staff:read", "settings:read",
+        "services:read", "staff:read", "settings:read",
     ]),
     "cashier": ("Kassir", [
-        "patients:read", "appointments:read", "finance:read", "finance:write",
+        "patients:read", "appointments:read", "finance:read", "finance:write", "services:read",
         "staff:read", "settings:read", "analytics:read", "reports:read",
     ]),
     "senior_receptionist": ("Katta registrator", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "appointments:override", "staff:read", "settings:read",
+        "appointments:override", "services:read", "staff:read", "settings:read",
     ]),
 }

@@ -63,6 +63,7 @@
     </div>
 
     <!-- ═══ Rollar ═══ -->
+    <ServiceCatalog v-if="activeTab === 'services' && auth.can('services:read')" />
     <LabCatalog v-if="activeTab === 'lab' && canResources" />
     <ExamTemplates v-if="activeTab === 'templates' && auth.can('emr:write')" />
     <ClinicResources v-if="activeTab === 'resources' && canResources" />
@@ -215,7 +216,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Building2, DoorOpen, FileText, FlaskConical, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
+import { Building2, DoorOpen, FileText, FlaskConical, Tag, Shield, Users, Check, Save, Plus, X, Pencil } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/composables/useApi'
@@ -224,6 +225,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ClinicResources from '@/components/ClinicResources.vue'
 import ExamTemplates from '@/components/ExamTemplates.vue'
 import LabCatalog from '@/components/LabCatalog.vue'
+import ServiceCatalog from '@/components/ServiceCatalog.vue'
 
 const theme = useThemeStore()
 const auth = useAuthStore()
@@ -239,6 +241,7 @@ const activeTab = ref('clinic')
 const tabs = computed(() => [
   { key: 'clinic', label: 'Klinika', icon: Building2 },
   ...(auth.can('emr:write') ? [{ key: 'templates', label: "Ko'rik shablonlari", icon: FileText }] : []),
+  ...(auth.can('services:read') ? [{ key: 'services', label: 'Narxnoma', icon: Tag }] : []),
   ...(canResources.value ? [{ key: 'lab', label: "Laboratoriya me'yorlari", icon: FlaskConical }] : []),
   ...(canResources.value ? [{ key: 'resources', label: 'Kabinet va qabul turlari', icon: DoorOpen }] : []),
   ...(canManage.value ? [

@@ -26,6 +26,7 @@ from app.routers import (
     rooms,
     schedule,
     security,
+    services,
     staff,
     waitlist,
 )
@@ -85,5 +86,5 @@ def root():
 
 
 for module in (access, auth, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
-               reports, rooms, schedule, waitlist, icd10, lab, attachments):
+               reports, rooms, schedule, waitlist, icd10, lab, attachments, services):
     app.include_router(module.router)
