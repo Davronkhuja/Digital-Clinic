@@ -125,7 +125,7 @@ def test_discount_validation(client, auth):
     line_big = client.post("/invoices", headers=cashier, json={**base, "lines": [{"service_id": s1["id"], "discount_amount": 100001}]})
     assert line_big.status_code == 422
     assert client.post("/invoices", headers=cashier, json={**base, "lines": [{"service_id": s1["id"]}], "discount_percent": 101}).status_code == 422
-    free = client.post("/invoices", headers=cashier, json={**base, "lines": [{"service_id": s1["id"]}], "discount_percent": 100}).json()
+    free = client.post("/invoices", headers=auth("admin"), json={**base, "lines": [{"service_id": s1["id"]}], "discount_percent": 100}).json()
     assert free["total"] == 0.0 and free["vat_total"] == 0.0
 
 

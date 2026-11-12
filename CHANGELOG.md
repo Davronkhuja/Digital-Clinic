@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.9] - 2026-11-12
+### Added
+- Chegirma limiti (biznes qarori): kassir (`finance:discount`) sozlamadagi foizgacha (standart 10%) chegirma beradi; jami chegirma (qator + umumiy) chegirmasiz summaga nisbatan yaxlitlamasdan solishtiriladi; oshsa `finance:discount_override` (admin) kerak, aks holda 403 (limit xabarda). Sabab majburiy, hammasi auditda (avvalgidek). Qoralamani o'zgartirishda ham qayta tekshiriladi.
+- Sozlamalar: `clinic_settings.discount_limit_percent` (migratsiya 0022), `GET/PUT /settings/finance` (`settings:write`, o'zgarish eski/yangi qiymat bilan auditda). Yozilgan hisob-fakturalar o'zgarmaydi. Frontend: Sozlamalar > Moliya.
+
 ## [1.7.8] - 2026-11-12
 ### Added
 - 3-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage3.py`): narxnoma (kodsiz xizmat 422) -> chegirmali hisob-faktura -> smena -> naqd + karta (qisman) -> Payme (JSON-RPC) -> Click (imzo) -> qaytarish va Payme bekor qilishi -> shifokor foizi (hisoblash va teskari yozuv) -> Z-hisobot -> oylik yopish. Bazada ham: hamma `Paid` to'lovda `receipt_id` va `receipt_status=Issued`, chek qatorlari to'lovga teng, har qatorda MXIK/package_code/QQS, moliya yozuvlari to'lov va qaytarishlarga aniq mos.

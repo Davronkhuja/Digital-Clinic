@@ -99,10 +99,10 @@ def test_no_rule_no_doctor_no_entry_and_discount_reduces_base(client, auth):
     _pay(client, auth, inv)
     assert _entries(client, auth) == []
     _rule(client, auth, percent=10)
-    inv2 = _invoice(client, auth, [{"service_id": svc["id"], "doctor_id": d1}], discount_percent=20, discount_reason="Doimiy mijoz")
+    inv2 = _invoice(client, auth, [{"service_id": svc["id"], "doctor_id": d1}], discount_percent=10, discount_reason="Doimiy mijoz")
     _pay(client, auth, inv2)
     e = _entries(client, auth)[0]
-    assert e["base_amount"] == 80000.0 and e["amount"] == 8000.0                    # chegirmadan keyingi to'langan summa
+    assert e["base_amount"] == 90000.0 and e["amount"] == 9000.0                    # chegirmadan keyingi to'langan summa
 
 
 def test_partial_payments_accrue_proportionally_and_sum_to_full(client, auth):

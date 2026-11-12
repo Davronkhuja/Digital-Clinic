@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -12,13 +13,15 @@ from app.models import Appointment, Encounter, Invoice, InvoiceLine, Patient, Se
 from app.models.invoice import invoice_number_seq
 from app.schemas.enums import InvoiceStatus, StaffRole
 from app.schemas.invoices import CancelIn, InvoiceCreate, InvoiceLineIn, InvoiceOut, InvoiceUpdate
-from app.services import audit, invoicing, payments
+from app.services import app_settings, audit, invoicing, payments
 from app.services.lookup import get_patient_or_404
+from app.services.money import q2
 from app.services.periods import CLINIC_TZ
 
 router = APIRouter()
 TAG = "🧾 Invoices"
 DISCOUNT_PERM = "finance:discount"
+OVERRIDE_PERM = "finance:discount_override"
 
 
 def invoice_out(db: Session, inv: Invoice) -> dict:
@@ -68,14 +71,19 @@ def _build_lines(db: Session, lines: list[InvoiceLineIn], default_doctor: uuid.U
     return inputs
 
 
-def _check_discount(user: CurrentUser, lines: list[InvoiceLineIn], percent, amount, reason) -> None:
-    line_discounts = any(ln.discount_percent is not None or ln.discount_amount is not None for ln in lines)
-    if percent is None and amount is None and not line_discounts:
+def _check_discount(db: Session, user: CurrentUser, computed: invoicing.Computed, reason: str | None) -> None:
+    """Chegirma bor bo'lsa: `finance:discount`, sabab majburiy; umumiy chegirma foizi sozlamadagi limitdan oshsa
+    `finance:discount_override`. Foiz = jami chegirma / chegirmasiz summa."""
+    if computed.discount_total <= 0:
         return
     if DISCOUNT_PERM not in user.permissions:
         raise HTTPException(403, f"Chegirma berish uchun ruxsat yo'q ({DISCOUNT_PERM})")
-    if not (reason or "").strip() or len(reason.strip()) < 3:
+    if len((reason or "").strip()) < 3:
         raise HTTPException(422, "Chegirma sababi majburiy")
+    limit = app_settings.discount_limit(db, user.branch_id)
+    percent = computed.discount_total * 100 / computed.subtotal if computed.subtotal else Decimal("0")  # yaxlitlamasdan solishtiriladi
+    if percent > limit and OVERRIDE_PERM not in user.permissions:
+        raise HTTPException(403, f"Chegirma {q2(percent)}% limit ({limit}%) dan oshadi: {OVERRIDE_PERM} ruxsati kerak")
 
 
 def _write_lines(db: Session, inv: Invoice, computed: invoicing.Computed, user: CurrentUser) -> None:
@@ -114,8 +122,8 @@ def create_invoice(data: InvoiceCreate, request: Request, db: Session = Depends(
         enc = db.get(Encounter, data.encounter_id)
         if not enc or enc.deleted_at is not None or enc.patient_id != patient.id:
             raise HTTPException(422, "Ko'rik topilmadi yoki boshqa bemorga tegishli")
-    _check_discount(user, data.lines, data.discount_percent, data.discount_amount, data.discount_reason)
     computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None), data.discount_percent, data.discount_amount)
+    _check_discount(db, user, computed, data.discount_reason)
     number = f"INV-{db.scalar(select(invoice_number_seq.next_value())):06d}"
     inv = Invoice(number=number, patient_id=patient.id, doctor_id=doctor.id if doctor else None, appointment_id=data.appointment_id,
                   encounter_id=data.encounter_id, status=InvoiceStatus.issued if data.issue else InvoiceStatus.draft,
@@ -163,9 +171,9 @@ def update_invoice(invoice_id: uuid.UUID, data: InvoiceUpdate, request: Request,
     inv = _get(db, invoice_id)
     if inv.status != InvoiceStatus.draft:
         raise HTTPException(409, "Faqat qoralama (Draft) hisob-fakturani o'zgartirish mumkin")
-    _check_discount(user, data.lines, data.discount_percent, data.discount_amount, data.discount_reason)
     doctor = _doctor(db, data.doctor_id) or (db.get(Staff, inv.doctor_id) if inv.doctor_id else None)
     computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None), data.discount_percent, data.discount_amount)
+    _check_discount(db, user, computed, data.discount_reason)
     for old in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id)):
         db.delete(old)
     db.flush()
