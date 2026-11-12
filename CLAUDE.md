@@ -93,7 +93,17 @@ permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `mo
 - **Band vaqt:** `no_doctor_overlap` va `no_room_overlap` exclusion cheklovlar (`btree_gist`, DB foydalanuvchisi superuser), 409. Faqat `Scheduled`/`Completed` band.
 - **Katalog yozuvlari o'chirilmaydi:** qabul turi, kabinet, tahlil faolsizlantiriladi; lab natijasiga nom/birlik/me'yor nusxalanadi.
   Retsept (`deleted_at`) va lab buyurtma (status `Cancelled`) o'chirilmaydi. Mos me'yor bo'lmasa (bola, yosh noma'lum) lab belgisi null.
-- **Ruxsatlar:** `patients:merge`, `lab:read`, `lab:write` (data migratsiya mavjud rollarga beradi; yangi ruxsat qo'shsangiz migratsiyada ham bering).
+- **Ruxsatlar:** `patients:merge`, `lab:read/write`, `appointments:override`, `services:read/write`, `finance:discount/refund/shifts`,
+  `commissions:read/manage` (data migratsiya mavjud rollarga beradi; yangi ruxsat qo'shsangiz migratsiyada ham bering).
+  Rollar: admin, doctor, nurse, receptionist, **senior_receptionist** (majburan yozish), cashier.
+- **Pul:** bazada `numeric(14,2)` (Decimal); so'm <-> tiyin va yaxlitlash FAQAT `services/money.py` (`q2`, `to_tiyin`, `from_tiyin`); Payme/Click shundan foydalanadi
+  (testda tekshiriladi). Narx QQS bilan, QQS ichidan ajratiladi (`net*p/(100+p)`). Hisob-faktura qatoriga xizmat nomi, narx, MXIK, QQS nusxalanadi.
+- **To'lov:** Cash/Card kassada (ochiq smena shart, chek berilmasa yozilmaydi 502); Payme/Click `Pending` (summa band) -> provayder chaqiruvi bilan `Paid`
+  (chek xatosi provayderga qaytmaydi: `receipt_status=Failed`, `POST /payments/{id}/receipt` bilan qayta). To'lov va qaytarish `transactions` ga
+  (`payment_id`/`refund_id`) avtomatik yoziladi. Qaytarish faqat `finance:refund` + ochiq smena; Payme -2 avtomatik qaytaradi; Click qaytarishi yozilmagan.
+- **Smena:** bir kassirda bitta ochiq smena; yopilganda Z-raqam va qotgan snapshot; onlayn to'lovlar smenaga bog'lanmaydi.
+- **Kalitlar** (`PAYME_*`, `CLICK_*`, `FISCAL_BACKEND`) faqat `.env`; bo'sh kalit: endpoint hamma so'rovni rad etadi; `*_TEST_MODE=true` standart (sandbox).
+- **Fayllar:** EMR ilovalari `Storage` interfeysi orqali (`STORAGE_BACKEND=local`, docker volume `uploads`, `MAX_UPLOAD_MB`); tur baytlar bo'yicha aniqlanadi.
 - **Frontend:** demo/zaxira ma'lumot yo'q; xatoda toast + "Qayta urinish", bo'sh ro'yxatda `EmptyState`. Chat va Obuna sahifalari yashirilgan (`hidden`, kodi bor).
 
 ## Reja: 6 bosqich
@@ -108,12 +118,11 @@ bir vaqtga ikkita qabul bazadagi exclusion cheklov bilan taqiqlangan), EMR (MKB-
 INN retsept, DMED tartibidagi ko'rik kartasi, nusxalash, PDF, qo'lda "ko'chirildi" belgisi), laboratoriya (katalog, jins/yosh
 me'yori, buyurtma, natija belgisi, PDF). **Shart** `backend/tests/test_e2e_stage2.py` bilan isbotlangan.
 
-### 3-bosqich: Moliya va kassa (v1.7.x)
-- services (narxnoma, kategoriyalar), invoices, payments (naqd, karta, Click, Payme), chegirmalar, qaytarish, kassa smenasi (ochish/yopish, Z-hisobot).
-- Shifokor foizi: xizmat va shifokor bo'yicha foiz yoki qat'iy summa, oylik hisob-kitob.
-- Fiskal chek adapteri (virtual kassa), Click va Payme adapterlari: avval mock interfeys bilan.
-  Real API hujjatlari bo'lmasa, mock'da to'xta va so'ra.
-- **Shart:** har bir to'lov chek bilan yopiladi (mock'da chek ID saqlanadi).
+### 3-bosqich: Moliya va kassa (v1.7.x): TUGADI (v1.7.8)
+Narxnoma (MXIK/package_code/QQS; kodsiz xizmat sotilmaydi), hisob-faktura (chegirma, QQS), to'lov (naqd, karta, Payme Merchant API,
+Click Prepare/Complete), fiskal chek adapteri (mock), qaytarish, shifokor foizi (qoidalar, oylik hisob, teskari yozuv), kassa smenasi
+(X/Z-hisobot). **Shart** (har bir to'lov chek bilan yopiladi, mock'da chek ID) `backend/tests/test_e2e_stage3.py` bilan isbotlangan.
+Frontend: Kassa (`/cashier`) va Shifokor foizi (`/commissions`) sahifalari, Sozlamalar > Narxnoma.
 
 ### 4-bosqich: Bemor bilan aloqa (v1.8.x)
 - Celery + Redis. Eslatmalar qabuldan 24 soat va 2 soat oldin, SMS va Telegram orqali; tasdiqlash va bekor qilish havolasi.
@@ -137,6 +146,13 @@ me'yori, buyurtma, natija belgisi, PDF). **Shart** `backend/tests/test_e2e_stage
 Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; oxirida "Shart"ni test yoki skript bilan isbotlab hisobot.
 
 ## Ochiq masalalar
+
+- **3-bosqich real kalit/hujjat kutadi (hozir mock/test):** (1) Payme merchant ID va kalit: sandbox'da sinash, `PAYME_UNITS_CODE=796` (dona) taxmin;
+  (2) Click service_id/merchant_id/secret: sandbox'da sinash, Click to'lovini qaytarish (reverse) API yozilmagan; (3) fiskal chek: real virtual kassa
+  operatori adapteri (`services/fiscal.py`, hozir faqat `MockFiscalAdapter`); (4) `package_code` formati (1-10 raqam) va MXIK faqat uzunlik/raqam bilan tekshiriladi;
+  (5) QQS stavkasi kodlanmagan (narxnomada xizmat bo'yicha).
+- Biznes taxminlari (tasdiqlash kerak): `finance:discount` kassirga ham berilgan; shifokor foizi asosi standart "QQS bilan to'langan summa";
+  oy yopilganda foiz to'lovi (chiqim) yozilmaydi; kassaga kirim/chiqim (inkassatsiya) yo'q; ish vaqtidan tashqari yozish `appointments:override` bilan.
 
 - **Starter ma'lumotnomalar rasmiy emas** (muallif yozgan, shifokor/laboratoriya tekshirishi shart): `backend/data/mkb10_starter.csv`
   (142 toifa), `inn_starter.csv` (146), `lab_starter.json` (24 tahlil, kattalar 18+ me'yori). To'liq rasmiy fayl:

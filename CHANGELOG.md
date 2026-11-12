@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.7.8] - 2026-11-12
+### Added
+- 3-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage3.py`): narxnoma (kodsiz xizmat 422) -> chegirmali hisob-faktura -> smena -> naqd + karta (qisman) -> Payme (JSON-RPC) -> Click (imzo) -> qaytarish va Payme bekor qilishi -> shifokor foizi (hisoblash va teskari yozuv) -> Z-hisobot -> oylik yopish. Bazada ham: hamma `Paid` to'lovda `receipt_id` va `receipt_status=Issued`, chek qatorlari to'lovga teng, har qatorda MXIK/package_code/QQS, moliya yozuvlari to'lov va qaytarishlarga aniq mos.
+### Changed
+- `CLAUDE.md`: 3-bosqich tugadi; pul, to'lov, smena, kalitlar, fayllar qarorlari; real kalit/hujjat kutayotgan ochiq masalalar.
+
 ## [1.7.7] - 2026-11-12
 ### Added
 - Moliya (8/9, frontend): "Kassa" sahifasi (`/cashier`, `finance:read`): kassa smenasi (ochish, yopish: kutilgan va sanalgan naqd, farq jonli, X/Z PDF, kutilgan naqd va cheki berilmaganlar ogohlantirishi), hisob-fakturalar ro'yxati (holat, to'langan, qoldiq), yangi hisob-faktura (faqat sotiladigan xizmatlar, soni, chegirma maydonlari `finance:discount` bilan), hisob-faktura tafsiloti (qatorlar MXIK/QQS bilan, to'lovlar, fiskal chek ID), to'lov qabul qilish (naqd, karta, Payme/Click havolasi nusxalash bilan), chekni qayta berish, kutilayotgan onlayn to'lovni bekor qilish, qaytarish (`finance:refund`, sabab majburiy), hisob-fakturani bekor qilish.
