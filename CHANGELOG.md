@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.14] - 2026-11-13
+### Fixed
+- `worker` va `beat` konteynerlari doim `unhealthy` ko'rinardi: backend imajidagi HTTP healthcheck (:8000) ularga mos emas edi. Worker uchun `celery inspect ping`, beat uchun jarayon tekshiruvi qo'yildi.
+
 ## [1.8.13] - 2026-11-13
 ### Added
 - E2E portal testi kengaytirildi: rus tiliga o'tish (sarlavha, tablar, holat nomlari), Hisoblar bo'limi (jami, to'langan, qarz yo'q), Tahlillar bo'limi (tasdiqlangan natija va PDF 200 `application/pdf`), qabulni tasdiq bilan bekor qilish (holat "Bekor qilingan", tugma yo'qoladi), chiqish.
