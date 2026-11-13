@@ -8,6 +8,7 @@ const routes = [
   // Ochiq sahifalar (login kerak emas): imzolangan havolalar
   { path: '/p/a/:token', name: 'PublicAppointment', component: () => import('@/views/PublicAppointmentView.vue') },
   { path: '/p/book', name: 'PublicBooking', component: () => import('@/views/PublicBookingView.vue') },
+  { path: '/portal', name: 'Portal', component: () => import('@/views/PortalView.vue') },
   { path: '/p/o/:token', name: 'PublicOffer', component: () => import('@/views/PublicOfferView.vue') },
 
   {

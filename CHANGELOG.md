@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.10] - 2026-11-13
+### Added
+- Bemor portali sahifasi `/portal` (mobil ekranga moslangan, o'zbek/rus almashtirgich): telefon -> SMS OTP -> bemor (bir telefonda bir nechta bo'lsa tanlanadi) -> Qabullar (tasdiqlash, tasdiq bilan bekor qilish), Hisoblar (jami, to'langan, qarz), Tahlillar (faqat shifokor tasdiqlagan, PDF). Seans brauzer tabida (`sessionStorage`), 2 soat; xodim tokenidan alohida.
+### Changed
+- Mock SMS adapteri yuborilgan matnni `app.sms.mock` jurnaliga yozadi (qo'lda va e2e sinovda OTP shundan olinadi; faqat `SMS_BACKEND=mock`).
+- `vite.config.js`: dev proxy nishoni `VITE_API_TARGET` bilan o'zgaradi (standart `http://localhost:8000`).
+
 ## [1.8.9] - 2026-11-13
 ### Added
 - LabView: "Tasdiqlash" tugmasi (`lab:approve`), "Tasdiqlangan" belgisi (kim va qachon), "Tuzatish kiritish" (sabab majburiy) va tuzatishlar tarixi.

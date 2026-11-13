@@ -48,6 +48,7 @@ class MockSmsAdapter:
 
     def send(self, to: str, text: str) -> SendResult:
         self.SENT.append((to, text))
+        logging.getLogger("app.sms.mock").info("MOCK SMS to=%s text=%s", to, text)   # e2e va qo'lda sinov: OTP shu jurnaldan olinadi
         return SendResult(f"MOCKSMS-{uuid.uuid4().hex[:10]}")
 
 
