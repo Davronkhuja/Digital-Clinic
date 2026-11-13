@@ -269,8 +269,10 @@ def create_order(data: LabOrderCreate, request: Request, db: Session = Depends(g
 def get_orders(request: Request, patient_id: Optional[uuid.UUID] = None, status: Optional[LabOrderStatus] = None,
                db: Session = Depends(get_db), user: CurrentUser = Depends(require("lab:read"))):
     stmt = select(LabOrder).order_by(LabOrder.created_at.desc())
-    if patient_id:
+    if patient_id:                                              # bemor tarixi umumiy; umumiy ro'yxat filial bo'yicha
         stmt = stmt.where(LabOrder.patient_id == patient_id)
+    else:
+        stmt = stmt.where(LabOrder.branch_id == user.branch_id)
     if status:
         stmt = stmt.where(LabOrder.status == status)
     result = [order_out(db, o) for o in db.scalars(stmt)]

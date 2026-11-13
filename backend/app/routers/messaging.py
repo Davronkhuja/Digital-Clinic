@@ -121,6 +121,7 @@ def list_messages(status: Optional[MessageStatus] = None, kind: Optional[str] = 
     from app.models import Patient
 
     stmt = select(Message, Patient.full_name).outerjoin(Patient, Message.patient_id == Patient.id).order_by(Message.created_at.desc()).limit(limit)
+    stmt = stmt.where(Message.branch_id == user.branch_id)
     if status:
         stmt = stmt.where(Message.status == status)
     if kind:
@@ -144,7 +145,7 @@ def message_stats(date_from: Optional[str] = None, date_to: Optional[str] = None
         raise HTTPException(422, "Sana YYYY-MM-DD bo'lishi kerak")
     lo = datetime.combine(start, datetime.min.time(), tzinfo=CLINIC_TZ)
     hi = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=CLINIC_TZ)
-    cond = (Message.created_at >= lo, Message.created_at < hi)
+    cond = (Message.created_at >= lo, Message.created_at < hi, Message.branch_id == user.branch_id)
     by_status = dict(db.execute(select(Message.status, func.count()).where(*cond).group_by(Message.status)).all())
     by_kind = dict(db.execute(select(Message.kind, func.count()).where(*cond).group_by(Message.kind)).all())
     sms_n, sms_seg = db.execute(select(func.count(), func.coalesce(func.sum(Message.sms_segments), 0)).where(

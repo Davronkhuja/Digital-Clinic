@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/staff", tags=["👔 Staff"], response_model=List[StaffMember], summary="Xodimlar ro'yxati")
 def get_staff(role: Optional[StaffRole] = None, db: Session = Depends(get_db),
               user: CurrentUser = Depends(require("staff:read"))):
-    return queries.list_staff(db, role)
+    return queries.list_staff(db, role, branch_id=user.branch_id)
 
 
 @router.post("/staff", tags=["👔 Staff"], response_model=StaffMember, status_code=201,

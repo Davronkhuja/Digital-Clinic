@@ -21,7 +21,7 @@ router = APIRouter()
             summary="Moliyaviy tranzaksiyalar")
 def get_transactions(request: Request, type: Optional[TransactionType] = Query(None), category: Optional[str] = Query(None),
                      db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
-    result = queries.list_transactions(db, type, category)
+    result = queries.list_transactions(db, type, category, branch_id=user.branch_id)
     audit.record_read(db, user, request, "transaction", details={"count": len(result)})
     return result
 
@@ -56,7 +56,7 @@ def get_finance_summary(period: str = Query("month", pattern="^(week|month|year|
                         db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
     start, _ = window(period)
     stmt = select(Transaction.type, func.coalesce(func.sum(Transaction.amount), 0), func.count()).where(
-        Transaction.deleted_at.is_(None)
+        Transaction.deleted_at.is_(None), Transaction.branch_id == user.branch_id
     ).group_by(Transaction.type)
     if start:
         stmt = stmt.where(Transaction.date >= start)

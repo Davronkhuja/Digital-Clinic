@@ -37,7 +37,7 @@ router = APIRouter()
 @router.get("/emr", tags=["📋 EMR"], response_model=List[EMRRecord], summary="Tibbiy yozuvlar ro'yxati")
 def get_emr(request: Request, patient_id: Optional[uuid.UUID] = Query(None), db: Session = Depends(get_db),
             user: CurrentUser = Depends(require("emr:read"))):
-    result = queries.list_encounters(db, patient_id)
+    result = queries.list_encounters(db, patient_id, branch_id=user.branch_id)
     audit.record_read(db, user, request, "emr", details={"patient_id": str(patient_id) if patient_id else None, "count": len(result)})
     return result
 

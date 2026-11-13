@@ -39,7 +39,7 @@ def get_appointments(
     user: CurrentUser = Depends(require("appointments:read")),
 ):
     try:
-        return queries.list_appointments(db, date, doctor, status, patient_id)
+        return queries.list_appointments(db, date, doctor, status, patient_id, branch_id=user.branch_id)
     except ValueError:
         raise HTTPException(422, "date YYYY-MM-DD formatida bo'lishi kerak")
 

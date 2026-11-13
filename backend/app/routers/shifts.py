@@ -54,6 +54,7 @@ def current_shift(db: Session = Depends(get_db), user: CurrentUser = Depends(req
 @router.get("/cash-shifts", tags=[TAG], response_model=List[ShiftReport], summary="Smenalar (o'zimniki; `finance:shifts` bilan hammasi)")
 def list_shifts(limit: int = 30, db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
     stmt = select(CashShift).order_by(CashShift.opened_at.desc()).limit(max(1, min(limit, 200)))
+    stmt = stmt.where(CashShift.branch_id == user.branch_id)
     if ALL_SHIFTS not in user.permissions:
         stmt = stmt.where(CashShift.opened_by == user.id)
     return [shifts.report(db, s) for s in db.scalars(stmt)]

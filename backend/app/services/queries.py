@@ -87,7 +87,9 @@ def list_appointments(
     status: AppointmentStatus | None = None,
     patient_id: uuid.UUID | None = None,
     appt_id: uuid.UUID | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> list[dict]:
+    """`branch_id`: operatsion ro'yxat shu filial bo'yicha; bemor tarixi (`patient_id`) filialga bog'lanmaydi (umumiy bemor bazasi)."""
     stmt = (
         select(Appointment, Patient.full_name, Staff.full_name, Room.name)
         .join(Patient, Appointment.patient_id == Patient.id)
@@ -105,11 +107,13 @@ def list_appointments(
         stmt = stmt.where(Appointment.patient_id == patient_id)
     if appt_id:
         stmt = stmt.where(Appointment.id == appt_id)
+    if branch_id and not patient_id and not appt_id:
+        stmt = stmt.where(Appointment.branch_id == branch_id)
     return [ser.appointment_out(a, pn, dn, rn) for a, pn, dn, rn in db.execute(stmt).all()]
 
 
 def list_encounters(
-    db: Session, patient_id: uuid.UUID | None = None, record_id: uuid.UUID | None = None
+    db: Session, patient_id: uuid.UUID | None = None, record_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None
 ) -> list[dict]:
     rx = (
         select(Prescription.encounter_id, func.string_agg(Prescription.medication, "; ").label("rx"))
@@ -129,6 +133,8 @@ def list_encounters(
         stmt = stmt.where(Encounter.patient_id == patient_id)
     if record_id:
         stmt = stmt.where(Encounter.id == record_id)
+    if branch_id and not patient_id and not record_id:      # tibbiy tarix bemorga bog'liq (umumiy), umumiy ro'yxat filial bo'yicha
+        stmt = stmt.where(Encounter.branch_id == branch_id)
     rows = db.execute(stmt).all()
     by_encounter: dict[uuid.UUID, list[Prescription]] = {}
     if rows:
@@ -144,6 +150,7 @@ def list_transactions(
     type_: TransactionType | None = None,
     category: str | None = None,
     since: date | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> list[dict]:
     stmt = (
         select(Transaction, Patient.full_name)
@@ -157,10 +164,14 @@ def list_transactions(
         stmt = stmt.where(Transaction.category == category)
     if since:
         stmt = stmt.where(Transaction.date >= since)
+    if branch_id:
+        stmt = stmt.where(Transaction.branch_id == branch_id)
     return [ser.transaction_out(t, pn) for t, pn in db.execute(stmt).all()]
 
 
-def list_staff(db: Session, role: StaffRole | None = None, staff_id: uuid.UUID | None = None) -> list[dict]:
+def list_staff(
+    db: Session, role: StaffRole | None = None, staff_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None
+) -> list[dict]:
     counts = (
         select(Appointment.doctor_id, func.count(func.distinct(Appointment.patient_id)).label("n"))
         .group_by(Appointment.doctor_id)
@@ -175,6 +186,8 @@ def list_staff(db: Session, role: StaffRole | None = None, staff_id: uuid.UUID |
         stmt = stmt.where(Staff.role == role)
     if staff_id:
         stmt = stmt.where(Staff.id == staff_id)
+    if branch_id and not staff_id:
+        stmt = stmt.where(Staff.branch_id == branch_id)
     return [ser.staff_out(s, n) for s, n in db.execute(stmt).all()]
 
 

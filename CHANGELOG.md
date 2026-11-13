@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.7] - 2026-11-13
+### Changed
+- Operatsion ro'yxatlar faol filial bo'yicha: uchrashuvlar, xodimlar, tibbiy yozuvlar (EMR), laboratoriya buyurtmalari, kutish ro'yxati, hisob-fakturalar, moliyaviy tranzaksiyalar va xulosa, kassa smenalari, shifokor foizi (yozuvlar, oylik hisob, yopilgan oylar, to'lov hujjatlari) va xabarlar logi/statistikasi. Yangi yozuvlar faol filialga yoziladi.
+- Bemor bazasi umumiy; bemor tarixi (`patient_id` bilan uchrashuv, EMR, laboratoriya) filialdan qat'i nazar ko'rinadi (bir bemor bir necha filialda davolanadi).
+### Added
+- `tests/test_branch_scoping.py`: ikki filial izolyatsiyasi (xodim, qabul, hisob-faktura, kassa, tranzaksiya, xabar, lab, EMR, kutish ro'yxati).
+
 ## [1.9.6] - 2026-11-13
 ### Added
 - Filiallar: `GET/POST /branches`, `PUT /branches/{id}` (`branches:manage`). Yangi filial uchun klinika sozlamalari asosiy filialdan nusxalanadi; nom registrsiz noyob; filial o'chirilmaydi, faolsizlantiriladi (asosiy filial, faol xodimi yoki ombor qoldig'i bor filial va hozirgi faol filial 409). Migratsiya 0037.

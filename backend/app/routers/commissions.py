@@ -109,7 +109,7 @@ def list_entries(request: Request, month: str = Query(..., examples=["2026-11"])
     stmt = (select(CommissionEntry, Staff.full_name, Service.name, Invoice.number)
             .join(Staff, CommissionEntry.doctor_id == Staff.id).join(Service, CommissionEntry.service_id == Service.id)
             .join(Payment, CommissionEntry.payment_id == Payment.id).join(Invoice, Payment.invoice_id == Invoice.id)
-            .where(CommissionEntry.entry_date >= start, CommissionEntry.entry_date < end)
+            .where(CommissionEntry.entry_date >= start, CommissionEntry.entry_date < end, Staff.branch_id == user.branch_id)
             .order_by(CommissionEntry.entry_date, CommissionEntry.created_at))
     if doctor_id:
         stmt = stmt.where(CommissionEntry.doctor_id == doctor_id)
@@ -130,7 +130,7 @@ def month_report(request: Request, month: str = Query(..., examples=["2026-11"])
     stmt = (select(CommissionEntry.doctor_id, Staff.full_name, CommissionEntry.kind, func.sum(CommissionEntry.amount), func.count(),
                    func.bool_and(CommissionEntry.settlement_id.is_not(None)), func.min(CommissionEntry.settlement_id.cast(String)))
             .join(Staff, CommissionEntry.doctor_id == Staff.id)
-            .where(CommissionEntry.entry_date >= start, CommissionEntry.entry_date < end)
+            .where(CommissionEntry.entry_date >= start, CommissionEntry.entry_date < end, Staff.branch_id == user.branch_id)
             .group_by(CommissionEntry.doctor_id, Staff.full_name, CommissionEntry.kind))
     if doctor_id:
         stmt = stmt.where(CommissionEntry.doctor_id == doctor_id)
@@ -197,7 +197,7 @@ def list_settlements(doctor_id: Optional[uuid.UUID] = None, db: Session = Depend
                      user: CurrentUser = Depends(require("commissions:read"))):
     doctor_id = _scope_doctor(user, doctor_id)
     stmt = select(CommissionSettlement, Staff.full_name).join(Staff, CommissionSettlement.doctor_id == Staff.id).order_by(
-        CommissionSettlement.month.desc())
+        CommissionSettlement.month.desc()).where(Staff.branch_id == user.branch_id)
     if doctor_id:
         stmt = stmt.where(CommissionSettlement.doctor_id == doctor_id)
     out = []
@@ -231,7 +231,7 @@ def _get_payout(db: Session, payout_id: uuid.UUID) -> CommissionPayout:
 def list_payouts(status: Optional[PayoutStatus] = None, doctor_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
                  user: CurrentUser = Depends(require("commissions:read"))):
     doctor_id = _scope_doctor(user, doctor_id)
-    stmt = select(CommissionPayout).order_by(CommissionPayout.created_at.desc())
+    stmt = select(CommissionPayout).where(CommissionPayout.branch_id == user.branch_id).order_by(CommissionPayout.created_at.desc())
     if status:
         stmt = stmt.where(CommissionPayout.status == status)
     if doctor_id:

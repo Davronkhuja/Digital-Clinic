@@ -144,7 +144,7 @@ def create_invoice(data: InvoiceCreate, request: Request, db: Session = Depends(
 def list_invoices(request: Request, patient_id: Optional[uuid.UUID] = None, status: Optional[InvoiceStatus] = None,
                   number: Optional[str] = None, limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db),
                   user: CurrentUser = Depends(require("finance:read"))):
-    stmt = select(Invoice).order_by(Invoice.created_at.desc()).limit(limit)
+    stmt = select(Invoice).where(Invoice.branch_id == user.branch_id).order_by(Invoice.created_at.desc()).limit(limit)
     if patient_id:
         stmt = stmt.where(Invoice.patient_id == patient_id)
     if status:

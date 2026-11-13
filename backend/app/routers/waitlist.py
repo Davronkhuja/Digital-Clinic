@@ -63,6 +63,7 @@ def get_waitlist(
 ):
     stmt = (select(WaitlistEntry, Patient, Staff).join(Patient, WaitlistEntry.patient_id == Patient.id)
             .join(Staff, WaitlistEntry.doctor_id == Staff.id).order_by(WaitlistEntry.created_at, WaitlistEntry.id))
+    stmt = stmt.where(WaitlistEntry.branch_id == user.branch_id)
     if status:
         stmt = stmt.where(WaitlistEntry.status == status)
     if doctor_id:
