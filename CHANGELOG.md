@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.2] - 2026-11-13
+### Added
+- FEFO chiqim: `POST /warehouse/issues` (material, miqdor, sabab). Yaroqli partiyalar muddati bo'yicha (birinchi tugaydigani birinchi), muddatsizlar oxirida, muddati teng bo'lsa avval kirgani; muddati o'tgan partiyalar ishlatilmaydi. Yaroqli qoldiq yetmasa 409 (xabarda yaroqli va muddati o'tgan miqdor), hech narsa o'zgarmaydi. Partiyalar `FOR UPDATE` bilan qulflanadi (parallel chiqimlar bir partiyani ikki marta olmaydi).
+- Javobda qaysi partiyadan qancha va tannarx; har partiya uchun `Issue` harakati; audit.
+- `GET /warehouse/movements` (jurnal: kim, nima, qaysi partiya; filtr: material, tur). Test: har partiya uchun harakatlar yig'indisi qoldiqqa teng.
+
 ## [1.9.1] - 2026-11-13
 ### Added
 - Kirim: `POST /warehouse/receipts` (yetkazib beruvchi, hujjat raqami, qatorlar: material, partiya raqami, yaroqlilik muddati, miqdor 3 xonagacha, kirim narxi). Har qator alohida partiya (`stock_batches`) va `Receipt` harakati (`stock_movements`, faqat qo'shiladi). Muddati o'tgan tovar va kelajak sanasi 422; xato bo'lsa hech narsa yozilmaydi. Hujjat o'zgarmaydi va o'chirilmaydi.

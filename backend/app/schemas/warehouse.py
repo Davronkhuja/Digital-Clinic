@@ -6,7 +6,7 @@ from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import Money
-from app.schemas.enums import StockKind
+from app.schemas.enums import StockKind, StockMovementKind
 
 Qty = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)]
 
@@ -133,3 +133,52 @@ class BatchOut(BaseModel):
 
 class AlertsOut(BaseModel):
     low_stock: List[StockRowOut]
+
+
+class IssueIn(BaseModel):
+    item_id: uuid.UUID
+    qty: QtyPositive
+    reason: str = Field(..., min_length=3, max_length=300, description="Sabab / kimga (masalan: 3-kabinet, protsedura)")
+
+    @field_validator("reason")
+    @classmethod
+    def _reason(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Sabab kamida 3 belgi")
+        return v
+
+
+class AllocationOut(BaseModel):
+    batch_id: str
+    batch_no: str
+    expires_on: Optional[date] = None
+    qty: Money
+    unit_cost: Money
+    amount: Money
+
+
+class IssueOut(BaseModel):
+    item_id: str
+    item: str
+    unit: str
+    qty: Money
+    total_cost: Money
+    allocations: List[AllocationOut]
+
+
+class MovementOut(BaseModel):
+    id: str
+    at: str
+    kind: StockMovementKind
+    item_id: str
+    item: str
+    unit: str
+    batch_id: str
+    batch_no: str
+    qty: Money = Field(..., description="Ishorali: kirim +, chiqim -")
+    unit_cost: Money
+    reason: Optional[str] = None
+    ref_type: Optional[str] = None
+    ref_id: Optional[str] = None
+    by: Optional[str] = None

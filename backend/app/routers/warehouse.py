@@ -9,9 +9,21 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import StockItem, StockReceipt
-from app.schemas import AlertsOut, BatchOut, ReceiptIn, ReceiptOut, StockItemIn, StockItemOut, StockItemUpdate, StockRowOut
-from app.schemas.enums import StockKind
+from app.models import Staff, StockBatch, StockItem, StockMovement, StockReceipt, User
+from app.schemas import (
+    AlertsOut,
+    BatchOut,
+    IssueIn,
+    IssueOut,
+    MovementOut,
+    ReceiptIn,
+    ReceiptOut,
+    StockItemIn,
+    StockItemOut,
+    StockItemUpdate,
+    StockRowOut,
+)
+from app.schemas.enums import StockKind, StockMovementKind
 from app.services import audit
 from app.services import warehouse as wh
 
@@ -131,3 +143,35 @@ def batches(item_id: Optional[uuid.UUID] = None, include_empty: bool = False, db
             description="Minimal qoldiqdan kam materiallar (yaroqli qoldiq bo'yicha).")
 def alerts(db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
     return {"low_stock": wh.stock_rows(db, user.branch_id, low_only=True)}
+
+
+@router.post("/warehouse/issues", tags=[TAG], response_model=IssueOut, summary="Chiqim (FEFO)",
+             description="Birinchi tugaydigan partiyadan boshlab olinadi (muddatsizlar oxirida); muddati o'tgan partiyalar ishlatilmaydi. "
+                         "Yaroqli qoldiq yetmasa 409 va hech narsa o'zgarmaydi. Har partiya uchun `Issue` harakati yoziladi.")
+def create_issue(data: IssueIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:write"))):
+    item = db.get(StockItem, data.item_id)
+    if not item or not item.is_active:
+        raise HTTPException(422, "Material topilmadi yoki faol emas")
+    allocs = wh.issue(db, user, item_id=item.id, qty=data.qty, reason=data.reason)
+    audit.record(db, user, request, "create", "stock_issue", item.id, {"item": item.name, "qty": str(data.qty), "reason": data.reason,
+                                                                    "batches": [a.batch.batch_no for a in allocs]})
+    db.commit()
+    return {"item_id": str(item.id), "item": item.name, "unit": item.unit, "qty": data.qty,
+            "total_cost": sum((a.cost for a in allocs), wh.q2(0)), "allocations": wh.allocations_out(allocs)}
+
+
+@router.get("/warehouse/movements", tags=[TAG], response_model=List[MovementOut], summary="Qoldiq harakatlari jurnali (shu filial)",
+            description="Faqat qo'shiladi, o'zgarmaydi. Yangilari tepada.")
+def movements(item_id: Optional[uuid.UUID] = None, kind: Optional[StockMovementKind] = None, limit: int = 100,
+              db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    stmt = (select(StockMovement, StockItem, StockBatch, Staff.full_name)
+            .join(StockItem, StockMovement.item_id == StockItem.id).join(StockBatch, StockMovement.batch_id == StockBatch.id)
+            .outerjoin(User, StockMovement.created_by == User.id).outerjoin(Staff, User.staff_id == Staff.id)
+            .where(StockMovement.branch_id == user.branch_id).order_by(StockMovement.created_at.desc(), StockMovement.id).limit(min(max(limit, 1), 500)))
+    if item_id:
+        stmt = stmt.where(StockMovement.item_id == item_id)
+    if kind:
+        stmt = stmt.where(StockMovement.kind == kind)
+    return [{"id": str(m.id), "at": m.created_at.isoformat(), "kind": m.kind, "item_id": str(i.id), "item": i.name, "unit": i.unit,
+             "batch_id": str(b.id), "batch_no": b.batch_no, "qty": m.qty, "unit_cost": m.unit_cost, "reason": m.reason, "ref_type": m.ref_type,
+             "ref_id": str(m.ref_id) if m.ref_id else None, "by": by} for m, i, b, by in db.execute(stmt).all()]

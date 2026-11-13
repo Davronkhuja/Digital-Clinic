@@ -99,3 +99,56 @@ def batch_rows(db: Session, branch_id: uuid.UUID, *, item_id: uuid.UUID | None =
                     "days_left": left, "expired": left is not None and left < 0, "received_on": b.received_on, "unit_cost": b.unit_cost,
                     "qty_received": b.qty_received, "qty_remaining": b.qty_remaining, "receipt_id": str(b.receipt_id) if b.receipt_id else None})
     return out
+
+
+class Allocation:
+    """FEFO bo'yicha bitta partiyadan olingan miqdor."""
+
+    def __init__(self, batch: StockBatch, qty: Decimal):
+        self.batch, self.qty = batch, qty
+
+    @property
+    def cost(self) -> Decimal:
+        return q2(self.qty * self.batch.unit_cost)
+
+
+def fefo_allocate(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: Decimal, *, for_update: bool = True) -> list[Allocation]:
+    """Birinchi tugaydigan birinchi chiqadi: yaroqli (muddati o'tmagan yoki muddatsiz) partiyalar muddati bo'yicha, muddatsizlar oxirida;
+    muddati teng bo'lsa avval kirgani. Muddati o'tgan partiyalar ishlatilmaydi. Yetmasa 409 (hech narsa o'zgarmaydi)."""
+    today = clinic_today()
+    stmt = (select(StockBatch).where(StockBatch.branch_id == branch_id, StockBatch.item_id == item_id, StockBatch.qty_remaining > 0,
+                                     (StockBatch.expires_on.is_(None)) | (StockBatch.expires_on >= today))
+            .order_by(StockBatch.expires_on.asc().nulls_last(), StockBatch.received_on, StockBatch.created_at, StockBatch.id))
+    if for_update:
+        stmt = stmt.with_for_update()          # parallel chiqimlar bir partiyani ikki marta olmasin
+    left, out = qty, []
+    for batch in db.scalars(stmt):
+        take = min(batch.qty_remaining, left)
+        out.append(Allocation(batch, take))
+        left -= take
+        if left <= 0:
+            break
+    if left > 0:
+        have = qty - left
+        expired = db.scalar(select(func.coalesce(func.sum(StockBatch.qty_remaining), 0)).where(
+            StockBatch.branch_id == branch_id, StockBatch.item_id == item_id, StockBatch.expires_on < today))
+        hint = f"; muddati o'tgan {Decimal(expired).normalize():f} bor (hisobdan chiqaring)" if expired else ""
+        raise HTTPException(409, f"Qoldiq yetmaydi: kerak {qty.normalize():f}, yaroqli {have.normalize():f}{hint}")
+    return out
+
+
+def issue(db: Session, user, *, item_id: uuid.UUID, qty: Decimal, reason: str, kind: StockMovementKind = StockMovementKind.issue,
+          ref_type: str | None = None, ref_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None) -> list[Allocation]:
+    """FEFO bo'yicha chiqim: partiyalar kamayadi, har partiya uchun manfiy harakat yoziladi."""
+    branch = branch_id or user.branch_id
+    allocations = fefo_allocate(db, branch, item_id, qty)
+    for a in allocations:
+        a.batch.qty_remaining -= a.qty
+        db.add(StockMovement(item_id=item_id, batch_id=a.batch.id, kind=kind, qty=-a.qty, unit_cost=a.batch.unit_cost, reason=reason[:300],
+                             ref_type=ref_type, ref_id=ref_id, branch_id=branch, created_by=getattr(user, "id", None)))
+    return allocations
+
+
+def allocations_out(allocs: list[Allocation]) -> list[dict]:
+    return [{"batch_id": str(a.batch.id), "batch_no": a.batch.batch_no, "expires_on": a.batch.expires_on, "qty": a.qty,
+             "unit_cost": a.batch.unit_cost, "amount": a.cost} for a in allocs]
