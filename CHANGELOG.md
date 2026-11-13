@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.12] - 2026-11-13
+### Added
+- Frontend: Sozlamalar > Narxnoma: har xizmat uchun "Sarf normasi" (material va miqdor ro'yxati), tannarx va foyda foizi ustunlari (ombor narxidan avtomatik: o'rtacha tortilgan narx, qoldiq bo'lmasa oxirgi kirim; narxi noma'lum bo'lsa "?" belgisi). Norma modalida material bo'yicha hisob (miqdor x narx, manba), QQS'siz narx va foyda.
+- E2E: norma kiritish, tannarx 900 (2 x 450), yangi kirim narxidan keyin 1000 (2 x o'rtacha 500) avtomatik o'zgarishi.
+
 ## [1.9.11] - 2026-11-13
 ### Added
 - Frontend: faol filial almashtirgich (sarlavhada, faqat `branches:all` va filial bittadan ko'p bo'lsa): tanlov `X-Branch-Id` sarlavhasi bilan har so'rovga qo'shiladi, sahifa yangi filial bo'yicha qayta yuklanadi; yaroqsiz/ruxsatsiz filial tanlovi avtomatik bekor bo'ladi; chiqishda tozalanadi.

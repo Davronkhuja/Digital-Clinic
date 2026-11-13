@@ -165,7 +165,43 @@ test.describe('filiallar', () => {
   })
 })
 
-test('7. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('tannarx', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('7. narxnoma: sarf normasi va tannarx ombor narxidan avtomatik hisoblanadi', async ({ page, request }) => {
+    const stamp = Date.now()
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const svc = await (await request.post('/api/services', { headers, data: { name: `E2E Tannarx ${stamp}`, price: 112000, mxik: '09302001001000000', package_code: '1500364', vat_percent: 12 } })).json()
+    const item = await (await request.post('/api/warehouse/items', { headers, data: { name: `E2E Material ${stamp}`, unit: 'dona' } })).json()
+    const exp = new Date(Date.now() + 200 * 864e5).toISOString().slice(0, 10)
+    const receive = async (batch, cost) => expect((await request.post('/api/warehouse/receipts', { headers, data: { lines: [
+      { item_id: item.id, batch_no: batch, qty: 100, unit_cost: cost, expires_on: exp }] } })).ok()).toBeTruthy()
+    await receive('T-1', 450)
+
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Narxnoma' }).click()
+    await page.getByPlaceholder('Xizmat qidirish...').fill(svc.name)
+    const row = page.getByRole('row', { name: new RegExp(svc.name) })
+    await row.getByTestId('svc-norms').click()
+    await page.getByTestId('norm-add').click()
+    await page.getByTestId('norm-item').selectOption({ label: `${item.name} (dona)` })
+    await page.getByTestId('norm-qty').fill('2')
+    await page.getByTestId('norm-save').click()
+    await expect(page.getByText('Sarf normasi saqlandi')).toBeVisible()
+    await expect(page.getByTestId('norm-cost')).toContainText('Tannarx 900')                 // 2 x 450
+    await page.getByRole('button', { name: 'Yopish' }).click()
+    await expect(row.getByTestId('svc-cost')).toContainText('900')
+
+    await receive('T-2', 550)                                                                  // yangi kirim narxi: o'rtacha (450+550)/2 = 500
+    await page.reload()
+    await page.getByRole('button', { name: 'Narxnoma' }).click()
+    await page.getByPlaceholder('Xizmat qidirish...').fill(svc.name)
+    await expect(page.getByRole('row', { name: new RegExp(svc.name) }).getByTestId('svc-cost')).toContainText(/1[,\s]?000/)   // 2 x 500
+  })
+})
+
+test('8. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

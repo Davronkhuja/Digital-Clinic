@@ -15,7 +15,7 @@
     <EmptyState v-else-if="!shown.length" title="Xizmat yo'q" description="Birinchi xizmatni qo'shing" />
     <div v-else class="table-container rounded-none border-0">
       <table class="table">
-        <thead><tr><th>Xizmat</th><th>Kategoriya</th><th class="text-right">Narx (UZS)</th><th>MXIK</th><th>Qadoq</th><th>QQS</th><th>Holat</th><th></th></tr></thead>
+        <thead><tr><th>Xizmat</th><th>Kategoriya</th><th class="text-right">Narx (UZS)</th><th>MXIK</th><th>Qadoq</th><th>QQS</th><th class="text-right" title="Sarf normasi x ombor narxi">Tannarx</th><th class="text-right">Foyda</th><th>Holat</th><th></th></tr></thead>
         <tbody>
           <tr v-for="s in shown" :key="s.id" :class="s.is_active ? '' : 'opacity-60'">
             <td class="font-medium">{{ s.name }}</td>
@@ -24,15 +24,45 @@
             <td class="font-mono text-xs">{{ s.mxik || '—' }}</td>
             <td class="font-mono text-xs">{{ s.package_code || '—' }}</td>
             <td class="text-sm">{{ s.vat_percent != null ? s.vat_percent + '%' : '—' }}</td>
+            <td class="text-right font-mono text-sm" data-testid="svc-cost">
+              <template v-if="costs[s.id]">{{ fmt(costs[s.id].cost) }}<span v-if="!costs[s.id].complete" class="badge-yellow ml-1" :title="'Narxi noma\'lum: ' + costs[s.id].missing.join(', ')">?</span></template>
+              <span v-else class="text-slate-300">—</span>
+            </td>
+            <td class="text-right text-sm" :class="costs[s.id] && costs[s.id].margin < 0 ? 'text-red-600' : 'text-emerald-600'">
+              <template v-if="costs[s.id] && costs[s.id].margin_percent != null">{{ costs[s.id].margin_percent }}%</template>
+            </td>
             <td>
               <span v-if="!s.is_active" class="badge-slate">Nofaol</span>
               <span v-else-if="s.sellable" class="badge-green">Sotiladi</span>
               <span v-else class="badge-yellow" :title="'Yetishmaydi: ' + s.missing.join(', ')">Kod to'liq emas</span>
             </td>
-            <td><button v-if="auth.can('services:write')" class="text-slate-400 hover:text-cyan-600" title="Tahrirlash" @click="openEdit(s)"><Pencil class="w-4 h-4" /></button></td>
+            <td class="whitespace-nowrap">
+              <button v-if="auth.can('services:write') && auth.can('warehouse:read')" class="text-xs text-cyan-600 hover:underline mr-2" data-testid="svc-norms" @click="openNorms(s)">Sarf normasi</button>
+              <button v-if="auth.can('services:write')" class="text-slate-400 hover:text-cyan-600" title="Tahrirlash" @click="openEdit(s)"><Pencil class="w-4 h-4" /></button>
+            </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="norms.service" class="modal-overlay" @click.self="norms.service = null">
+      <div :class="['w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-3 max-h-[92vh] overflow-y-auto', dark ? 'bg-slate-900 border border-slate-800' : 'bg-white']">
+        <h3 :class="['font-heading font-semibold', dark ? 'text-white' : 'text-slate-900']">Sarf normasi: {{ norms.service.name }}</h3>
+        <p class="text-xs text-slate-400">Bir marta xizmat ko'rsatishga ketadigan materiallar. Hisob-faktura to'liq to'langanda ombordan FEFO bo'yicha yoziladi; tannarx ombor narxidan avtomatik hisoblanadi.</p>
+        <div v-for="(l, i) in norms.lines" :key="i" class="grid grid-cols-12 gap-2">
+          <select v-model="l.item_id" class="input col-span-8" data-testid="norm-item"><option value="" disabled>Material</option><option v-for="it in norms.items" :key="it.id" :value="it.id">{{ it.name }} ({{ it.unit }})</option></select>
+          <input v-model.number="l.qty" type="number" min="0" step="0.001" class="input col-span-3" placeholder="Miqdor" data-testid="norm-qty" />
+          <button class="text-red-500 col-span-1" @click="norms.lines.splice(i, 1)">×</button>
+        </div>
+        <button class="text-xs text-cyan-600" data-testid="norm-add" @click="norms.lines.push({ item_id: '', qty: null })"><Plus class="w-3.5 h-3.5 inline" /> Material qo'shish</button>
+        <div v-if="norms.cost" class="rounded-xl p-3 text-sm space-y-1" :class="dark ? 'bg-slate-800' : 'bg-slate-50'" data-testid="norm-cost">
+          <p v-for="m in norms.cost.materials" :key="m.item_id" class="text-xs text-slate-500">{{ m.item }}: {{ m.qty }} {{ m.unit }} × {{ m.unit_cost != null ? fmt(m.unit_cost) : 'narx yo\'q' }} = {{ m.cost != null ? fmt(m.cost) : '—' }}
+            <span class="text-slate-400">({{ ({ stock: 'ombor o\'rtachasi', last_receipt: 'oxirgi kirim', unknown: 'kirim yo\'q' })[m.source] }})</span></p>
+          <p class="font-semibold">Tannarx {{ fmt(norms.cost.cost) }} · QQS'siz narx {{ fmt(norms.cost.net_price) }} · foyda {{ fmt(norms.cost.margin) }}<span v-if="norms.cost.margin_percent != null"> ({{ norms.cost.margin_percent }}%)</span></p>
+          <p v-if="!norms.cost.complete && norms.cost.materials.length" class="text-xs text-amber-600">Narxi noma'lum: {{ norms.cost.missing.join(', ') }} (hali kirim yo'q)</p>
+        </div>
+        <div class="flex justify-end gap-2"><button class="btn-secondary" @click="norms.service = null">Yopish</button><button class="btn-primary" :disabled="norms.saving" data-testid="norm-save" @click="saveNorms">Saqlash</button></div>
+      </div>
     </div>
 
     <div v-if="showForm" class="modal-overlay" @click.self="showForm = false">
@@ -85,6 +115,28 @@ const shown = computed(() => services.value.filter(s =>
   (!search.value || s.name.toLowerCase().includes(search.value.toLowerCase())) &&
   (!onlyState.value || (onlyState.value === 'sellable' ? s.sellable : s.is_active && !s.sellable))))
 
+const costs = ref({})
+const norms = reactive({ service: null, items: [], lines: [], cost: null, saving: false })
+async function loadCosts() {
+  if (!auth.can('warehouse:read')) return
+  try { costs.value = Object.fromEntries((await api.get('/warehouse/service-costs')).data.map(c => [c.service_id, c])) } catch { costs.value = {} }
+}
+async function openNorms(s) {
+  // Modal ma'lumot to'liq kelgach ochiladi (yuklanguncha qo'shilgan qator yo'qolib ketmasin)
+  try {
+    const [items, cur, cost] = await Promise.all([api.get('/warehouse/items'), api.get(`/warehouse/services/${s.id}/materials`), api.get(`/warehouse/services/${s.id}/cost`)])
+    Object.assign(norms, { service: s, items: items.data, lines: cur.data.map(m => ({ item_id: m.item_id, qty: m.qty })), cost: cost.data })
+  } catch (e) { toast.error(e, "Sarf normasini yuklab bo'lmadi") }
+}
+async function saveNorms() {
+  norms.saving = true
+  try {
+    await api.put(`/warehouse/services/${norms.service.id}/materials`, { materials: norms.lines.filter(l => l.item_id).map(l => ({ item_id: l.item_id, qty: l.qty })) })
+    norms.cost = (await api.get(`/warehouse/services/${norms.service.id}/cost`)).data
+    toast.success('Sarf normasi saqlandi'); await loadCosts()
+  } catch (e) { toast.error(e, "Normani saqlab bo'lmadi") } finally { norms.saving = false }
+}
+
 const showForm = ref(false), editingId = ref(null), saving = ref(false), newCategory = ref('')
 const blank = () => ({ name: '', price: '', category_id: '', mxik: '', package_code: '', vat_percent: '', is_active: true })
 const form = reactive(blank())
@@ -128,5 +180,5 @@ async function addCategory() {
     newCategory.value = ''
   } catch (e) { toast.error(e, "Kategoriyani qo'shib bo'lmadi") }
 }
-onMounted(load)
+onMounted(() => { load(); loadCosts() })
 </script>
