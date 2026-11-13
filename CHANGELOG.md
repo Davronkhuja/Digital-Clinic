@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.4] - 2026-11-13
+### Added
+- Xizmatga bog'langan sarf normasi (`service_materials`): `GET/PUT /warehouse/services/{id}/materials` (to'liq ro'yxat almashtiriladi; PUT `services:write`, audit). Migratsiya 0035.
+- Tannarx avtomatik: `GET /warehouse/services/{id}/cost` va `/warehouse/service-costs`. Tannarx = norma x material narxi; material narxi: ombordagi yaroqli qoldiqning o'rtacha tortilgan narxi, qoldiq bo'lmasa oxirgi kirim narxi, kirim yo'q bo'lsa noma'lum (`complete=false`, `missing`). Yangi kirim narxi tannarxni darhol o'zgartiradi. Foyda va foiz QQS'siz narxdan.
+
 ## [1.9.3] - 2026-11-13
 ### Added
 - Yaroqlilik ogohlantirishi: `GET /warehouse/alerts?days=30` endi `expiring` (muddati 30 kun ichida tugaydigan, qoldig'i bor partiyalar; chegara kiradi), `expired` (muddati o'tgan, qoldig'i bor) va `low_stock` ni qaytaradi; `days` 1-365. Qoldig'i tugagan partiya ogohlantirmaydi.

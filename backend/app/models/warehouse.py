@@ -79,3 +79,18 @@ class StockMovement(BranchScoped, BaseModel):
     reason: Mapped[str | None] = mapped_column(String(300))
     ref_type: Mapped[str | None] = mapped_column(String(30))       # receipt, invoice, transfer ...
     ref_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class ServiceMaterial(BaseModel):
+    """Xizmatga bog'langan sarf normasi: xizmat ko'rsatilganda shu miqdor material ketadi (bir marta ko'rsatishga).
+    Tannarx shu normadan va ombordagi narxdan avtomatik hisoblanadi."""
+
+    __tablename__ = "service_materials"
+    __table_args__ = (
+        CheckConstraint("qty > 0", name="qty_positive"),
+        Index("uq_service_materials_service_item", "service_id", "item_id", unique=True),
+    )
+
+    service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
+    qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))

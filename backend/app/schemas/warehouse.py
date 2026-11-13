@@ -199,3 +199,43 @@ class WriteoffIn(BaseModel):
         if len(v) < 3:
             raise ValueError("Sabab kamida 3 belgi")
         return v
+
+
+class MaterialNormIn(BaseModel):
+    item_id: uuid.UUID
+    qty: QtyPositive = Field(..., description="Bir marta xizmat ko'rsatishga ketadigan miqdor")
+
+
+class MaterialNormsIn(BaseModel):
+    materials: List[MaterialNormIn] = Field(..., max_length=100, description="To'liq ro'yxat (almashtiriladi); bo'sh: norma yo'q")
+
+
+class MaterialNormOut(BaseModel):
+    item_id: str
+    item: str
+    unit: str
+    qty: Money
+
+
+class CostLineOut(BaseModel):
+    item_id: str
+    item: str
+    unit: str
+    qty: Money
+    unit_cost: Optional[Money] = None
+    cost: Optional[Money] = None
+    source: str = Field(..., description="stock: ombordagi o'rtacha narx; last_receipt: oxirgi kirim narxi; unknown: kirim yo'q")
+
+
+class ServiceCostOut(BaseModel):
+    service_id: str
+    service: str
+    price: Money = Field(..., description="Narx QQS bilan")
+    vat_percent: Optional[Money] = None
+    net_price: Money = Field(..., description="QQS'siz narx")
+    cost: Money = Field(..., description="Tannarx (sarf materiallar)")
+    margin: Money = Field(..., description="QQS'siz narx - tannarx")
+    margin_percent: Optional[float] = None
+    complete: bool = Field(..., description="Norma bor va hamma materialning narxi ma'lum")
+    missing: List[str] = Field(..., description="Narxi noma'lum materiallar (hali kirim yo'q)")
+    materials: List[CostLineOut]

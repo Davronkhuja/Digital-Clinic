@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.models import StockBatch, StockItem, StockMovement, StockReceipt
+from app.models import Service, ServiceMaterial, StockBatch, StockItem, StockMovement, StockReceipt
 from app.schemas.enums import StockMovementKind
 from app.services.money import q2
 from app.services.periods import clinic_today
@@ -175,3 +175,42 @@ def writeoff(db: Session, user, *, batch_id: uuid.UUID, qty: Decimal | None, rea
     db.add(StockMovement(item_id=batch.item_id, batch_id=batch.id, kind=StockMovementKind.writeoff, qty=-take, unit_cost=batch.unit_cost,
                          reason=reason[:300], ref_type="writeoff", branch_id=batch.branch_id, created_by=user.id))
     return batch, take
+
+
+def unit_cost_basis(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID) -> tuple[Decimal | None, str]:
+    """Material birligi narxi (tannarx uchun): 1) ombordagi yaroqli qoldiqning o'rtacha tortilgan narxi ("stock");
+    2) qoldiq bo'lmasa filialdagi oxirgi kirim narxi ("last_receipt"); 3) kirim hali yo'q: noma'lum ("unknown")."""
+    today = clinic_today()
+    live = (StockBatch.expires_on.is_(None)) | (StockBatch.expires_on >= today)
+    qty, value = db.execute(select(func.coalesce(func.sum(StockBatch.qty_remaining), 0), func.coalesce(func.sum(StockBatch.qty_remaining * StockBatch.unit_cost), 0))
+                            .where(StockBatch.branch_id == branch_id, StockBatch.item_id == item_id, StockBatch.qty_remaining > 0, live)).one()
+    if Decimal(qty) > 0:
+        return Decimal(value) / Decimal(qty), "stock"
+    last = db.scalar(select(StockBatch.unit_cost).where(StockBatch.branch_id == branch_id, StockBatch.item_id == item_id)
+                     .order_by(StockBatch.received_on.desc(), StockBatch.created_at.desc()).limit(1))
+    return (last, "last_receipt") if last is not None else (None, "unknown")
+
+
+def service_materials(db: Session, service_id: uuid.UUID) -> list[tuple[ServiceMaterial, StockItem]]:
+    return db.execute(select(ServiceMaterial, StockItem).join(StockItem, ServiceMaterial.item_id == StockItem.id)
+                      .where(ServiceMaterial.service_id == service_id).order_by(StockItem.name)).all()
+
+
+def service_cost(db: Session, branch_id: uuid.UUID, service: Service) -> dict:
+    """Xizmat tannarxi = sarf normasi x material narxi (avtomatik: ombor narxi o'zgarsa tannarx ham o'zgaradi). Foyda QQS'siz narxdan."""
+    lines, total, missing = [], Decimal(0), []
+    for m, item in service_materials(db, service.id):
+        unit_cost, source = unit_cost_basis(db, branch_id, item.id)
+        cost = q2(m.qty * unit_cost) if unit_cost is not None else None
+        if cost is None:
+            missing.append(item.name)
+        else:
+            total += m.qty * unit_cost
+        lines.append({"item_id": str(item.id), "item": item.name, "unit": item.unit, "qty": m.qty,
+                      "unit_cost": q2(unit_cost) if unit_cost is not None else None, "cost": cost, "source": source})
+    cost_total = q2(total)
+    net = q2(service.price * 100 / (100 + service.vat_percent)) if service.vat_percent is not None else service.price
+    margin = q2(net - cost_total)
+    return {"service_id": str(service.id), "service": service.name, "price": service.price, "vat_percent": service.vat_percent, "net_price": net,
+            "cost": cost_total, "margin": margin, "margin_percent": float(round(margin * 100 / net, 1)) if net > 0 else None,
+            "complete": not missing and bool(lines), "missing": missing, "materials": lines}

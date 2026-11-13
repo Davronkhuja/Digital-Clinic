@@ -9,15 +9,18 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Staff, StockBatch, StockItem, StockMovement, StockReceipt, User
+from app.models import Service, ServiceMaterial, Staff, StockBatch, StockItem, StockMovement, StockReceipt, User
 from app.schemas import (
     AlertsOut,
     BatchOut,
     IssueIn,
     IssueOut,
+    MaterialNormOut,
+    MaterialNormsIn,
     MovementOut,
     ReceiptIn,
     ReceiptOut,
+    ServiceCostOut,
     StockItemIn,
     StockItemOut,
     StockItemUpdate,
@@ -187,3 +190,60 @@ def movements(item_id: Optional[uuid.UUID] = None, kind: Optional[StockMovementK
     return [{"id": str(m.id), "at": m.created_at.isoformat(), "kind": m.kind, "item_id": str(i.id), "item": i.name, "unit": i.unit,
              "batch_id": str(b.id), "batch_no": b.batch_no, "qty": m.qty, "unit_cost": m.unit_cost, "reason": m.reason, "ref_type": m.ref_type,
              "ref_id": str(m.ref_id) if m.ref_id else None, "by": by} for m, i, b, by in db.execute(stmt).all()]
+
+
+def _service(db: Session, service_id: uuid.UUID) -> Service:
+    service = db.get(Service, service_id)
+    if not service:
+        raise HTTPException(404, "Xizmat topilmadi")
+    return service
+
+
+def _norms(db: Session, service_id: uuid.UUID) -> list[dict]:
+    return [{"item_id": str(i.id), "item": i.name, "unit": i.unit, "qty": m.qty} for m, i in wh.service_materials(db, service_id)]
+
+
+@router.get("/warehouse/services/{service_id}/materials", tags=[TAG], response_model=List[MaterialNormOut], summary="Xizmatning sarf normasi")
+def get_norms(service_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    _service(db, service_id)
+    return _norms(db, service_id)
+
+
+@router.put("/warehouse/services/{service_id}/materials", tags=[TAG], response_model=List[MaterialNormOut], summary="Xizmat sarf normasini belgilash",
+            description="Bir marta xizmat ko'rsatishga ketadigan materiallar (to'liq ro'yxat almashtiriladi). `services:write`. Tannarx avtomatik hisoblanadi.")
+def put_norms(service_id: uuid.UUID, data: MaterialNormsIn, request: Request, db: Session = Depends(get_db),
+              user: CurrentUser = Depends(require("services:write"))):
+    service = _service(db, service_id)
+    ids = [m.item_id for m in data.materials]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(422, "Bir material ikki marta ko'rsatilgan")
+    for m in data.materials:
+        item = db.get(StockItem, m.item_id)
+        if not item or not item.is_active:
+            raise HTTPException(422, "Material topilmadi yoki faol emas")
+    before = _norms(db, service_id)
+    for row, _ in wh.service_materials(db, service_id):
+        db.delete(row)
+    db.flush()
+    for m in data.materials:
+        db.add(ServiceMaterial(service_id=service_id, item_id=m.item_id, qty=m.qty, created_by=user.id))
+    db.flush()
+    audit.record(db, user, request, "update", "service_materials", service.id,
+                 {"service": service.name, "from": [{"item": b["item"], "qty": str(b["qty"])} for b in before],
+                  "to": [{"item_id": str(m.item_id), "qty": str(m.qty)} for m in data.materials]})
+    db.commit()
+    return _norms(db, service_id)
+
+
+@router.get("/warehouse/services/{service_id}/cost", tags=[TAG], response_model=ServiceCostOut, summary="Xizmat tannarxi",
+            description="Tannarx = sarf normasi x material narxi. Material narxi: ombordagi yaroqli qoldiqning o'rtacha tortilgan narxi, "
+                        "qoldiq bo'lmasa oxirgi kirim narxi. Kirim narxi o'zgarsa tannarx avtomatik o'zgaradi. Foyda QQS'siz narxdan.")
+def get_cost(service_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    return wh.service_cost(db, user.branch_id, _service(db, service_id))
+
+
+@router.get("/warehouse/service-costs", tags=[TAG], response_model=List[ServiceCostOut], summary="Hamma faol xizmatlar tannarxi",
+            description="Sarf normasi bor faol xizmatlar (narxnoma uchun).")
+def list_costs(db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    services = db.scalars(select(Service).where(Service.is_active.is_(True), Service.id.in_(select(ServiceMaterial.service_id))).order_by(Service.name))
+    return [wh.service_cost(db, user.branch_id, s) for s in services]
