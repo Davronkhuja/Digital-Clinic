@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.10] - 2026-11-13
+### Added
+- Frontend: Ombor sahifasi (`/warehouse`, menyuda "Ombor", `warehouse:read`): ogohlantirish kartalari (minimaldan kam, 30 kunda muddati tugaydi, muddati o'tgan, yetmagan sarf), tablar Qoldiq / Partiyalar / Kirim / Harakatlar / Ko'chirish / Yetishmovchilik; material qo'shish va tahrirlash, kirim hujjati (partiya, muddat, narx), FEFO chiqim (qaysi partiyadan qancha va tannarx ko'rsatiladi), hisobdan chiqarish, filialga ko'chirish (yuborish, qabul qilish, bekor qilish), yetishmovchilikni ombordan yozish. uz/en/ru menyu nomlari.
+- E2E: ombor oqimi (material, ikki partiyali kirim, FEFO chiqim, ogohlantirish, hisobdan chiqarish, harakatlar jurnali).
+
 ## [1.9.9] - 2026-11-13
 ### Added
 - Filiallar orasida ko'chirish hujjati: `POST /warehouse/transfers` (qabul qiluvchi filial, qatorlar: material, miqdor; bir material takrorlansa yig'iladi) manba (faol) filial qoldig'ini FEFO bo'yicha darhol kamaytiradi (`TransferOut`), hujjat `Sent` (yo'lda, raqami TR-000001). Yetmasa 409, hech narsa o'zgarmaydi; o'ziga, faolsiz yoki yo'q filialga 422.

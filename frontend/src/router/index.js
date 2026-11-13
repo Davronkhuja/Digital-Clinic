@@ -22,6 +22,7 @@ const routes = [
       { path: 'appointments', name: 'Appointments', component: () => import('@/views/AppointmentsView.vue'), meta: { perm: 'appointments:read' } },
       { path: 'emr',          name: 'EMR',          component: () => import('@/views/EMRView.vue'), meta: { perm: 'emr:read' } },
       { path: 'lab',          name: 'Lab',          component: () => import('@/views/LabView.vue'), meta: { perm: 'lab:read' } },
+      { path: 'warehouse',    name: 'Warehouse',    component: () => import('@/views/WarehouseView.vue'), meta: { perm: 'warehouse:read' } },
       { path: 'messages',     name: 'Messages',     component: () => import('@/views/MessagesView.vue'), meta: { perm: 'messages:read' } },
       { path: 'cashier',      name: 'Cashier',      component: () => import('@/views/CashierView.vue'), meta: { perm: 'finance:read' } },
       { path: 'commissions',  name: 'Commissions',  component: () => import('@/views/CommissionsView.vue'), meta: { perm: 'commissions:read' } },

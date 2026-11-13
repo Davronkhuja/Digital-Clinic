@@ -77,7 +77,65 @@ test.describe('kirgan xodim', () => {
   })
 })
 
-test('5. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('ombor', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('5. ombor: material, kirim (2 partiya), FEFO chiqim, ogohlantirish, hisobdan chiqarish', async ({ page }) => {
+    const name = `E2E Shprits ${Date.now()}`
+    const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10)
+    await page.goto('/warehouse')
+    await page.getByTestId('wh-new-item').click()
+    await page.getByTestId('item-name').fill(name)
+    await page.getByTestId('item-unit').fill('dona')
+    await page.getByTestId('item-save').click()
+    await expect(page.getByText('Material saqlandi')).toBeVisible()
+
+    // Kirim: ikki partiya (kirish tartibi muddat tartibiga teskari)
+    await page.getByTestId('wh-new-receipt').click()
+    const modal = page.locator('.modal-overlay').last()
+    await modal.getByRole('button', { name: "Qator qo'shish" }).click()
+    const rows = [['E2E-LATE', day(300), '10', '500'], ['E2E-SOON', day(10), '10', '450']]
+    for (const [i, [batch, exp, qty, cost]] of rows.entries()) {
+      await modal.getByTestId('rcp-item').nth(i).selectOption({ label: `${name} (dona)` })
+      await modal.getByTestId('rcp-batch').nth(i).fill(batch)
+      await modal.locator('input[type="date"]').nth(i + 1).fill(exp)       // 0-chi: kirim sanasi
+      await modal.getByTestId('rcp-qty').nth(i).fill(qty)
+      await modal.getByTestId('rcp-cost').nth(i).fill(cost)
+    }
+    await modal.getByTestId('rcp-save').click()
+    await expect(page.getByText('Kirim saqlandi')).toBeVisible()
+    await expect(page.getByTestId('wh-stock').getByRole('row', { name: new RegExp(name) })).toContainText('20')
+
+    // Muddati 30 kunda tugaydigan partiya ogohlantiradi
+    await expect(page.getByTestId('wh-alerts')).toContainText('kunda muddati tugaydi')
+
+    // FEFO chiqim: 12 ta = avval E2E-SOON (10), keyin E2E-LATE (2)
+    await page.getByTestId('wh-new-issue').click()
+    const issue = page.locator('.modal-overlay').last()
+    await issue.getByTestId('iss-item').selectOption({ label: `${name} (dona)` })
+    await issue.getByTestId('iss-qty').fill('12')
+    await issue.getByTestId('iss-reason').fill('E2E 3-kabinet')
+    await issue.getByTestId('iss-save').click()
+    const result = issue.getByTestId('iss-result')
+    await expect(result).toContainText('partiya E2E-SOON')
+    await expect(result).toContainText('partiya E2E-LATE')
+    await issue.getByRole('button', { name: 'Yopish' }).click()
+
+    // Qolgan 8 ta LATE hisobdan chiqariladi
+    await page.getByTestId('wh-tab-batches').click()
+    const batchRow = page.getByTestId('wh-batches').getByRole('row', { name: /E2E-LATE/ })
+    await expect(batchRow).toContainText('8')
+    await batchRow.getByTestId('wh-writeoff').click()
+    await page.getByTestId('wo-reason').fill('E2E singan')
+    await page.getByTestId('wo-save').click()
+    await expect(page.getByText('Hisobdan chiqarildi')).toBeVisible()
+    await page.getByTestId('wh-tab-movements').click()
+    await expect(page.getByTestId('wh-movements')).toContainText('Hisobdan chiqarish')
+    await expect(page.getByTestId('wh-movements')).toContainText('Chiqim')
+  })
+})
+
+test('6. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
