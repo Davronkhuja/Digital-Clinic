@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.1] - 2026-11-13
+### Added
+- Kirim: `POST /warehouse/receipts` (yetkazib beruvchi, hujjat raqami, qatorlar: material, partiya raqami, yaroqlilik muddati, miqdor 3 xonagacha, kirim narxi). Har qator alohida partiya (`stock_batches`) va `Receipt` harakati (`stock_movements`, faqat qo'shiladi). Muddati o'tgan tovar va kelajak sanasi 422; xato bo'lsa hech narsa yozilmaydi. Hujjat o'zgarmaydi va o'chirilmaydi.
+- `GET /warehouse/receipts[/{id}]`, `GET /warehouse/stock` (material bo'yicha jami, yaroqli, muddati o'tgan qoldiq va qiymat; qoldig'i yo'q faol materiallar ham), `GET /warehouse/batches` (muddat bo'yicha), `GET /warehouse/alerts` (minimal qoldiqdan kam: yaroqli qoldiq bo'yicha). Hammasi foydalanuvchi filiali bo'yicha. Migratsiya 0034.
+
 ## [1.9.0] - 2026-11-13
 ### Added
 - 5-bosqich boshlandi: ombor katalogi `stock_items` (dori `Medicine` / sarf `Supply`, birlik, SKU, minimal qoldiq `min_qty`, faol). Hamma filialga umumiy; qoldiq filial bo'yicha partiyalarda (keyingi versiyalar). O'chirilmaydi, faolsizlantiriladi; nom va SKU registrsiz noyob.

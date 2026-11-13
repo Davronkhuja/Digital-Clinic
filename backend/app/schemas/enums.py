@@ -142,3 +142,13 @@ class MessageStatus(str, Enum):
 class StockKind(str, Enum):
     medicine = "Medicine"
     supply = "Supply"
+
+
+class StockMovementKind(str, Enum):
+    receipt = "Receipt"
+    issue = "Issue"
+    writeoff = "Writeoff"
+    transfer_out = "TransferOut"
+    transfer_in = "TransferIn"
+    adjust = "Adjust"
+    consumption = "Consumption"
