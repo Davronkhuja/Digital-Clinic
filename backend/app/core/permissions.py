@@ -29,6 +29,8 @@ PERMISSIONS: dict[str, str] = {
     "commissions:read": "Shifokor foizi hisobotini ko'rish (o'zingiznikini; boshqarish ruxsati bilan hammasini)",
     "commissions:pay": "Shifokor foizi to'lovini bajarish (naqd/o'tkazma)",
     "commissions:manage": "Shifokor foizi qoidalari va oylik hisob-kitob",
+    "branches:manage": "Filiallarni qo'shish, o'zgartirish va foydalanuvchini filialga biriktirish",
+    "branches:all": "Boshqa filialga o'tib ishlash (faol filialni almashtirish)",
     "warehouse:read": "Ombor: katalog, qoldiq va ogohlantirishlarni ko'rish",
     "warehouse:write": "Ombor: katalog, kirim, chiqim va hisobdan chiqarish",
     "staff:read": "Xodimlarni ko'rish",

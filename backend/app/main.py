@@ -17,6 +17,7 @@ from app.routers import (
     appointments,
     attachments,
     auth,
+    branches,
     click,
     commissions,
     emr,
@@ -96,7 +97,7 @@ def root():
     return {"status": "ok", "message": "Digital Clinic AI API", "docs": "/docs"}
 
 
-for module in (access, auth, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
+for module in (access, auth, branches, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
                reports, rooms, schedule, waitlist, icd10, lab, attachments, services, invoices, payments, payme, click,
                commissions, shifts, messaging, public, public_booking, portal, warehouse):
     app.include_router(module.router)

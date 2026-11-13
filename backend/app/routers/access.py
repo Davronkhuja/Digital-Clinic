@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import CurrentUser, require
 from app.core.security import hash_password
 from app.db.session import get_db
-from app.models import Permission, Role, Staff, User
+from app.models import Branch, Permission, Role, Staff, User
 from app.schemas import PermissionOut, RoleOut, RoleUpdate, StaffRole, UserCreate, UserOut, UserUpdate
 from app.services import audit
 from app.services.auth import revoke_all
@@ -58,17 +58,32 @@ def update_role(role_id: uuid.UUID, data: RoleUpdate, request: Request, db: Sess
     return _role_out(role, count)
 
 
-def _user_out(u: User, staff: Staff, role: Role) -> dict:
+def _user_out(u: User, staff: Staff, role: Role, branch: Branch | None = None) -> dict:
     return {"id": str(u.id), "staff_id": str(staff.id), "name": staff.full_name, "email": u.email,
-            "role": role.code, "is_active": u.is_active,
+            "role": role.code, "is_active": u.is_active, "branch_id": str(u.branch_id), "branch": branch.name if branch else None,
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None}
 
 
 @router.get("/users", tags=["🛡️ Access"], response_model=List[UserOut], summary="Foydalanuvchilar (loginlar)")
 def list_users(db: Session = Depends(get_db), user: CurrentUser = Depends(require("roles:manage"))):
-    rows = db.execute(select(User, Staff, Role).join(Staff, User.staff_id == Staff.id)
-                      .join(Role, User.role_id == Role.id).order_by(Staff.full_name)).all()
+    rows = db.execute(select(User, Staff, Role, Branch).join(Staff, User.staff_id == Staff.id)
+                      .join(Role, User.role_id == Role.id).join(Branch, User.branch_id == Branch.id).order_by(Staff.full_name)).all()
     return [_user_out(*r) for r in rows]
+
+
+def _target_branch(db: Session, user: CurrentUser, branch_id: str | None) -> Branch:
+    """Foydalanuvchi uchun filial: bo'sh bo'lsa joriy faol filial; boshqasi uchun `branches:manage`."""
+    if not branch_id or branch_id == str(user.branch_id):
+        return db.get(Branch, user.branch_id)
+    if "branches:manage" not in user.permissions:
+        raise HTTPException(403, "Boshqa filialga biriktirish ruxsati yo'q: branches:manage")
+    try:
+        branch = db.get(Branch, uuid.UUID(branch_id))
+    except ValueError:
+        raise HTTPException(422, "branch_id noto'g'ri")
+    if not branch or not branch.is_active:
+        raise HTTPException(422, "Filial topilmadi yoki faol emas")
+    return branch
 
 
 STAFF_ROLE_FOR = {"admin": StaffRole.admin, "doctor": StaffRole.doctor, "nurse": StaffRole.nurse,
@@ -84,21 +99,22 @@ def create_user(data: UserCreate, request: Request, db: Session = Depends(get_db
     if not role or role.code not in STAFF_ROLE_FOR:
         raise HTTPException(422, "Rol topilmadi")
     email = data.email.lower()
+    branch = _target_branch(db, user, data.branch_id)
     staff = Staff(full_name=data.name, role=STAFF_ROLE_FOR[role.code], department=data.department, phone=data.phone,
-                  email=email, joined_date=date.today(), branch_id=user.branch_id, created_by=user.id)
+                  email=email, joined_date=date.today(), branch_id=branch.id, created_by=user.id)
     db.add(staff)
     try:
         db.flush()
         new_user = User(staff_id=staff.id, role_id=role.id, email=email, password_hash=hash_password(data.password),
-                        is_active=True, branch_id=user.branch_id, created_by=user.id)
+                        is_active=True, branch_id=branch.id, created_by=user.id)
         db.add(new_user)
         db.flush()
-        audit.record(db, user, request, "create", "user", new_user.id, {"role": role.code})
+        audit.record(db, user, request, "create", "user", new_user.id, {"role": role.code, "branch": branch.name})
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "Bu email bilan xodim yoki foydalanuvchi allaqachon mavjud")
-    return _user_out(new_user, staff, role)
+    return _user_out(new_user, staff, role, branch)
 
 
 @router.patch("/users/{user_id}", tags=["🛡️ Access"], response_model=UserOut,
@@ -117,9 +133,13 @@ def update_user(user_id: uuid.UUID, data: UserUpdate, request: Request, db: Sess
         target.role_id = role.id
     if data.is_active is not None:
         target.is_active = data.is_active
+    if data.branch_id is not None:
+        branch = _target_branch(db, user, data.branch_id)
+        target.branch_id = branch.id
+        db.get(Staff, target.staff_id).branch_id = branch.id        # xodim va uning logini bir filialda
     if data.is_active is False or data.role:
         revoke_all(db, target.id)  # eski huquq bilan yaratilgan sessiyalar tugasin
     audit.record(db, user, request, "update", "user", target.id, data.model_dump(exclude_unset=True))
     db.commit()
     staff = db.get(Staff, target.staff_id)
-    return _user_out(target, staff, db.get(Role, target.role_id))
+    return _user_out(target, staff, db.get(Role, target.role_id), db.get(Branch, target.branch_id))

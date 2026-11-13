@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.6] - 2026-11-13
+### Added
+- Filiallar: `GET/POST /branches`, `PUT /branches/{id}` (`branches:manage`). Yangi filial uchun klinika sozlamalari asosiy filialdan nusxalanadi; nom registrsiz noyob; filial o'chirilmaydi, faolsizlantiriladi (asosiy filial, faol xodimi yoki ombor qoldig'i bor filial va hozirgi faol filial 409). Migratsiya 0037.
+- Faol filialni almashtirish: `X-Branch-Id` sarlavhasi (faqat `branches:all`, ya'ni administrator; boshqalarga 403, noto'g'ri 422, topilmagan/faolsiz 400). So'rov shu filial nomidan bajariladi: yozuvlar, ro'yxatlar, ombor, audit. Sarlavhasiz: foydalanuvchining o'z filiali.
+- Foydalanuvchi filialga biriktiriladi: `POST /users` va `PATCH /users/{id}` da `branch_id` (boshqa filial uchun `branches:manage`); xodim va uning logini birga ko'chadi. `UserOut` da `branch_id`, `branch`; `/auth/me` va loginda `branch_id`. Ombor qoldig'i filial bo'yicha, katalog umumiy.
+
 ## [1.9.5] - 2026-11-13
 ### Added
 - To'lovda avtomatik sarf: hisob-faktura to'liq to'langanda (naqd, karta, Payme, Click) har qatorning xizmat normasi x miqdori FEFO bo'yicha ombordan `Consumption` sifatida yoziladi (harakatda hisob-faktura raqami). Bir marta (`invoices.stock_consumed_at`): qisman to'lov yozmaydi; keyingi qaytarish yoki qayta to'lov qayta yozmaydi (material ishlatilgan, qaytarilmaydi).
