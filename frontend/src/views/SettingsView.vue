@@ -66,6 +66,7 @@
     <MessagingSettings v-if="activeTab === 'messaging' && canResources" />
     <FinanceSettings v-if="activeTab === 'finance' && canResources" />
     <ServiceCatalog v-if="activeTab === 'services' && auth.can('services:read')" />
+    <BranchesSettings v-if="activeTab === 'branches' && auth.can('branches:manage')" />
     <LabCatalog v-if="activeTab === 'lab' && canResources" />
     <ExamTemplates v-if="activeTab === 'templates' && auth.can('emr:write')" />
     <ClinicResources v-if="activeTab === 'resources' && canResources" />
@@ -158,6 +159,7 @@
               <th class="px-4 py-3 font-semibold">Ism</th>
               <th class="px-4 py-3 font-semibold">Email</th>
               <th class="px-4 py-3 font-semibold">Rol</th>
+              <th class="px-4 py-3 font-semibold">Filial</th>
               <th class="px-4 py-3 font-semibold">Oxirgi kirish</th>
               <th class="px-4 py-3 font-semibold">Faol</th>
             </tr>
@@ -170,6 +172,12 @@
                 <select :value="u.role" class="input !py-1.5 !w-auto" @change="changeRole(u, $event)">
                   <option v-for="r in roleOptions" :key="r.code" :value="r.code">{{ r.name }}</option>
                 </select>
+              </td>
+              <td class="px-4 py-3">
+                <select v-if="auth.can('branches:manage') && branchOptions.length > 1" :value="u.branch_id" class="input !py-1.5 !w-auto" data-testid="user-branch" @change="changeBranch(u, $event)">
+                  <option v-for="b in branchOptions" :key="b.id" :value="b.id">{{ b.name }}</option>
+                </select>
+                <span v-else :class="dark ? 'text-slate-300' : 'text-slate-600'">{{ u.branch || '—' }}</span>
               </td>
               <td :class="['px-4 py-3', dark ? 'text-slate-400' : 'text-slate-500']">{{ formatDate(u.last_login_at) }}</td>
               <td class="px-4 py-3">
@@ -201,6 +209,10 @@
                     <option v-for="r in roleOptions" :key="r.code" :value="r.code">{{ r.name }}</option>
                   </select>
                 </div>
+                <div v-if="auth.can('branches:manage') && branchOptions.length > 1">
+                  <label :class="lbl">Filial</label>
+                  <select v-model="userForm.branch_id" class="input"><option value="">Faol filial</option><option v-for="b in branchOptions" :key="b.id" :value="b.id">{{ b.name }}</option></select>
+                </div>
                 <div><label :class="lbl">Bo'lim</label><input v-model="userForm.department" class="input" /></div>
                 <div class="col-span-2"><label :class="lbl">Telefon</label><input v-model="userForm.phone" class="input" /></div>
               </div>
@@ -228,6 +240,7 @@ import ClinicResources from '@/components/ClinicResources.vue'
 import ExamTemplates from '@/components/ExamTemplates.vue'
 import LabCatalog from '@/components/LabCatalog.vue'
 import ServiceCatalog from '@/components/ServiceCatalog.vue'
+import BranchesSettings from '@/components/BranchesSettings.vue'
 import FinanceSettings from '@/components/FinanceSettings.vue'
 import MessagingSettings from '@/components/MessagingSettings.vue'
 
@@ -248,6 +261,7 @@ const tabs = computed(() => [
   ...(canResources.value ? [{ key: 'messaging', label: 'Xabarlar', icon: MessageCircle }] : []),
   ...(canResources.value ? [{ key: 'finance', label: 'Moliya', icon: Tag }] : []),
   ...(auth.can('services:read') ? [{ key: 'services', label: 'Narxnoma', icon: Tag }] : []),
+  ...(auth.can('branches:manage') ? [{ key: 'branches', label: 'Filiallar', icon: Building2 }] : []),
   ...(canResources.value ? [{ key: 'lab', label: "Laboratoriya me'yorlari", icon: FlaskConical }] : []),
   ...(canResources.value ? [{ key: 'resources', label: 'Kabinet va qabul turlari', icon: DoorOpen }] : []),
   ...(canManage.value ? [
@@ -341,10 +355,12 @@ async function saveRole() {
 const users = ref([])
 const loadingUsers = ref(false)
 const showUserModal = ref(false), savingUser = ref(false)
-const userForm = reactive({ name: '', email: '', password: '', role: 'doctor', department: '', phone: '' })
+const userForm = reactive({ name: '', email: '', password: '', role: 'doctor', department: '', phone: '', branch_id: '' })
+const branchOptions = ref([])
 
 async function loadUsers() {
   loadingUsers.value = true
+  if (auth.can('branches:manage')) { try { branchOptions.value = (await api.get('/branches')).data } catch { branchOptions.value = [] } }
   try {
     const { data } = await api.get('/users')
     users.value = data
@@ -360,7 +376,7 @@ function formatDate(v) {
 }
 
 function openAddUser() {
-  Object.assign(userForm, { name: '', email: '', password: '', role: 'doctor', department: '', phone: '' })
+  Object.assign(userForm, { name: '', email: '', password: '', role: 'doctor', department: '', phone: '', branch_id: '' })
   showUserModal.value = true
 }
 async function saveUser() {
@@ -369,6 +385,7 @@ async function saveUser() {
     const body = { name: userForm.name.trim(), email: userForm.email.trim(), password: userForm.password, role: userForm.role }
     if (userForm.department.trim()) body.department = userForm.department.trim()
     if (userForm.phone.trim()) body.phone = userForm.phone.trim()
+    if (userForm.branch_id) body.branch_id = userForm.branch_id
     await api.post('/users', body)
     toast.success("Xodim qo'shildi")
     showUserModal.value = false
@@ -388,6 +405,7 @@ async function patchUser(u, body, okMsg) {
   }
   await Promise.all([loadUsers(), loadRoles()])
 }
+function changeBranch(u, ev) { return patchUser(u, { branch_id: ev.target.value }, 'Xodim boshqa filialga biriktirildi') }
 function changeRole(u, ev) { return patchUser(u, { role: ev.target.value }, "Rol o'zgartirildi") }
 function toggleActive(u) { return patchUser(u, { is_active: !u.is_active }, u.is_active ? "Foydalanuvchi o'chirildi" : 'Foydalanuvchi faollashtirildi') }
 

@@ -174,6 +174,8 @@
             </Transition>
           </div>
 
+          <BranchSwitcher />
+
           <!-- Language -->
           <div class="relative" ref="langRef">
             <button @click="closeAll('lang')" :class="['flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 rounded-xl text-sm font-medium transition-all border', isDark ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50']">
@@ -315,6 +317,7 @@
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
+import BranchSwitcher from '@/components/layout/BranchSwitcher.vue'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore }    from '@/stores/theme'
 import {

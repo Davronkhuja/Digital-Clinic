@@ -7,7 +7,11 @@ const api = axios.create({
 
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+    const branch = localStorage.getItem('branch_id')       // administrator tanlagan faol filial
+    if (branch) config.headers['X-Branch-Id'] = branch
+  }
   return config
 })
 
@@ -15,6 +19,7 @@ function clearSession() {
   localStorage.removeItem('token')
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('user')
+  localStorage.removeItem('branch_id')
 }
 
 function redirectToLogin() {
@@ -50,6 +55,12 @@ api.interceptors.response.use(
     if (err.response?.status !== 401 || !original || original._retried || isAuthCall) {
       // login/register 401 — oddiy xato (noto'g'ri parol), yo'naltirish kerak emas
       if (err.response?.status === 401 && !isAuthCall) redirectToLogin()
+      // Tanlangan filial endi yaroqsiz (faolsizlantirilgan yoki ruxsat olingan): o'z filialiga qaytamiz
+      const detail = String(err.response?.data?.detail || '')
+      if (localStorage.getItem('branch_id') && (detail.startsWith('Filial topilmadi') || detail.startsWith('Boshqa filialga'))) {
+        localStorage.removeItem('branch_id')
+        window.location.reload()
+      }
       return Promise.reject(err)
     }
     original._retried = true

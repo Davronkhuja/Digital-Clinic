@@ -135,7 +135,37 @@ test.describe('ombor', () => {
   })
 })
 
-test('6. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('filiallar', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('6. filial: Sozlamalarda yaratish, faol filialni almashtirish, ombor filial bo\'yicha', async ({ page }) => {
+    const name = `E2E Filial ${Date.now()}`
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Filiallar' }).click()
+    await page.getByTestId('branch-new').click()
+    await page.getByTestId('branch-name').fill(name)
+    await page.getByTestId('branch-save').click()
+    await expect(page.getByText('Filial saqlandi')).toBeVisible()
+    await expect(page.getByTestId('branch-table').getByRole('row', { name: new RegExp(name) })).toBeVisible()
+
+    // Faol filialni almashtirish (sahifa qayta yuklanadi), keyin yangi filial "Faol" deb belgilanadi
+    await page.reload()
+    const select = page.getByTestId('branch-select')
+    await expect(select).toBeVisible()
+    await Promise.all([page.waitForEvent('load'), select.selectOption({ label: name })])
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Filiallar' }).click()
+    await expect(page.getByTestId('branch-table').getByRole('row', { name: new RegExp(name) })).toContainText('Faol')
+
+    // Yangi filialning ombori bo'sh: katalog umumiy, qoldiq 0
+    await page.goto('/warehouse')
+    await expect(page.getByTestId('wh-stock')).toBeVisible()
+    await expect(page.getByTestId('wh-stock').locator('tbody tr').first()).toContainText('0')
+    await expect(page.getByTestId('wh-alerts')).toHaveCount(0)
+  })
+})
+
+test('7. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

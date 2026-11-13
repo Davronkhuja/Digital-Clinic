@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.11] - 2026-11-13
+### Added
+- Frontend: faol filial almashtirgich (sarlavhada, faqat `branches:all` va filial bittadan ko'p bo'lsa): tanlov `X-Branch-Id` sarlavhasi bilan har so'rovga qo'shiladi, sahifa yangi filial bo'yicha qayta yuklanadi; yaroqsiz/ruxsatsiz filial tanlovi avtomatik bekor bo'ladi; chiqishda tozalanadi.
+- Sozlamalar > Filiallar (`branches:manage`): ro'yxat (xodimlar soni, asosiy/faol belgisi), yangi filial, tahrirlash, faolsizlantirish/faollashtirish (server qoidalari 409 xabari ko'rsatiladi). Foydalanuvchilar jadvalida filial ustuni (boshqa filialga biriktirish) va xodim qo'shishda filial tanlovi.
+- E2E: filial yaratish, almashtirish va ombor filial bo'yicha ajralishi.
+
 ## [1.9.10] - 2026-11-13
 ### Added
 - Frontend: Ombor sahifasi (`/warehouse`, menyuda "Ombor", `warehouse:read`): ogohlantirish kartalari (minimaldan kam, 30 kunda muddati tugaydi, muddati o'tgan, yetmagan sarf), tablar Qoldiq / Partiyalar / Kirim / Harakatlar / Ko'chirish / Yetishmovchilik; material qo'shish va tahrirlash, kirim hujjati (partiya, muddat, narx), FEFO chiqim (qaysi partiyadan qancha va tannarx ko'rsatiladi), hisobdan chiqarish, filialga ko'chirish (yuborish, qabul qilish, bekor qilish), yetishmovchilikni ombordan yozish. uz/en/ru menyu nomlari.
