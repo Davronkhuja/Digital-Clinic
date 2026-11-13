@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.13] - 2026-11-13
+### Added
+- E2E portal testi kengaytirildi: rus tiliga o'tish (sarlavha, tablar, holat nomlari), Hisoblar bo'limi (jami, to'langan, qarz yo'q), Tahlillar bo'limi (tasdiqlangan natija va PDF 200 `application/pdf`), qabulni tasdiq bilan bekor qilish (holat "Bekor qilingan", tugma yo'qoladi), chiqish.
+### Changed
+- Dev stack frontend imaji qayta yig'ildi (`/portal` ko'rinadi); kod o'zgarmadi.
+
 ## [1.8.12] - 2026-11-13
 ### Security
 - `APP_ENV=production` (yoki `ENV`) da mock SMS taqiqlangan: `SMS_BACKEND=mock` yoki `MOCK_SMS_OUTBOX` bilan backend ishga tushmaydi; adapter ham ishlab turgan jarayonda yuborishni rad etadi.

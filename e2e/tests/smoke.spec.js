@@ -77,16 +77,65 @@ test.describe('kirgan xodim', () => {
   })
 })
 
-test('5. portal: telefon + OTP bilan kirish', async ({ page }) => {
+test('5. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+  // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
+  const login = await request.post('/api/auth/login', { data: ADMIN })
+  const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+  const patients = await (await request.get('/api/patients', { headers, params: { search: PATIENT.name } })).json()
+  const patient = patients.find(p => p.name === PATIENT.name)
+  const test = (await (await request.get('/api/lab/tests', { headers })).json()).find(t => t.is_active)
+  const order = await (await request.post('/api/lab/orders', { headers, data: { patient_id: patient.id, doctor: DOCTOR, test_ids: [test.id] } })).json()
+  expect((await request.put(`/api/lab/orders/${order.id}/results`, { headers, data: { results: [{ item_id: order.items[0].id, value: 5 }] } })).ok()).toBeTruthy()
+  expect((await request.post(`/api/lab/orders/${order.id}/approve`, { headers })).ok()).toBeTruthy()
+
+  // Kirish
   await page.goto('/portal')
   await page.getByTestId('portal-phone').fill(PATIENT.phone)
   await page.getByTestId('portal-send').click()
   await page.getByTestId('portal-code').fill(await waitForOtp(PATIENT.phone))
   await page.getByTestId('portal-verify').click()
   await expect(page.getByTestId('portal-patient')).toHaveText(PATIENT.name)
-  await expect(page.getByTestId('portal-appointments').locator('article')).not.toHaveCount(0)
+
+  // Qabullar (o'zbekcha), keyin rus tiliga o'tish
+  const appts = page.getByTestId('portal-appointments').locator('article')
+  await expect(appts).toHaveCount(1)
+  await expect(page.getByTestId('tab-appointments')).toHaveText('Qabullar')
+  await expect(appts.first()).toContainText('Rejalashtirilgan')
+  await page.getByTestId('lang-ru').click()
+  await expect(page.getByRole('heading', { name: 'Портал пациента' })).toBeVisible()
+  await expect(page.getByTestId('tab-appointments')).toHaveText('Приёмы')
+  await expect(appts.first()).toContainText('Запланирован')
+
+  // Hisoblar (rus tilida): to'liq to'langan
   await page.getByTestId('tab-invoices').click()
-  await expect(page.getByTestId('portal-invoices').locator('article')).not.toHaveCount(0)
+  const invoices = page.getByTestId('portal-invoices').locator('article')
+  await expect(invoices).toHaveCount(1)
+  await expect(invoices.first()).toContainText('Итого')
+  await expect(invoices.first()).toContainText('Оплачено')
+  await expect(invoices.first()).not.toContainText('Долг')
+
+  // Tahlillar: tasdiqlangan natija va PDF
   await page.getByTestId('tab-lab').click()
-  await expect(page.getByTestId('portal-lab')).toBeVisible()
+  const labs = page.getByTestId('portal-lab').locator('article')
+  await expect(labs).toHaveCount(1)
+  await expect(labs.first()).toContainText(test.name)
+  const [pdf] = await Promise.all([
+    page.waitForResponse(r => r.url().includes('/pdf')),
+    page.getByTestId('portal-lab-pdf').click(),
+  ])
+  expect(pdf.status()).toBe(200)
+  expect(pdf.headers()['content-type']).toContain('application/pdf')
+
+  // O'zbek tiliga qaytish va qabulni bekor qilish (tasdiq bilan)
+  await page.getByTestId('lang-uz').click()
+  await page.getByTestId('tab-appointments').click()
+  await page.getByTestId('portal-cancel').click()
+  await expect(page.getByText('Qabulni bekor qilishni tasdiqlaysizmi?')).toBeVisible()
+  await page.getByTestId('portal-cancel-yes').click()
+  await expect(appts.first()).toContainText('Bekor qilingan')
+  await expect(page.getByTestId('portal-cancel')).toHaveCount(0)
+
+  // Chiqish: seans tugaydi, kirish formasi qaytadi
+  await page.getByTestId('portal-logout').click()
+  await expect(page.getByTestId('portal-phone')).toBeVisible()
 })
