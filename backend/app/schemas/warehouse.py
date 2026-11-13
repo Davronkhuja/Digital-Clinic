@@ -132,7 +132,10 @@ class BatchOut(BaseModel):
 
 
 class AlertsOut(BaseModel):
-    low_stock: List[StockRowOut]
+    expiry_days: int = Field(..., description="Yaroqlilik ogohlantirishi oynasi (kun)")
+    low_stock: List[StockRowOut] = Field(..., description="Yaroqli qoldiq minimaldan kam")
+    expiring: List[BatchOut] = Field(..., description="Muddati oynada tugaydigan partiyalar (qoldig'i bor), muddati yaqini tepada")
+    expired: List[BatchOut] = Field(..., description="Muddati o'tgan, qoldig'i bor partiyalar: hisobdan chiqarish kerak")
 
 
 class IssueIn(BaseModel):
@@ -182,3 +185,17 @@ class MovementOut(BaseModel):
     ref_type: Optional[str] = None
     ref_id: Optional[str] = None
     by: Optional[str] = None
+
+
+class WriteoffIn(BaseModel):
+    batch_id: uuid.UUID
+    qty: Optional[QtyPositive] = Field(None, description="Bo'sh: partiyaning butun qoldig'i")
+    reason: str = Field(..., min_length=3, max_length=300, description="Sabab (muddati o'tgan, singan, yo'qolgan ...)")
+
+    @field_validator("reason")
+    @classmethod
+    def _reason(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Sabab kamida 3 belgi")
+        return v

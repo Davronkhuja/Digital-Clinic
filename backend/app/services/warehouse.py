@@ -152,3 +152,26 @@ def issue(db: Session, user, *, item_id: uuid.UUID, qty: Decimal, reason: str, k
 def allocations_out(allocs: list[Allocation]) -> list[dict]:
     return [{"batch_id": str(a.batch.id), "batch_no": a.batch.batch_no, "expires_on": a.batch.expires_on, "qty": a.qty,
              "unit_cost": a.batch.unit_cost, "amount": a.cost} for a in allocs]
+
+
+def alerts(db: Session, branch_id: uuid.UUID, days: int = EXPIRY_WARN_DAYS) -> dict:
+    """Ogohlantirishlar: minimal qoldiqdan kam, `days` ichida muddati tugaydigan va muddati o'tgan (qoldig'i bor) partiyalar."""
+    rows = batch_rows(db, branch_id, expiring_within=days)           # muddat bo'yicha: o'tganlar ham tepada
+    return {"expiry_days": days, "low_stock": stock_rows(db, branch_id, low_only=True),
+            "expiring": [r for r in rows if not r["expired"]], "expired": [r for r in rows if r["expired"]]}
+
+
+def writeoff(db: Session, user, *, batch_id: uuid.UUID, qty: Decimal | None, reason: str) -> tuple[StockBatch, Decimal]:
+    """Partiyadan hisobdan chiqarish (muddati o'tgan, singan, yo'qolgan): `Writeoff` harakati. Faqat o'z filialidagi partiya."""
+    batch = db.scalar(select(StockBatch).where(StockBatch.id == batch_id).with_for_update())
+    if not batch or batch.branch_id != user.branch_id:
+        raise HTTPException(404, "Partiya topilmadi")
+    take = batch.qty_remaining if qty is None else qty
+    if batch.qty_remaining <= 0:
+        raise HTTPException(409, "Partiyada qoldiq yo'q")
+    if take > batch.qty_remaining:
+        raise HTTPException(409, f"Qoldiq yetmaydi: partiyada {batch.qty_remaining.normalize():f}")
+    batch.qty_remaining -= take
+    db.add(StockMovement(item_id=batch.item_id, batch_id=batch.id, kind=StockMovementKind.writeoff, qty=-take, unit_cost=batch.unit_cost,
+                         reason=reason[:300], ref_type="writeoff", branch_id=batch.branch_id, created_by=user.id))
+    return batch, take

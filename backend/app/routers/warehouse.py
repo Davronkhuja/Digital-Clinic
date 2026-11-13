@@ -2,7 +2,7 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from app.schemas import (
     StockItemOut,
     StockItemUpdate,
     StockRowOut,
+    WriteoffIn,
 )
 from app.schemas.enums import StockKind, StockMovementKind
 from app.services import audit
@@ -140,9 +141,20 @@ def batches(item_id: Optional[uuid.UUID] = None, include_empty: bool = False, db
 
 
 @router.get("/warehouse/alerts", tags=[TAG], response_model=AlertsOut, summary="Ogohlantirishlar",
-            description="Minimal qoldiqdan kam materiallar (yaroqli qoldiq bo'yicha).")
-def alerts(db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
-    return {"low_stock": wh.stock_rows(db, user.branch_id, low_only=True)}
+            description="Minimal qoldiqdan kam materiallar (yaroqli qoldiq bo'yicha), `days` (standart 30) ichida muddati tugaydigan "
+                        "va muddati o'tgan partiyalar (qoldig'i bor).")
+def alerts(days: int = Query(wh.EXPIRY_WARN_DAYS, ge=1, le=365), db: Session = Depends(get_db),
+           user: CurrentUser = Depends(require("warehouse:read"))):
+    return wh.alerts(db, user.branch_id, days)
+
+
+@router.post("/warehouse/writeoffs", tags=[TAG], response_model=List[MovementOut], status_code=201, summary="Hisobdan chiqarish",
+             description="Partiyani (yoki bir qismini) hisobdan chiqaradi: muddati o'tgan, singan, yo'qolgan. Sabab majburiy; `Writeoff` harakati, audit.")
+def create_writeoff(data: WriteoffIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:write"))):
+    batch, qty = wh.writeoff(db, user, batch_id=data.batch_id, qty=data.qty, reason=data.reason)
+    audit.record(db, user, request, "create", "stock_writeoff", batch.id, {"batch_no": batch.batch_no, "qty": str(qty), "reason": data.reason})
+    db.commit()
+    return movements(item_id=batch.item_id, kind=StockMovementKind.writeoff, limit=1, db=db, user=user)
 
 
 @router.post("/warehouse/issues", tags=[TAG], response_model=IssueOut, summary="Chiqim (FEFO)",

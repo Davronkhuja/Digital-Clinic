@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.3] - 2026-11-13
+### Added
+- Yaroqlilik ogohlantirishi: `GET /warehouse/alerts?days=30` endi `expiring` (muddati 30 kun ichida tugaydigan, qoldig'i bor partiyalar; chegara kiradi), `expired` (muddati o'tgan, qoldig'i bor) va `low_stock` ni qaytaradi; `days` 1-365. Qoldig'i tugagan partiya ogohlantirmaydi.
+- Hisobdan chiqarish: `POST /warehouse/writeoffs` (partiya, miqdor yoki butun qoldiq, sabab majburiy): `Writeoff` harakati, audit; qoldiqdan ortiq yoki bo'sh partiya 409.
+
 ## [1.9.2] - 2026-11-13
 ### Added
 - FEFO chiqim: `POST /warehouse/issues` (material, miqdor, sabab). Yaroqli partiyalar muddati bo'yicha (birinchi tugaydigani birinchi), muddatsizlar oxirida, muddati teng bo'lsa avval kirgani; muddati o'tgan partiyalar ishlatilmaydi. Yaroqli qoldiq yetmasa 409 (xabarda yaroqli va muddati o'tgan miqdor), hech narsa o'zgarmaydi. Partiyalar `FOR UPDATE` bilan qulflanadi (parallel chiqimlar bir partiyani ikki marta olmaydi).
