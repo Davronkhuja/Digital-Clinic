@@ -20,10 +20,10 @@ REPORTS = [
 ]
 
 SOURCES = {
-    "1": ("moliyaviy_hisobot", lambda db: queries.list_transactions(db)),
-    "2": ("bemorlar_statistikasi", lambda db: queries.list_patients(db, limit=100000)),
-    "3": ("xodimlar_faoliyati", lambda db: queries.list_staff(db)),
-    "4": ("uchrashuvlar_tahlili", lambda db: queries.list_appointments(db)),
+    "1": ("moliyaviy_hisobot", lambda db, br: queries.list_transactions(db, branch_id=br)),
+    "2": ("bemorlar_statistikasi", lambda db, br: queries.list_patients(db, limit=100000)),   # bemor bazasi umumiy
+    "3": ("xodimlar_faoliyati", lambda db, br: queries.list_staff(db, branch_id=br)),
+    "4": ("uchrashuvlar_tahlili", lambda db, br: queries.list_appointments(db, branch_id=br)),
 }
 
 
@@ -53,7 +53,7 @@ def download_report(report_id: str, request: Request, db: Session = Depends(get_
     if report_id not in SOURCES:
         raise HTTPException(404, "Hisobot topilmadi")
     name, source = SOURCES[report_id]
-    rows = source(db)
+    rows = source(db, user.branch_id)                      # faol filial bo'yicha (bemorlar bazasi umumiy)
     audit.record_read(db, user, request, "report", details={"report_id": report_id, "rows": len(rows)})
     buf = io.StringIO()
     writer = csv.writer(buf)

@@ -62,4 +62,4 @@ def ai_analyze(data: AnalyzeRequest, user: CurrentUser = Depends(require("ai:use
 @router.get("/ai/insights", tags=["🤖 AI Assistant"], summary="Klinika ma'lumotlaridan tavsiyalar",
             description="Bazadagi haqiqiy ko'rsatkichlardan hosil qilinadi (LLM talab qilinmaydi).")
 def get_ai_insights(db: Session = Depends(get_db), user: CurrentUser = Depends(require("analytics:read"))):
-    return {"insights": analytics.insights(db)}
+    return {"insights": analytics.insights(db, branch_id=user.branch_id)}

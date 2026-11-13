@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.8] - 2026-11-13
+### Changed
+- Dashboard (`/analytics/dashboard`), tahliliy hisobotlar (`/analytics/reports`), kelmay qolish ulushi (`/analytics/no-show`), AI tavsiyalari va CSV hisobotlari (moliyaviy, xodimlar, uchrashuvlar) faol filial bo'yicha. Bemor soni, yangi bemorlar va demografiya bemor ro'yxatdan o'tgan filial bo'yicha; "Bemorlar statistikasi" CSV umumiy bazadan.
+### Added
+- `all_branches=true` (faqat `branches:all`, boshqalarga 403): hamma filial birga hisobot.
+- `tests/test_branch_analytics.py`.
+
 ## [1.9.7] - 2026-11-13
 ### Changed
 - Operatsion ro'yxatlar faol filial bo'yicha: uchrashuvlar, xodimlar, tibbiy yozuvlar (EMR), laboratoriya buyurtmalari, kutish ro'yxati, hisob-fakturalar, moliyaviy tranzaksiyalar va xulosa, kassa smenalari, shifokor foizi (yozuvlar, oylik hisob, yopilgan oylar, to'lov hujjatlari) va xabarlar logi/statistikasi. Yangi yozuvlar faol filialga yoziladi.

@@ -13,36 +13,42 @@ WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
 AGE_GROUPS = [("0-17", 0, 17), ("18-35", 18, 35), ("36-55", 36, 55), ("56-70", 56, 70), ("70+", 71, 200)]
 
 
+def _in_branch(model, branch_id):
+    """Filial sharti (`None`: hamma filial birga). Bemor bazasi umumiy: bemor hisobi ro'yxatdan o'tgan filial bo'yicha."""
+    return model.branch_id == branch_id if branch_id else true()
+
+
 def _between(column, start: date | None, end: date):
     """Davr sharti; start=None ('all') bo'lsa chegarasiz (kelajakdagi rejalashtirilgan qabullar ham kiradi)."""
     return column.between(start, end) if start else true()
 
 
-def _income(db: Session, start: date | None, end: date) -> float:
+def _income(db: Session, start: date | None, end: date, branch_id=None) -> float:
     total = db.scalar(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.deleted_at.is_(None), Transaction.type == TransactionType.income,
-            _between(Transaction.date, start, end))
+            _between(Transaction.date, start, end), _in_branch(Transaction, branch_id))
     )
     return float(total)
 
 
-def _expense(db: Session, start: date | None, end: date) -> float:
+def _expense(db: Session, start: date | None, end: date, branch_id=None) -> float:
     total = db.scalar(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.deleted_at.is_(None), Transaction.type == TransactionType.expense,
-            _between(Transaction.date, start, end))
+            _between(Transaction.date, start, end), _in_branch(Transaction, branch_id))
     )
     return float(total)
 
 
-def _appointments(db: Session, start: date | None, end: date) -> int:
-    return db.scalar(select(func.count()).select_from(Appointment).where(_between(Appointment.date, start, end)))
+def _appointments(db: Session, start: date | None, end: date, branch_id=None) -> int:
+    return db.scalar(select(func.count()).select_from(Appointment).where(
+        _between(Appointment.date, start, end), _in_branch(Appointment, branch_id)))
 
 
-def _new_patients(db: Session, start: date | None, end: date) -> int:
+def _new_patients(db: Session, start: date | None, end: date, branch_id=None) -> int:
     created = cast(func.timezone(str(CLINIC_TZ), Patient.created_at), Date)
-    return db.scalar(select(func.count()).select_from(Patient).where(_between(created, start, end)))
+    return db.scalar(select(func.count()).select_from(Patient).where(_between(created, start, end), _in_branch(Patient, branch_id)))
 
 
 def _months_back(today: date, n: int) -> list[date]:
@@ -67,37 +73,37 @@ def _monthly(db: Session, model, date_col, value, where, today: date, n: int = 6
     return [{"month": m.strftime("%Y-%m"), "value": float(by_month.get(m, 0))} for m in months]
 
 
-def dashboard(db: Session, period: str, today: date | None = None) -> dict:
+def dashboard(db: Session, period: str, today: date | None = None, branch_id=None) -> dict:
     today = today or clinic_today()
     start, end = window(period, today)
     prev = previous_window(period, today)
 
-    revenue = _income(db, start, end)
-    appts = _appointments(db, start, end)
-    new_patients = _new_patients(db, start, end)
+    revenue = _income(db, start, end, branch_id)
+    appts = _appointments(db, start, end, branch_id)
+    new_patients = _new_patients(db, start, end, branch_id)
     changes = {"revenue": None, "appointments": None, "new_patients": None}
     if prev:
         changes = {
-            "revenue": pct_change(revenue, _income(db, *prev)),
-            "appointments": pct_change(appts, _appointments(db, *prev)),
-            "new_patients": pct_change(new_patients, _new_patients(db, *prev)),
+            "revenue": pct_change(revenue, _income(db, *prev, branch_id)),
+            "appointments": pct_change(appts, _appointments(db, *prev, branch_id)),
+            "new_patients": pct_change(new_patients, _new_patients(db, *prev, branch_id)),
         }
 
     revenue_chart = _monthly(
         db, Transaction, Transaction.date, func.coalesce(func.sum(Transaction.amount), 0),
-        (Transaction.deleted_at.is_(None)) & (Transaction.type == TransactionType.income), today)
+        (Transaction.deleted_at.is_(None)) & (Transaction.type == TransactionType.income) & _in_branch(Transaction, branch_id), today)
 
     # Oxirgi 7 kun: yangi bemorlar (shu kuni ro'yxatdan o'tgan) va qaytganlar (oldin ro'yxatdan o'tib, shu kuni qabul qilingan)
     days = [today - timedelta(days=i) for i in range(6, -1, -1)]
     created = cast(func.timezone(str(CLINIC_TZ), Patient.created_at), Date)
     new_by_day = dict(db.execute(
-        select(created, func.count()).where(created >= days[0]).group_by(created)).all())
+        select(created, func.count()).where(created >= days[0], _in_branch(Patient, branch_id)).group_by(created)).all())
     returning_rows = db.execute(
         select(Appointment.date, func.count(func.distinct(Appointment.patient_id)))
         .join(Patient, Appointment.patient_id == Patient.id)
         .where(Appointment.date >= days[0], Appointment.date <= today,
                Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.scheduled]),
-               created < Appointment.date)
+               created < Appointment.date, _in_branch(Appointment, branch_id))
         .group_by(Appointment.date)).all()
     returning_by_day = dict(returning_rows)
     patient_flow = [{"day": WEEKDAYS[d.weekday()], "date": d.isoformat(),
@@ -107,23 +113,24 @@ def dashboard(db: Session, period: str, today: date | None = None) -> dict:
         "period": period,
         "from": start.isoformat() if start else None,
         "to": end.isoformat(),
-        "total_patients": db.scalar(select(func.count()).select_from(Patient)),
+        "total_patients": db.scalar(select(func.count()).select_from(Patient).where(_in_branch(Patient, branch_id))),
         "new_patients": new_patients,
         "appointments_today": db.scalar(
             select(func.count()).select_from(Appointment).where(
-                Appointment.date == today, Appointment.status != AppointmentStatus.cancelled)),
+                Appointment.date == today, Appointment.status != AppointmentStatus.cancelled, _in_branch(Appointment, branch_id))),
         "appointments": appts,
         "revenue": revenue,
-        "expense": _expense(db, start, end),
+        "expense": _expense(db, start, end, branch_id),
         "active_doctors": db.scalar(
-            select(func.count()).select_from(Staff).where(Staff.role == StaffRole.doctor, Staff.status == StatusEnum.active)),
+            select(func.count()).select_from(Staff).where(Staff.role == StaffRole.doctor, Staff.status == StatusEnum.active,
+                                                          _in_branch(Staff, branch_id))),
         "changes": changes,
         "revenue_chart": revenue_chart,
         "patient_flow": patient_flow,
     }
 
 
-def reports(db: Session, period: str, today: date | None = None) -> dict:
+def reports(db: Session, period: str, today: date | None = None, branch_id=None) -> dict:
     today = today or clinic_today()
     start, end = window(period, today)
 
@@ -131,7 +138,7 @@ def reports(db: Session, period: str, today: date | None = None) -> dict:
         {"name": name, "count": n}
         for name, n in db.execute(
             select(Encounter.diagnosis, func.count().label("n"))
-            .where(Encounter.deleted_at.is_(None), _between(Encounter.visit_date, start, end))
+            .where(Encounter.deleted_at.is_(None), _between(Encounter.visit_date, start, end), _in_branch(Encounter, branch_id))
             .group_by(Encounter.diagnosis).order_by(func.count().desc(), Encounter.diagnosis).limit(5)).all()
     ]
 
@@ -141,13 +148,15 @@ def reports(db: Session, period: str, today: date | None = None) -> dict:
             select(Staff.full_name, Staff.department, func.count(func.distinct(Appointment.patient_id)), func.count())
             .select_from(Appointment)
             .join(Staff, Appointment.doctor_id == Staff.id)
-            .where(Appointment.status == AppointmentStatus.completed, _between(Appointment.date, start, end))
+            .where(Appointment.status == AppointmentStatus.completed, _between(Appointment.date, start, end),
+                   _in_branch(Appointment, branch_id))
             .group_by(Staff.id).order_by(func.count().desc(), Staff.full_name).limit(5)).all()
     ]
 
     status_counts = {s.value: 0 for s in AppointmentStatus}
     for status, n in db.execute(
-        select(Appointment.status, func.count()).where(_between(Appointment.date, start, end)).group_by(Appointment.status)
+        select(Appointment.status, func.count()).where(_between(Appointment.date, start, end), _in_branch(Appointment, branch_id))
+        .group_by(Appointment.status)
     ).all():
         status_counts[status.value] = n
     total_appts = sum(status_counts.values())
@@ -156,15 +165,16 @@ def reports(db: Session, period: str, today: date | None = None) -> dict:
         select(func.coalesce(Staff.department, "—"), func.count())
         .select_from(Appointment)
         .join(Staff, Appointment.doctor_id == Staff.id)
-        .where(_between(Appointment.date, start, end)).group_by(Staff.department).order_by(func.count().desc())).all()
+        .where(_between(Appointment.date, start, end), _in_branch(Appointment, branch_id))
+        .group_by(Staff.department).order_by(func.count().desc())).all()
     departments = [{"name": name, "count": n, "pct": round(n / total_appts * 100, 1)} for name, n in dept_rows]
 
     gender = {g.value: 0 for g in GenderEnum}
-    for g, n in db.execute(select(Patient.gender, func.count()).group_by(Patient.gender)).all():
+    for g, n in db.execute(select(Patient.gender, func.count()).where(_in_branch(Patient, branch_id)).group_by(Patient.gender)).all():
         gender[g.value] = n
     ages = Counter()
     unknown = 0
-    for (birth,) in db.execute(select(Patient.birth_date)).all():
+    for (birth,) in db.execute(select(Patient.birth_date).where(_in_branch(Patient, branch_id))).all():
         if not birth:
             unknown += 1
             continue
@@ -182,7 +192,8 @@ def reports(db: Session, period: str, today: date | None = None) -> dict:
         "appointment_statuses": status_counts,
         "departments": departments,
         "monthly_appointments": _monthly(
-            db, Appointment, Appointment.date, func.count(), Appointment.status != AppointmentStatus.cancelled, today),
+            db, Appointment, Appointment.date, func.count(),
+            (Appointment.status != AppointmentStatus.cancelled) & _in_branch(Appointment, branch_id), today),
         "patient_demographics": {
             "total": total_patients,
             "gender": gender,
@@ -194,11 +205,11 @@ def reports(db: Session, period: str, today: date | None = None) -> dict:
     }
 
 
-def insights(db: Session, today: date | None = None) -> list[dict]:
+def insights(db: Session, today: date | None = None, branch_id=None) -> list[dict]:
     """Klinika ma'lumotlaridan hosil bo'lgan tavsiyalar (qattiq yozilgan matn emas)."""
     today = today or clinic_today()
     start, end = window("month", today)
-    stats = reports(db, "month", today)
+    stats = reports(db, "month", today, branch_id)
     out: list[dict] = []
     statuses = stats["appointment_statuses"]
     total = sum(statuses.values())
@@ -209,14 +220,15 @@ def insights(db: Session, today: date | None = None) -> list[dict]:
         out.append({"type": kind, "title": "Bekor qilingan va kelmagan qabullar",
                     "message": f"Oxirgi 30 kunda uchrashuvlarning {rate}% i bekor qilindi yoki bemor kelmadi ({lost}/{total})."})
     prev = previous_window("month", today)
-    cur, before = _income(db, start, end), _income(db, *prev)
+    cur, before = _income(db, start, end, branch_id), _income(db, *prev, branch_id)
     change = pct_change(cur, before)
     if change is not None:
         out.append({"type": "success" if change >= 0 else "warning", "title": "Daromad dinamikasi",
                     "message": f"Oxirgi 30 kun daromadi oldingi 30 kunga nisbatan {change:+.1f}% ga o'zgardi."})
     dow = db.execute(
         select(func.extract("isodow", Appointment.date).label("d"), func.count())
-        .where(Appointment.date.between(today - timedelta(days=89), today), Appointment.status != AppointmentStatus.cancelled)
+        .where(Appointment.date.between(today - timedelta(days=89), today), Appointment.status != AppointmentStatus.cancelled,
+               _in_branch(Appointment, branch_id))
         .group_by("d").order_by(func.count().desc()).limit(1)).first()
     if dow:
         out.append({"type": "info", "title": "Eng band kun",
@@ -224,7 +236,7 @@ def insights(db: Session, today: date | None = None) -> list[dict]:
     return out
 
 
-def no_show_weekly(db: Session, weeks: int = 8, today: date | None = None) -> dict:
+def no_show_weekly(db: Session, weeks: int = 8, today: date | None = None, branch_id=None) -> dict:
     """Haftalik kelmay qolish ulushi: no_show / (completed + no_show), eslatma yuborilgan va yuborilmagan qabullar kesimida.
     Hafta dushanbadan (klinika sanasi). Eslatma yuborilgan: shu qabuldan kamida bitta eslatma xabari `Sent`."""
     from sqlalchemy import exists
@@ -239,7 +251,7 @@ def no_show_weekly(db: Session, weeks: int = 8, today: date | None = None) -> di
         Message.appointment_id == Appointment.id, Message.kind.like("reminder%"), Message.status == MessageStatus.sent)
     rows = db.execute(
         select(Appointment.date, Appointment.status, reminded.label("reminded"))
-        .where(Appointment.date >= first, Appointment.date < this_monday + timedelta(days=7),
+        .where(Appointment.date >= first, Appointment.date < this_monday + timedelta(days=7), _in_branch(Appointment, branch_id),
                Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.no_show]))
     ).all()
     buckets: dict[date, dict] = {
