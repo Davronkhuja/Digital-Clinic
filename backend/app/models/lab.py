@@ -111,3 +111,18 @@ class LabOrderItem(BaseModel):
 
 
 __all__ = ["LabTest", "LabReferenceRange", "LabPanel", "LabPanelTest", "LabOrder", "LabOrderItem"]
+
+
+class LabCorrection(BaseModel):
+    """Tasdiqlangan natijaga tuzatish yozuvi (tahrirlanmaydi, o'chirilmaydi): kim, qachon, nima uchun, eski va yangi qiymat."""
+
+    __tablename__ = "lab_corrections"
+
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("lab_orders.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("lab_order_items.id", ondelete="RESTRICT"))
+    reason: Mapped[str] = mapped_column(Text)
+    old_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
+    new_value: Mapped[Decimal] = mapped_column(Numeric(14, 4))
+    old_flag: Mapped[LabFlag | None] = mapped_column(enum_col(LabFlag, "old_flag", 8))
+    new_flag: Mapped[LabFlag | None] = mapped_column(enum_col(LabFlag, "new_flag", 8))
+    corrected_by_name: Mapped[str] = mapped_column(String(150))  # nusxa: xodim nomi keyin o'zgarsa ham yozuv qoladi

@@ -114,6 +114,24 @@ class ResultsIn(BaseModel):
     results: List[ResultIn] = Field(..., min_length=1)
 
 
+class CorrectionIn(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=500, description="Tuzatish sababi (majburiy)")
+    results: List[ResultIn] = Field(..., min_length=1)
+
+
+class CorrectionOut(BaseModel):
+    id: str
+    item_id: str
+    test_name: str
+    old_value: Optional[float] = None
+    new_value: float
+    old_flag: Optional[LabFlag] = None
+    new_flag: Optional[LabFlag] = None
+    reason: str
+    corrected_by: str
+    corrected_at: str
+
+
 class LabItemOut(BaseModel):
     id: str
     test_id: str
@@ -140,6 +158,8 @@ class LabOrderOut(BaseModel):
     notes: Optional[str] = None
     approved: bool = False
     approved_at: Optional[str] = None
+    approved_by: Optional[str] = None
+    corrections: List[CorrectionOut] = []
     created_at: str
     completed_at: Optional[str] = None
     items: List[LabItemOut]

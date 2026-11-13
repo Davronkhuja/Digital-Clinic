@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.9] - 2026-11-13
+### Added
+- LabView: "Tasdiqlash" tugmasi (`lab:approve`), "Tasdiqlangan" belgisi (kim va qachon), "Tuzatish kiritish" (sabab majburiy) va tuzatishlar tarixi.
+- `POST /lab/orders/{id}/corrections` (`lab:approve`): tasdiqlangan natijaga tuzatish; `lab_corrections` jadvali (eski/yangi qiymat va belgi, sabab, kim, qachon; o'chirilmaydi), auditda. Migratsiya 0032.
+### Changed
+- Tasdiqlangan natija tahrirlanmaydi: `PUT /lab/orders/{id}/results` 409 qaytaradi; tasdiqni olib tashlash (`approved=false`) va qayta tasdiqlash yo'q. Avval natija tahrirlansa tasdiq bekor bo'lardi.
+- `LabOrderOut`: `approved_by`, `corrections`.
+
 ## [1.8.8] - 2026-11-13
 ### Added
 - 4-bosqich "Shart"i: `GET /analytics/no-show?weeks=8` (`analytics:read`): haftalik (dushanbadan) kelmay qolish ulushi = no_show / (yakunlangan + kelmagan), eslatma yuborilgan (kamida bitta `reminder_*` xabari `Sent`) va yuborilmagan qabullar kesimida; hammasi bazadan.

@@ -115,14 +115,14 @@ def test_only_doctor_approved_lab_results_visible_and_edit_revokes_approval(clie
     assert set(rows[0]) == {"id", "date", "doctor", "items"}
     pdf = client.get(f"/portal/{pid}/lab-results/{oid}/pdf", headers=h)
     assert pdf.status_code == 200 and "Natija Bemor" in "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf.content)).pages)
-    # natija tuzatilsa tasdiq bekor bo'ladi
+    # tasdiqlangan natija tahrirlanmaydi: faqat tuzatish yozuvi orqali, tasdiq saqlanadi
     item = client.get(f"/lab/orders/{oid}", headers=auth("doctor")).json()["items"][0]["id"]
-    client.put(f"/lab/orders/{oid}/results", headers=auth("doctor"), json={"results": [{"item_id": item, "value": 5.0}]})
-    assert client.get(f"/lab/orders/{oid}", headers=auth("doctor")).json()["approved"] is False
-    assert client.get(f"/portal/{pid}/lab-results", headers=h).json() == []
-    assert client.post(f"/lab/orders/{oid}/approve", headers=auth("doctor")).status_code == 200
-    assert client.post(f"/lab/orders/{oid}/approve", headers=auth("doctor"), params={"approved": False}).json()["approved"] is False
-    assert client.get(f"/portal/{pid}/lab-results", headers=h).json() == []
+    assert client.put(f"/lab/orders/{oid}/results", headers=auth("doctor"), json={"results": [{"item_id": item, "value": 5.0}]}).status_code == 409
+    assert client.post(f"/lab/orders/{oid}/approve", headers=auth("doctor")).status_code == 409           # qayta tasdiqlanmaydi
+    assert client.post(f"/lab/orders/{oid}/approve", headers=auth("doctor"), params={"approved": False}).status_code == 409
+    fixed = client.post(f"/lab/orders/{oid}/corrections", headers=auth("doctor"), json={"reason": "Kiritishda xato", "results": [{"item_id": item, "value": 5.0}]}).json()
+    assert fixed["approved"] is True and fixed["items"][0]["value"] == 5.0 and fixed["items"][0]["flag"] == "Normal"
+    assert client.get(f"/portal/{pid}/lab-results", headers=h).json()[0]["items"][0]["value"] == 5.0
 
 
 def test_cannot_approve_incomplete_order_and_portal_reads_audited(client, auth):

@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models import (
     ClinicSettings,
     Encounter,
+    LabCorrection,
     LabOrder,
     LabOrderItem,
     LabPanel,
@@ -21,8 +22,20 @@ from app.models import (
     LabTest,
     Patient,
     Staff,
+    User,
 )
-from app.schemas import LabOrderCreate, LabOrderOut, LabTestIn, LabTestOut, LabTestUpdate, PanelIn, PanelOut, PanelUpdate, ResultsIn
+from app.schemas import (
+    CorrectionIn,
+    LabOrderCreate,
+    LabOrderOut,
+    LabTestIn,
+    LabTestOut,
+    LabTestUpdate,
+    PanelIn,
+    PanelOut,
+    PanelUpdate,
+    ResultsIn,
+)
 from app.schemas.enums import LabOrderStatus
 from app.services import audit, lab, pdf
 from app.services.lookup import get_patient_or_404, resolve_doctor
@@ -190,7 +203,15 @@ def order_out(db: Session, order: LabOrder) -> dict:
     patient, doctor = db.get(Patient, order.patient_id), db.get(Staff, order.doctor_id)
     rows = db.execute(select(LabOrderItem, LabTest.code).join(LabTest, LabOrderItem.test_id == LabTest.id)
                       .where(LabOrderItem.order_id == order.id).order_by(LabOrderItem.position)).all()
+    approver = db.get(User, order.approved_by) if order.approved_by else None
+    approver_staff = db.get(Staff, approver.staff_id) if approver else None
+    corrections = db.execute(select(LabCorrection, LabOrderItem.test_name).join(LabOrderItem, LabCorrection.item_id == LabOrderItem.id)
+                             .where(LabCorrection.order_id == order.id).order_by(LabCorrection.created_at)).all()
     return {
+        "approved_by": approver_staff.full_name if approver_staff else None,
+        "corrections": [{"id": str(c.id), "item_id": str(c.item_id), "test_name": name, "old_value": _f(c.old_value),
+                         "new_value": _f(c.new_value), "old_flag": c.old_flag, "new_flag": c.new_flag, "reason": c.reason,
+                         "corrected_by": c.corrected_by_name, "corrected_at": _ts(c.created_at)} for c, name in corrections],
         "id": str(order.id), "patient_id": str(order.patient_id), "patient_name": patient.full_name,
         "doctor_id": str(order.doctor_id), "doctor": doctor.full_name,
         "encounter_id": str(order.encounter_id) if order.encounter_id else None, "status": order.status, "notes": order.notes,
@@ -266,12 +287,15 @@ def get_order(order_id: uuid.UUID, request: Request, db: Session = Depends(get_d
 
 @router.put("/lab/orders/{order_id}/results", tags=[TAG], response_model=LabOrderOut, summary="Natijalarni kiritish",
             description="Har natija bemorning jinsi va yoshiga mos me'yor bilan solishtiriladi (`Low`/`Normal`/`High`); mos me'yor "
-                        "bo'lmasa `flag` null. Hamma tahlil natijali bo'lsa buyurtma `Completed`. Tuzatish mumkin (audit).")
+                        "bo'lmasa `flag` null. Hamma tahlil natijali bo'lsa buyurtma `Completed`. "
+                        "Tasdiqlangandan keyin tahrirlanmaydi (409).")
 def put_results(order_id: uuid.UUID, data: ResultsIn, request: Request, db: Session = Depends(get_db),
                 user: CurrentUser = Depends(require("lab:write"))):
     order = _get_order(db, order_id)
     if order.status == LabOrderStatus.cancelled:
         raise HTTPException(409, "Bekor qilingan buyurtmaga natija kiritib bo'lmadi")
+    if order.approved_at is not None:
+        raise HTTPException(409, "Tasdiqlangan natija tahrirlanmaydi: tuzatish yozuvi (/lab/orders/{id}/corrections) orqali o'zgartiring")
     patient = db.get(Patient, order.patient_id)
     items = {i.id: i for i in db.scalars(select(LabOrderItem).where(LabOrderItem.order_id == order.id))}
     now = datetime.now(UTC)
@@ -283,7 +307,6 @@ def put_results(order_id: uuid.UUID, data: ResultsIn, request: Request, db: Sess
         item.value = r.value
         item.flag, item.ref_low, item.ref_high, item.ref_verified = lab.evaluate(db, item.test_id, patient, r.value, on)
         item.resulted_at = now
-    order.approved_at = order.approved_by = None   # natija o'zgardi: shifokor qayta tasdiqlaydi
     if all(i.value is not None for i in items.values()):
         order.status, order.completed_at = LabOrderStatus.completed, order.completed_at or now
     audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "results": len(data.results)})
@@ -325,13 +348,49 @@ def order_pdf(order_id: uuid.UUID, request: Request, db: Session = Depends(get_d
 
 @router.post("/lab/orders/{order_id}/approve", tags=[TAG], response_model=LabOrderOut, summary="Natijani tasdiqlash (bemorga ko'rinadi)",
              description="`lab:approve` (shifokor). Faqat yakunlangan buyurtma. Tasdiqlangan natijalar bemor portali va Telegram botida "
-                         "ko'rinadi; natija o'zgartirilsa tasdiq bekor bo'ladi. `approved=false`: tasdiqni olib tashlash.")
-def approve_order(order_id: uuid.UUID, request: Request, approved: bool = True, db: Session = Depends(get_db),
+                         "ko'rinadi va tahrirlanmaydi; o'zgartirish faqat tuzatish yozuvi orqali.")
+def approve_order(order_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
                   user: CurrentUser = Depends(require("lab:approve"))):
     order = _get_order(db, order_id)
-    if approved and order.status != LabOrderStatus.completed:
+    if order.status != LabOrderStatus.completed:
         raise HTTPException(409, "Faqat yakunlangan buyurtma natijasini tasdiqlash mumkin")
-    order.approved_at, order.approved_by = (datetime.now(UTC), user.id) if approved else (None, None)
-    audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "approved": approved})
+    if order.approved_at is not None:
+        raise HTTPException(409, "Natija allaqachon tasdiqlangan")
+    order.approved_at, order.approved_by = datetime.now(UTC), user.id
+    audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "approved": True})
+    db.commit()
+    return order_out(db, order)
+
+
+@router.post("/lab/orders/{order_id}/corrections", tags=[TAG], response_model=LabOrderOut, summary="Tasdiqlangan natijaga tuzatish",
+             description="`lab:approve`. Faqat tasdiqlangan buyurtma; sabab majburiy. "
+                         "Har o'zgargan tahlil uchun eski/yangi qiymat, kim va qachon "
+                         "alohida yozuvga saqlanadi (tahrirlanmaydi, o'chirilmaydi), me'yor belgisi qayta hisoblanadi. "
+                         "Tasdiq saqlanadi. Auditga yoziladi.")
+def correct_order(order_id: uuid.UUID, data: CorrectionIn, request: Request, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(require("lab:approve"))):
+    order = _get_order(db, order_id)
+    if order.approved_at is None:
+        raise HTTPException(409, "Tuzatish faqat tasdiqlangan natijaga; tasdiqlanmaganini to'g'ridan-to'g'ri o'zgartiring")
+    patient = db.get(Patient, order.patient_id)
+    items = {i.id: i for i in db.scalars(select(LabOrderItem).where(LabOrderItem.order_id == order.id))}
+    on = clinic_today()
+    changed = []
+    for r in data.results:
+        item = items.get(r.item_id)
+        if not item:
+            raise HTTPException(422, f"Tahlil bu buyurtmada yo'q: {r.item_id}")
+        if item.value == r.value:
+            continue
+        old_value, old_flag = item.value, item.flag
+        item.value = r.value
+        item.flag, item.ref_low, item.ref_high, item.ref_verified = lab.evaluate(db, item.test_id, patient, r.value, on)
+        db.add(LabCorrection(order_id=order.id, item_id=item.id, reason=data.reason.strip(), old_value=old_value, new_value=r.value,
+                             old_flag=old_flag, new_flag=item.flag, corrected_by_name=user.name, created_by=user.id))
+        changed.append({"test": item.test_name, "from": str(old_value), "to": str(r.value)})
+    if not changed:
+        raise HTTPException(422, "Hech qaysi qiymat o'zgarmadi")
+    audit.record(db, user, request, "update", "lab_order", order.id,
+                 {"patient_id": str(order.patient_id), "correction": changed, "reason": data.reason.strip()})
     db.commit()
     return order_out(db, order)

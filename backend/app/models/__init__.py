@@ -7,7 +7,7 @@ from app.models.commission import CommissionEntry, CommissionPayout, CommissionR
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.icd10 import Icd10Code
 from app.models.invoice import Invoice, InvoiceLine
-from app.models.lab import LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
+from app.models.lab import LabCorrection, LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
 from app.models.messaging import Message, MessageTemplate, OtpCode, PatientConsent, RateEvent, TelegramLink
 from app.models.patient import Patient
 from app.models.payment import Payment, PaymentRefund
@@ -27,6 +27,7 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
+    "LabCorrection",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

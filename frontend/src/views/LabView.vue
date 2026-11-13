@@ -33,7 +33,7 @@
                 {{ o.items.length }} ta
                 <span v-if="abnormal(o)" class="badge-red ml-1">{{ abnormal(o) }} ta me'yordan tashqari</span>
               </td>
-              <td><span :class="statusClass[o.status]">{{ statusLabel[o.status] }}</span></td>
+              <td><span :class="statusClass[o.status]">{{ statusLabel[o.status] }}</span><span v-if="o.approved" class="badge-blue ml-1" title="Shifokor tasdiqlagan: bemorga ko'rinadi">Tasdiqlangan</span></td>
               <td class="whitespace-nowrap">
                 <button class="text-xs text-cyan-600 hover:underline mr-3" @click="openResults(o)">{{ o.status === 'Ordered' && auth.can('lab:write') ? 'Natija kiritish' : "Ko'rish" }}</button>
                 <button class="text-xs text-slate-500 hover:underline" @click="openPdf(o)"><FileDown class="w-3.5 h-3.5 inline" /> PDF</button>
@@ -82,7 +82,8 @@
         <div class="flex items-start justify-between">
           <div>
             <h3 :class="['font-heading font-semibold', dark ? 'text-white' : 'text-slate-900']">{{ current.patient_name }}</h3>
-            <p class="text-xs text-slate-400">{{ current.created_at.slice(0, 10) }} · {{ current.doctor }} · <span :class="statusClass[current.status]">{{ statusLabel[current.status] }}</span></p>
+            <p class="text-xs text-slate-400">{{ current.created_at.slice(0, 10) }} · {{ current.doctor }} · <span :class="statusClass[current.status]">{{ statusLabel[current.status] }}</span>
+              <span v-if="current.approved" class="badge-blue ml-1">Tasdiqlangan: {{ current.approved_by }}, {{ current.approved_at?.slice(0, 16).replace('T', ' ') }}</span></p>
           </div>
           <button class="text-slate-400" @click="current = null"><X class="w-5 h-5" /></button>
         </div>
@@ -92,7 +93,7 @@
             <tr v-for="i in current.items" :key="i.id" class="border-t" :class="dark ? 'border-slate-800' : 'border-slate-100'">
               <td class="py-1.5">{{ i.name }}</td>
               <td>
-                <input v-if="canEnter" v-model="entered[i.id]" type="number" step="any" class="input w-28 py-1" />
+                <input v-if="canEnter || correcting" v-model="entered[i.id]" type="number" step="any" class="input w-28 py-1" />
                 <span v-else :class="flagText(i.flag)">{{ i.value ?? '—' }}</span>
               </td>
               <td class="text-slate-500">{{ i.unit }}</td>
@@ -102,11 +103,25 @@
           </tbody>
         </table>
         <p v-if="canEnter" class="text-xs text-slate-400">Saqlangach natijalar jins va yoshga mos me'yor bilan solishtiriladi.</p>
+        <p v-if="current.approved && !correcting" class="text-xs text-slate-400">Tasdiqlangan natija tahrirlanmaydi. O'zgartirish faqat sabab ko'rsatilgan tuzatish yozuvi orqali.</p>
+        <div v-if="correcting" class="space-y-2">
+          <textarea v-model="reason" rows="2" class="input" placeholder="Tuzatish sababi (kamida 5 belgi, majburiy)"></textarea>
+        </div>
+        <div v-if="current.corrections?.length" class="space-y-1">
+          <p class="text-xs font-semibold text-slate-500">Tuzatishlar tarixi</p>
+          <div v-for="c in current.corrections" :key="c.id" class="text-xs text-slate-500 border-l-2 border-amber-400 pl-2">
+            <b>{{ c.test_name }}</b>: {{ c.old_value ?? '—' }} → {{ c.new_value }} · {{ c.corrected_by }}, {{ c.corrected_at.slice(0, 16).replace('T', ' ') }} · {{ c.reason }}
+          </div>
+        </div>
         <div class="flex justify-between gap-2 flex-wrap">
           <button v-if="canCancel" class="text-sm text-red-500 hover:underline" @click="cancelOrder">Buyurtmani bekor qilish</button>
           <span class="flex-1"></span>
           <button class="btn-secondary" @click="openPdf(current)"><FileDown class="w-4 h-4" /> PDF</button>
           <button v-if="canEnter" class="btn-primary" :disabled="saving" @click="saveResults">Natijalarni saqlash</button>
+          <button v-if="canApprove" class="btn-primary" :disabled="saving" @click="approveOrder">Tasdiqlash</button>
+          <button v-if="canCorrect && !correcting" class="btn-secondary" @click="correcting = true">Tuzatish kiritish</button>
+          <button v-if="correcting" class="btn-secondary" @click="correcting = false">Bekor qilish</button>
+          <button v-if="correcting" class="btn-primary" :disabled="saving" @click="saveCorrection">Tuzatishni saqlash</button>
         </div>
       </div>
     </div>
@@ -170,10 +185,15 @@ async function createOrder() {
 
 // Natijalar
 const current = ref(null), entered = reactive({})
-const canEnter = computed(() => current.value && current.value.status !== 'Cancelled' && auth.can('lab:write'))
+const canEnter = computed(() => current.value && current.value.status !== 'Cancelled' && !current.value.approved && auth.can('lab:write'))
+const canApprove = computed(() => current.value?.status === 'Completed' && !current.value.approved && auth.can('lab:approve'))
+const canCorrect = computed(() => current.value?.approved && auth.can('lab:approve'))
+const correcting = ref(false), reason = ref('')
 const canCancel = computed(() => current.value?.status === 'Ordered' && auth.can('lab:write') && current.value.items.every(i => i.value == null))
 function openResults(o) {
   current.value = o
+  correcting.value = false
+  reason.value = ''
   Object.keys(entered).forEach(k => delete entered[k])
   o.items.forEach(i => { entered[i.id] = i.value ?? '' })
 }
@@ -189,6 +209,29 @@ async function saveResults() {
     if (idx >= 0) orders.value[idx] = data
     openResults(data)
   } catch (e) { toast.error(e, "Natijalarni saqlab bo'lmadi") } finally { saving.value = false }
+}
+function replaceOrder(data) {
+  const idx = orders.value.findIndex(o => o.id === data.id)
+  if (idx >= 0) orders.value[idx] = data
+  openResults(data)
+}
+async function approveOrder() {
+  saving.value = true
+  try {
+    replaceOrder((await api.post(`/lab/orders/${current.value.id}/approve`)).data)
+    toast.success('Natija tasdiqlandi: bemorga ko\'rinadi')
+  } catch (e) { toast.error(e, "Tasdiqlab bo'lmadi") } finally { saving.value = false }
+}
+async function saveCorrection() {
+  const results = current.value.items.filter(i => entered[i.id] !== '' && entered[i.id] !== null && Number(entered[i.id]) !== i.value)
+    .map(i => ({ item_id: i.id, value: Number(entered[i.id]) }))
+  if (!results.length) { toast.success("O'zgarish yo'q"); return }
+  if (reason.value.trim().length < 5) { toast.error('Tuzatish sababini yozing (kamida 5 belgi)'); return }
+  saving.value = true
+  try {
+    replaceOrder((await api.post(`/lab/orders/${current.value.id}/corrections`, { reason: reason.value.trim(), results })).data)
+    toast.success('Tuzatish yozuvi saqlandi')
+  } catch (e) { toast.error(e, "Tuzatishni saqlab bo'lmadi") } finally { saving.value = false }
 }
 async function cancelOrder() {
   try {
