@@ -194,6 +194,7 @@ def order_out(db: Session, order: LabOrder) -> dict:
         "id": str(order.id), "patient_id": str(order.patient_id), "patient_name": patient.full_name,
         "doctor_id": str(order.doctor_id), "doctor": doctor.full_name,
         "encounter_id": str(order.encounter_id) if order.encounter_id else None, "status": order.status, "notes": order.notes,
+        "approved": order.approved_at is not None, "approved_at": _ts(order.approved_at),
         "created_at": _ts(order.created_at), "completed_at": _ts(order.completed_at),
         "items": [{"id": str(i.id), "test_id": str(i.test_id), "code": code, "name": i.test_name, "unit": i.unit,
                    "value": _f(i.value), "flag": i.flag, "ref_low": _f(i.ref_low), "ref_high": _f(i.ref_high),
@@ -282,6 +283,7 @@ def put_results(order_id: uuid.UUID, data: ResultsIn, request: Request, db: Sess
         item.value = r.value
         item.flag, item.ref_low, item.ref_high, item.ref_verified = lab.evaluate(db, item.test_id, patient, r.value, on)
         item.resulted_at = now
+    order.approved_at = order.approved_by = None   # natija o'zgardi: shifokor qayta tasdiqlaydi
     if all(i.value is not None for i in items.values()):
         order.status, order.completed_at = LabOrderStatus.completed, order.completed_at or now
     audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "results": len(data.results)})
@@ -319,3 +321,17 @@ def order_pdf(order_id: uuid.UUID, request: Request, db: Session = Depends(get_d
     audit.record_read(db, user, request, "lab_order", order.id, {"patient_id": str(order.patient_id), "pdf": True})
     return Response(content, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="lab-{str(order.id)[:8]}.pdf"'})
+
+
+@router.post("/lab/orders/{order_id}/approve", tags=[TAG], response_model=LabOrderOut, summary="Natijani tasdiqlash (bemorga ko'rinadi)",
+             description="`lab:approve` (shifokor). Faqat yakunlangan buyurtma. Tasdiqlangan natijalar bemor portali va Telegram botida "
+                         "ko'rinadi; natija o'zgartirilsa tasdiq bekor bo'ladi. `approved=false`: tasdiqni olib tashlash.")
+def approve_order(order_id: uuid.UUID, request: Request, approved: bool = True, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(require("lab:approve"))):
+    order = _get_order(db, order_id)
+    if approved and order.status != LabOrderStatus.completed:
+        raise HTTPException(409, "Faqat yakunlangan buyurtma natijasini tasdiqlash mumkin")
+    order.approved_at, order.approved_by = (datetime.now(UTC), user.id) if approved else (None, None)
+    audit.record(db, user, request, "update", "lab_order", order.id, {"patient_id": str(order.patient_id), "approved": approved})
+    db.commit()
+    return order_out(db, order)

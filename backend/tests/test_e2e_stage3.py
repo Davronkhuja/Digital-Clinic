@@ -60,7 +60,7 @@ def test_every_payment_is_closed_with_a_fiscal_receipt_end_to_end(client, auth, 
     pid = client.post("/patients", json={**NEW, "name": "E2E Bemor"}, headers=admin).json()["id"]
     assert client.post("/invoices", headers=cashier, json={"patient_id": pid, "lines": [{"service_id": bare["id"]}]}).status_code == 422
     assert client.post("/commission-rules", headers=admin, json={"kind": "Percent", "percent": 10, "doctor_id": doctor_id,
-                                                                 "valid_from": "2026-01-01"}).status_code == 201
+                                                                 "base": "WithVat", "valid_from": "2026-01-01"}).status_code == 201
 
     # 2. Smena ochiladi (kassir va admin)
     shift = client.post("/cash-shifts/open", json={"opening_cash": 100000}, headers=cashier).json()

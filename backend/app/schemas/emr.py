@@ -20,6 +20,7 @@ class EMRCreate(BaseModel):
     examination: Optional[str] = None
     recommendations: Optional[str] = None
     appointment_id: Optional[uuid.UUID] = Field(None, description="Berilsa, qabul `Completed` bo'ladi")
+    recall_days: Optional[int] = Field(None, ge=1, le=730, description="Necha kundan keyin qayta ko'rik (bemorga eslatma ketadi)")
     visit_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", examples=["2026-02-23"])
 
     @model_validator(mode="after")
@@ -66,6 +67,7 @@ class EMRRecord(BaseModel):
     examination: Optional[str] = None
     recommendations: Optional[str] = None
     appointment_id: Optional[str] = None
+    recall_date: Optional[str] = None
     prescriptions: List[PrescriptionOut] = Field(default_factory=list)
     dmed_copied_at: Optional[str] = None
     visit_date: str
@@ -90,6 +92,7 @@ class EMRUpdate(BaseModel):
     examination: Optional[str] = None
     recommendations: Optional[str] = None
     notes: Optional[str] = None
+    recall_days: Optional[int] = Field(None, ge=1, le=730, description="Qayta ko'rik muddati (kunlar); null: bekor qilish")
 
 
 class ExamTemplateIn(BaseModel):

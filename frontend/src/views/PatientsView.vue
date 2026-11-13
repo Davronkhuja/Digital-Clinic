@@ -176,6 +176,13 @@
                 <label :class="lbl">Allergiyalar</label>
                 <input v-model="form.allergies" class="input" placeholder="Penitsillin, Aspirin..." />
               </div>
+              <div class="col-span-2">
+                <label :class="lbl">Bemor manbasi</label>
+                <select v-model="form.source" class="input">
+                  <option value="">Ko'rsatilmagan</option><option value="reklama">Reklama</option><option value="tavsiya">Tavsiya</option>
+                  <option value="instagram">Instagram</option><option value="onlayn">Onlayn</option><option value="boshqa">Boshqa</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -233,7 +240,7 @@ const toast = useToast()
 
 const defaultForm = () => ({
   name: '', phone: '', age: '', birth_date: '', gender: 'female',
-  blood_type: null, doctor: '', address: '', allergies: '', pinfl: ''
+  blood_type: null, doctor: '', address: '', allergies: '', pinfl: '', source: ''
 })
 const form = reactive(defaultForm())
 
@@ -303,7 +310,7 @@ function openEdit(p) {
   editingId.value = p.id
   Object.assign(form, {
     name: p.name, phone: p.phone, age: p.age, birth_date: p.birth_date || '',
-    gender: p.gender, blood_type: p.blood_type, doctor: p.doctor || '', address: p.address || '', allergies: p.allergies || '', pinfl: p.pinfl || ''
+    gender: p.gender, blood_type: p.blood_type, doctor: p.doctor || '', address: p.address || '', allergies: p.allergies || '', pinfl: p.pinfl || '', source: p.source || ''
   })
   showModal.value = true
 }
@@ -314,7 +321,7 @@ async function savePatient() {
   saving.value = true
   // Backend age: int, bo'sh satrlar -> null
   const payload = { ...form, age: Number(form.age), blood_type: form.blood_type || null,
-                    doctor: form.doctor || null, address: form.address || null, allergies: form.allergies || null, pinfl: form.pinfl || null }
+                    doctor: form.doctor || null, address: form.address || null, allergies: form.allergies || null, pinfl: form.pinfl || null, source: form.source || null }
   try {
     if (editingId.value) {
       const { data } = await api.put(`/patients/${editingId.value}`, payload)

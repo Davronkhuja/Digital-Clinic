@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -18,7 +19,7 @@ from app.schemas import (
     AppointmentTypeUpdate,
     AppointmentUpdate,
 )
-from app.services import queries
+from app.services import offers, queries
 from app.services.booking import apply_working_rule, build_appointment, commit_booking, resolve_room, save_booking
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ
@@ -62,7 +63,11 @@ def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db:
     appt = db.get(Appointment, appt_id)
     if not appt:
         raise HTTPException(404, "Uchrashuv topilmadi")
+    was_active = appt.status == AppointmentStatus.scheduled
     appt.status = status
+    if status == AppointmentStatus.cancelled and was_active:       # vaqt bo'shadi: kutish ro'yxatidagi bemorga taklif
+        appt.cancelled_at, appt.cancel_source = datetime.now(UTC), "staff"
+        offers.offer_freed_slot(db, appt)
     commit_booking(db)  # bekor qilingan qabulni qayta faollashtirish band vaqtga to'qnashishi mumkin
     return queries.list_appointments(db, appt_id=appt_id)[0]
 

@@ -19,7 +19,7 @@ def patient_out(p: Patient, doctor_name: str | None, last_visit: date | None) ->
     return {
         "id": str(p.id), "name": p.full_name, "phone": p.phone, "age": age_from(p.birth_date),
         "birth_date": p.birth_date, "gender": p.gender, "pinfl": p.pinfl, "doctor": doctor_name,
-        "address": p.address, "blood_type": p.blood_type, "allergies": p.allergies, "status": p.status,
+        "address": p.address, "blood_type": p.blood_type, "allergies": p.allergies, "source": p.source, "status": p.status,
         "last_visit": _d(last_visit),
         "merged_into": str(p.merged_into_id) if p.merged_into_id else None, "created_at": _d(p.created_at),
     }
@@ -32,7 +32,8 @@ def appointment_out(a: Appointment, patient_name: str, doctor_name: str, room_na
         "time": a.time.strftime("%H:%M"), "end_time": a.ends_at.astimezone(CLINIC_TZ).strftime("%H:%M"),
         "duration_min": a.duration_min, "starts_at": a.starts_at.isoformat(),
         "room_id": str(a.room_id) if a.room_id else None, "room": room_name,
-        "override_reason": a.override_reason, "type": a.type, "notes": a.notes, "status": a.status,
+        "override_reason": a.override_reason, "confirmed": a.confirmed_at is not None,
+        "cancel_source": a.cancel_source, "type": a.type, "notes": a.notes, "status": a.status,
         "created_at": _d(a.created_at),
     }
 
@@ -67,6 +68,7 @@ def encounter_out(e: Encounter, patient_name: str, doctor_name: str, prescriptio
         "anamnesis": e.anamnesis, "examination": e.examination, "recommendations": e.recommendations,
         "appointment_id": str(e.appointment_id) if e.appointment_id else None,
         "dmed_copied_at": e.dmed_copied_at.isoformat() if e.dmed_copied_at else None,
+        "recall_date": e.recall_date.isoformat() if e.recall_date else None,
         "visit_date": e.visit_date.isoformat(), "created_at": _d(e.created_at),
     }
 

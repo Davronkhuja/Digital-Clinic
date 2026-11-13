@@ -30,6 +30,7 @@ class Encounter(SoftDeleteMixin, BranchScoped, BaseModel):
     diagnosis: Mapped[str] = mapped_column(Text)
     recommendations: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
+    recall_date: Mapped[date | None] = mapped_column(Date)  # shifokor belgilagan qayta ko'rik sanasi: shu kuni bemorga eslatma
     # DMED API yo'q: ma'lumot qo'lda ko'chiriladi, ko'chirilgani shifokor/qabulxona tomonidan qo'lda belgilanadi
     dmed_copied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dmed_copied_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

@@ -9,6 +9,7 @@ from app.schemas.enums import *  # noqa: F401,F403
 from app.schemas.finance import *  # noqa: F401,F403
 from app.schemas.invoices import *  # noqa: F401,F403
 from app.schemas.lab import *  # noqa: F401,F403
+from app.schemas.messaging import *  # noqa: F401,F403
 from app.schemas.patients import *  # noqa: F401,F403
 from app.schemas.payments import *  # noqa: F401,F403
 from app.schemas.schedule import *  # noqa: F401,F403

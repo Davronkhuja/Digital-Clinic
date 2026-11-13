@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import CashShift, ClinicSettings
+from app.models import CashMovement, CashShift, ClinicSettings
 from app.models.cash_shift import z_number_seq
-from app.schemas.enums import CashShiftStatus
-from app.schemas.shifts import ShiftClose, ShiftOpen, ShiftReport
+from app.schemas.enums import CashMovementKind, CashShiftStatus
+from app.schemas.shifts import MovementOut, ShiftClose, ShiftOpen, ShiftReport, WithdrawalIn
 from app.services import audit, pdf, shifts
 from app.services.money import q2
 
@@ -101,3 +101,38 @@ def z_report_pdf(shift_id: uuid.UUID, request: Request, db: Session = Depends(ge
         "name": clinic.clinic_name if clinic else None, "address": clinic.address if clinic else None, "phone": clinic.phone if clinic else None})
     audit.record_read(db, user, request, "cash_shift", s.id, {"pdf": True})
     return Response(content, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="z-{str(s.id)[:8]}.pdf"'})
+
+
+def _movement_out(db: Session, m: CashMovement) -> dict:
+    return {"id": str(m.id), "shift_id": str(m.shift_id), "kind": m.kind.value, "amount": m.amount, "counterparty": m.counterparty,
+            "note": m.note, "by": shifts.cashier_name(db, m.created_by), "created_at": m.created_at}
+
+
+@router.post("/cash-shifts/{shift_id}/withdrawals", tags=[TAG], response_model=MovementOut, status_code=201,
+             summary="Inkassatsiya (kassadan naqd chiqarish)",
+             description="`finance:cash_withdrawal`; ochiq smenaga chiqim bo'lib tushadi (kutilgan naqd kamayadi) va Z-hisobotda alohida qator. "
+                         "Summa kassadagi kutilgan naqddan oshmasligi kerak. Qabul qiluvchi majburiy. Auditga yoziladi.")
+def withdraw(shift_id: uuid.UUID, data: WithdrawalIn, request: Request, db: Session = Depends(get_db),
+             user: CurrentUser = Depends(require("finance:cash_withdrawal"))):
+    s = _get(db, shift_id, user)
+    if s.status != CashShiftStatus.open:
+        raise HTTPException(409, "Yopilgan smenadan inkassatsiya qilib bo'lmaydi")
+    available = shifts.current_cash(db, s)
+    amount = q2(data.amount)
+    if amount > available:
+        raise HTTPException(422, f"Kassadagi naqd yetarli emas (mavjud: {available})")
+    m = CashMovement(shift_id=s.id, kind=CashMovementKind.withdrawal, amount=amount, counterparty=data.recipient.strip(), note=data.note,
+                     branch_id=s.branch_id, created_by=user.id)
+    db.add(m)
+    db.flush()
+    audit.record(db, user, request, "create", "cash_movement", m.id, {"kind": "Withdrawal", "amount": str(amount), "recipient": m.counterparty,
+                                                                       "shift_id": str(s.id)})
+    db.commit()
+    return _movement_out(db, m)
+
+
+@router.get("/cash-shifts/{shift_id}/movements", tags=[TAG], response_model=List[MovementOut], summary="Smenadagi naqd chiqimlar")
+def list_movements(shift_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:read"))):
+    s = _get(db, shift_id, user)
+    rows = db.scalars(select(CashMovement).where(CashMovement.shift_id == s.id).order_by(CashMovement.created_at))
+    return [_movement_out(db, m) for m in rows]

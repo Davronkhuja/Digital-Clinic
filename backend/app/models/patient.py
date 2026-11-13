@@ -12,7 +12,10 @@ from app.schemas.enums import GenderEnum, StatusEnum
 
 class Patient(BranchScoped, BaseModel):
     __tablename__ = "patients"
-    __table_args__ = (CheckConstraint("pinfl ~ '^[0-9]{14}$'", name="pinfl_format"),)
+    __table_args__ = (
+        CheckConstraint("pinfl ~ '^[0-9]{14}$'", name="pinfl_format"),
+        CheckConstraint("source IS NULL OR source IN ('reklama', 'tavsiya', 'instagram', 'onlayn', 'boshqa')", name="source_values"),
+    )
 
     pinfl: Mapped[str | None] = mapped_column(String(14), unique=True)
     full_name: Mapped[str] = mapped_column(String(200), index=True)
@@ -23,6 +26,8 @@ class Patient(BranchScoped, BaseModel):
     address: Mapped[str | None] = mapped_column(String(300))
     blood_type: Mapped[str | None] = mapped_column(String(5))
     allergies: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(20))  # bemor manbasi: reklama, tavsiya, instagram, onlayn, boshqa
+    language: Mapped[str] = mapped_column(String(2), default="uz", server_default="uz")  # xabarlar tili: uz (lotin), ru
     status: Mapped[StatusEnum] = mapped_column(enum_col(StatusEnum, "status", 10), default=StatusEnum.active)
     primary_doctor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("staff.id", ondelete="SET NULL")

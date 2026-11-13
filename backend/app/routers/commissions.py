@@ -9,10 +9,21 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import CommissionEntry, CommissionRule, CommissionSettlement, Invoice, Payment, Service, Staff
-from app.schemas.commissions import DoctorTotals, EntryOut, MonthReport, RuleIn, RuleOut, SettleIn, SettlementOut
-from app.schemas.enums import CommissionEntryKind, StaffRole
-from app.services import audit, commissions
+from app.models import (
+    CashMovement,
+    CommissionEntry,
+    CommissionPayout,
+    CommissionRule,
+    CommissionSettlement,
+    Invoice,
+    Payment,
+    Service,
+    Staff,
+    Transaction,
+)
+from app.schemas.commissions import DoctorTotals, EntryOut, MonthReport, PayIn, PayoutOut, RuleIn, RuleOut, SettleIn, SettlementOut
+from app.schemas.enums import CashMovementKind, CommissionEntryKind, PayoutMethod, PayoutStatus, StaffRole, TransactionType
+from app.services import audit, commissions, shifts
 from app.services.money import q2
 from app.services.periods import clinic_today
 
@@ -106,7 +117,7 @@ def list_entries(request: Request, month: str = Query(..., examples=["2026-11"])
     audit.record_read(db, user, request, "commission", details={"month": month, "count": len(rows)})
     return [{"id": str(e.id), "kind": e.kind, "doctor_id": str(e.doctor_id), "doctor": doc, "service": svc, "invoice_number": num,
              "payment_id": str(e.payment_id), "refund_id": str(e.refund_id) if e.refund_id else None, "rule_kind": e.rule_kind,
-             "rule_percent": e.rule_percent, "rule_fixed": e.rule_fixed, "base_amount": e.base_amount, "amount": e.amount,
+             "rule_percent": e.rule_percent, "rule_fixed": e.rule_fixed, "base_kind": e.base_kind, "base_amount": e.base_amount, "amount": e.amount,
              "entry_date": e.entry_date, "settled": e.settlement_id is not None} for e, doc, svc, num in rows]
 
 
@@ -167,12 +178,18 @@ def settle(data: SettleIn, request: Request, db: Session = Depends(get_db), user
     db.flush()
     for e in entries:
         e.settlement_id = s.id
+    payout = None
+    if total > 0:  # to'lanadigan summa bor: chiqim hujjati (Draft); manfiy/nol oyda hujjat yo'q
+        payout = CommissionPayout(settlement_id=s.id, doctor_id=doctor.id, amount=total, branch_id=user.branch_id, created_by=user.id)
+        db.add(payout)
+        db.flush()
     audit.record(db, user, request, "create", "commission_settlement", s.id, {"doctor": doctor.full_name, "month": data.month,
                                                                                 "amount": str(total), "entries": len(entries),
                                                                                 "at": datetime.now(UTC).isoformat()})
     db.commit()
     return {"id": str(s.id), "doctor_id": str(doctor.id), "doctor": doctor.full_name, "month": data.month, "amount": total,
-            "entries_count": len(entries)}
+            "entries_count": len(entries), "payout_id": str(payout.id) if payout else None,
+            "payout_status": payout.status if payout else None}
 
 
 @router.get("/commissions/settlements", tags=[TAG], response_model=List[SettlementOut], summary="Yopilgan oylar")
@@ -183,7 +200,78 @@ def list_settlements(doctor_id: Optional[uuid.UUID] = None, db: Session = Depend
         CommissionSettlement.month.desc())
     if doctor_id:
         stmt = stmt.where(CommissionSettlement.doctor_id == doctor_id)
-    return [{"id": str(s.id), "doctor_id": str(s.doctor_id), "doctor": n, "month": s.month.strftime("%Y-%m"), "amount": s.amount,
-             "entries_count": s.entries_count} for s, n in db.execute(stmt).all()]
+    out = []
+    for s, n in db.execute(stmt).all():
+        payout = db.scalar(select(CommissionPayout).where(CommissionPayout.settlement_id == s.id))
+        out.append({"id": str(s.id), "doctor_id": str(s.doctor_id), "doctor": n, "month": s.month.strftime("%Y-%m"), "amount": s.amount,
+                    "entries_count": s.entries_count, "payout_id": str(payout.id) if payout else None,
+                    "payout_status": payout.status if payout else None})
+    return out
 
 
+
+
+def _payout_out(db: Session, p: CommissionPayout) -> dict:
+    s = db.get(CommissionSettlement, p.settlement_id)
+    return {"id": str(p.id), "settlement_id": str(p.settlement_id), "doctor_id": str(p.doctor_id), "doctor": db.get(Staff, p.doctor_id).full_name,
+            "month": s.month.strftime("%Y-%m"), "amount": p.amount, "status": p.status, "pay_method": p.pay_method, "reference": p.reference,
+            "approved_by": shifts.cashier_name(db, p.approved_by), "approved_at": p.approved_at, "paid_by": shifts.cashier_name(db, p.paid_by),
+            "paid_at": p.paid_at}
+
+
+def _get_payout(db: Session, payout_id: uuid.UUID) -> CommissionPayout:
+    p = db.scalar(select(CommissionPayout).where(CommissionPayout.id == payout_id).with_for_update())
+    if not p:
+        raise HTTPException(404, "To'lov hujjati topilmadi")
+    return p
+
+
+@router.get("/commission-payouts", tags=[TAG], response_model=List[PayoutOut], summary="Foiz to'lov hujjatlari (chiqim)",
+            description="Oy yopilganda avtomatik yaratiladi (Draft) -> tasdiqlanadi (Approved) -> to'lanadi (Paid).")
+def list_payouts(status: Optional[PayoutStatus] = None, doctor_id: Optional[uuid.UUID] = None, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(require("commissions:read"))):
+    doctor_id = _scope_doctor(user, doctor_id)
+    stmt = select(CommissionPayout).order_by(CommissionPayout.created_at.desc())
+    if status:
+        stmt = stmt.where(CommissionPayout.status == status)
+    if doctor_id:
+        stmt = stmt.where(CommissionPayout.doctor_id == doctor_id)
+    return [_payout_out(db, p) for p in db.scalars(stmt)]
+
+
+@router.post("/commission-payouts/{payout_id}/approve", tags=[TAG], response_model=PayoutOut, summary="To'lov hujjatini tasdiqlash")
+def approve_payout(payout_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require(MANAGE))):
+    p = _get_payout(db, payout_id)
+    if p.status != PayoutStatus.draft:
+        raise HTTPException(409, "Faqat qoralama (Draft) hujjatni tasdiqlash mumkin")
+    p.status, p.approved_by, p.approved_at = PayoutStatus.approved, user.id, datetime.now(UTC)
+    audit.record(db, user, request, "update", "commission_payout", p.id, {"status": "Approved", "amount": str(p.amount)})
+    db.commit()
+    return _payout_out(db, p)
+
+
+@router.post("/commission-payouts/{payout_id}/pay", tags=[TAG], response_model=PayoutOut, summary="To'lovni bajarish (naqd yoki o'tkazma)",
+             description="`commissions:pay`; faqat tasdiqlangan hujjat. Naqd: to'lovchining ochiq kassa smenasiga chiqim bo'lib tushadi (kassadagi naqddan "
+                         "oshmasligi kerak, Z-hisobotda alohida qator); ikkala usulda ham xarajat (`Shifokor foizi`) yoziladi.")
+def pay_payout(payout_id: uuid.UUID, data: PayIn, request: Request, db: Session = Depends(get_db),
+               user: CurrentUser = Depends(require("commissions:pay"))):
+    p = _get_payout(db, payout_id)
+    if p.status != PayoutStatus.approved:
+        raise HTTPException(409, "Faqat tasdiqlangan (Approved) hujjatni to'lash mumkin")
+    doctor = db.get(Staff, p.doctor_id)
+    month = db.get(CommissionSettlement, p.settlement_id).month.strftime("%Y-%m")
+    if data.method == PayoutMethod.cash:
+        shift = shifts.require_open_shift(db, user.id)
+        available = shifts.current_cash(db, shift)
+        if p.amount > available:
+            raise HTTPException(422, f"Kassadagi naqd yetarli emas (mavjud: {available})")
+        db.add(CashMovement(shift_id=shift.id, kind=CashMovementKind.payout, amount=p.amount, counterparty=doctor.full_name,
+                            note=f"Shifokor foizi {month}", payout_id=p.id, branch_id=shift.branch_id, created_by=user.id))
+    p.status, p.paid_by, p.paid_at, p.pay_method, p.reference = PayoutStatus.paid, user.id, datetime.now(UTC), data.method, data.reference
+    db.add(Transaction(type=TransactionType.expense, amount=p.amount, category="Shifokor foizi", date=clinic_today(),
+                       description=f"Shifokor foizi {month}: {doctor.full_name} ({data.method.value})", payout_id=p.id,
+                       branch_id=p.branch_id, created_by=user.id))
+    audit.record(db, user, request, "pay", "commission_payout", p.id, {"amount": str(p.amount), "method": data.method.value, "doctor": doctor.full_name,
+                                                                         "month": month})
+    db.commit()
+    return _payout_out(db, p)

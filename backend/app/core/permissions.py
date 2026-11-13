@@ -15,6 +15,7 @@ PERMISSIONS: dict[str, str] = {
     "emr:read": "Tibbiy yozuvlarni (EMR) ko'rish",
     "emr:write": "Tibbiy yozuv va retsept yozish",
     "lab:read": "Laboratoriya buyurtma va natijalarini ko'rish",
+    "lab:approve": "Laboratoriya natijalarini bemorga ko'rinadigan qilib tasdiqlash (shifokor)",
     "lab:write": "Laboratoriya buyurtma berish va natija kiritish",
     "services:read": "Narxnomani (xizmatlar) ko'rish",
     "services:write": "Narxnomani o'zgartirish (narx, MXIK, QQS)",
@@ -23,8 +24,10 @@ PERMISSIONS: dict[str, str] = {
     "finance:discount": "Hisob-fakturaga chegirma berish (sozlamadagi limitgacha)",
     "finance:discount_override": "Limitdan ortiq chegirma berish",
     "finance:refund": "To'lovni qaytarish",
+    "finance:cash_withdrawal": "Kassadan inkassatsiya (naqd chiqarish)",
     "finance:shifts": "Hamma kassa smenalarini ko'rish va boshqa kassir smenasini yopish",
     "commissions:read": "Shifokor foizi hisobotini ko'rish (o'zingiznikini; boshqarish ruxsati bilan hammasini)",
+    "commissions:pay": "Shifokor foizi to'lovini bajarish (naqd/o'tkazma)",
     "commissions:manage": "Shifokor foizi qoidalari va oylik hisob-kitob",
     "staff:read": "Xodimlarni ko'rish",
     "staff:write": "Xodimlarni boshqarish",
@@ -33,6 +36,7 @@ PERMISSIONS: dict[str, str] = {
     "analytics:read": "Dashboard va tahlil",
     "reports:read": "Hisobotlarni yuklab olish",
     "ai:use": "AI yordamchidan foydalanish",
+    "messages:read": "Xabarlar logi va SMS hisobini ko'rish",
     "audit:read": "Audit jurnalini ko'rish",
     "roles:manage": "Rollar va ruxsatlarni boshqarish",
 }
@@ -41,7 +45,7 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     "admin": ("Administrator", list(PERMISSIONS)),
     "doctor": ("Shifokor", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
-        "emr:read", "emr:write", "lab:read", "lab:write", "services:read", "commissions:read", "staff:read",
+        "emr:read", "emr:write", "lab:read", "lab:write", "lab:approve", "services:read", "commissions:read", "staff:read",
         "settings:read", "analytics:read", "reports:read", "ai:use",
     ]),
     "nurse": ("Hamshira", [
@@ -50,7 +54,7 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     ]),
     "receptionist": ("Qabulxona", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "services:read", "staff:read", "settings:read",
+        "services:read", "messages:read", "staff:read", "settings:read",
     ]),
     "cashier": ("Kassir", [
         "patients:read", "appointments:read", "finance:read", "finance:write", "finance:discount", "services:read",
@@ -58,6 +62,6 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     ]),
     "senior_receptionist": ("Katta registrator", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "appointments:override", "services:read", "staff:read", "settings:read",
+        "appointments:override", "services:read", "messages:read", "staff:read", "settings:read",
     ]),
 }

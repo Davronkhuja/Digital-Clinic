@@ -41,6 +41,8 @@ class Appointment(BaseModel):
     room_id: Optional[str] = None
     room: Optional[str] = None
     override_reason: Optional[str] = None
+    confirmed: bool = False
+    cancel_source: Optional[str] = None
     notes: Optional[str] = None
     status: AppointmentStatus
     created_at: str

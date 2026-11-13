@@ -107,3 +107,33 @@ class CommissionEntryKind(str, Enum):
 class CashShiftStatus(str, Enum):
     open = "Open"
     closed = "Closed"
+
+class CashMovementKind(str, Enum):
+    withdrawal = "Withdrawal"  # inkassatsiya
+    payout = "Payout"  # shifokor foizi naqd to'lovi
+
+class PayoutStatus(str, Enum):
+    draft = "Draft"
+    approved = "Approved"
+    paid = "Paid"
+
+
+class PayoutMethod(str, Enum):
+    cash = "Cash"
+    transfer = "Transfer"
+
+class Channel(str, Enum):
+    sms = "SMS"
+    telegram = "Telegram"
+
+
+class ConsentStatus(str, Enum):
+    granted = "Granted"
+    revoked = "Revoked"
+
+
+class MessageStatus(str, Enum):
+    queued = "Queued"
+    sent = "Sent"
+    failed = "Failed"
+    skipped = "Skipped"

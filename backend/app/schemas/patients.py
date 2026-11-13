@@ -1,9 +1,11 @@
 from datetime import date
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.enums import GenderEnum, StatusEnum
+
+SOURCES = ("reklama", "tavsiya", "instagram", "onlayn", "boshqa")
 
 
 class PatientCreate(BaseModel):
@@ -17,8 +19,9 @@ class PatientCreate(BaseModel):
     address: Optional[str] = Field(None, examples=["Toshkent, Yunusobod"])
     blood_type: Optional[str] = Field(None, examples=["A+"])
     allergies: Optional[str] = Field(None, examples=["Penisilin"])
+    source: Optional[Literal["reklama", "tavsiya", "instagram", "onlayn", "boshqa"]] = Field(None, description="Bemor manbasi")
 
-    @field_validator("pinfl", "birth_date", "doctor", "address", "blood_type", "allergies", mode="before")
+    @field_validator("pinfl", "birth_date", "doctor", "address", "blood_type", "allergies", "source", mode="before")
     @classmethod
     def _blank_to_none(cls, v):
         return None if isinstance(v, str) and not v.strip() else v
@@ -49,8 +52,9 @@ class PatientUpdate(BaseModel):
     blood_type: Optional[str] = None
     allergies: Optional[str] = None
     status: Optional[StatusEnum] = None
+    source: Optional[Literal["reklama", "tavsiya", "instagram", "onlayn", "boshqa"]] = None
 
-    @field_validator("pinfl", "birth_date", "doctor", "address", "blood_type", "allergies", mode="before")
+    @field_validator("pinfl", "birth_date", "doctor", "address", "blood_type", "allergies", "source", mode="before")
     @classmethod
     def _blank_to_none(cls, v):
         return None if isinstance(v, str) and not v.strip() else v
@@ -75,6 +79,7 @@ class Patient(BaseModel):
     address: Optional[str] = None
     blood_type: Optional[str] = None
     allergies: Optional[str] = None
+    source: Optional[str] = None
     status: StatusEnum
     last_visit: Optional[str] = None
     merged_into: Optional[str] = None

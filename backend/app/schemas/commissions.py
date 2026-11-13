@@ -1,12 +1,12 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import Money
-from app.schemas.enums import CommissionBase, CommissionEntryKind, CommissionKind
+from app.schemas.enums import CommissionBase, CommissionEntryKind, CommissionKind, PayoutMethod, PayoutStatus
 
 Pct = Annotated[Decimal, Field(gt=0, le=100, max_digits=5, decimal_places=2)]
 Fixed = Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]
@@ -18,7 +18,7 @@ class RuleIn(BaseModel):
     kind: CommissionKind
     percent: Optional[Pct] = None
     fixed_amount: Optional[Fixed] = Field(None, description="Har sotilgan birlik uchun qat'iy summa (UZS)")
-    base: CommissionBase = CommissionBase.with_vat
+    base: Optional[CommissionBase] = Field(None, description="Bo'lmasa: Sozlamalar > Moliya dagi standart asos (hisoblash paytida)")
     valid_from: date
     valid_to: Optional[date] = None
     is_active: bool = True
@@ -43,7 +43,7 @@ class RuleOut(BaseModel):
     kind: CommissionKind
     percent: Optional[Money] = None
     fixed_amount: Optional[Money] = None
-    base: CommissionBase
+    base: Optional[CommissionBase] = None
     valid_from: date
     valid_to: Optional[date] = None
     is_active: bool
@@ -61,6 +61,7 @@ class EntryOut(BaseModel):
     rule_kind: CommissionKind
     rule_percent: Optional[Money] = None
     rule_fixed: Optional[Money] = None
+    base_kind: Optional[CommissionBase] = None
     base_amount: Money
     amount: Money
     entry_date: date
@@ -96,3 +97,26 @@ class SettlementOut(BaseModel):
     month: str
     amount: Money
     entries_count: int
+    payout_id: Optional[str] = None
+    payout_status: Optional[PayoutStatus] = None
+
+
+class PayIn(BaseModel):
+    method: PayoutMethod
+    reference: Optional[str] = Field(None, max_length=100, description="O'tkazma raqami / izoh")
+
+
+class PayoutOut(BaseModel):
+    id: str
+    settlement_id: str
+    doctor_id: str
+    doctor: str
+    month: str
+    amount: Money
+    status: PayoutStatus
+    pay_method: Optional[PayoutMethod] = None
+    reference: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    paid_by: Optional[str] = None
+    paid_at: Optional[datetime] = None

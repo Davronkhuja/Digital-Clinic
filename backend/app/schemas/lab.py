@@ -138,6 +138,8 @@ class LabOrderOut(BaseModel):
     encounter_id: Optional[str] = None
     status: LabOrderStatus
     notes: Optional[str] = None
+    approved: bool = False
+    approved_at: Optional[str] = None
     created_at: str
     completed_at: Optional[str] = None
     items: List[LabItemOut]

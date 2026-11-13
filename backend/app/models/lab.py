@@ -86,6 +86,9 @@ class LabOrder(BranchScoped, BaseModel):
     status: Mapped[LabOrderStatus] = mapped_column(enum_col(LabOrderStatus, "status", 10), default=LabOrderStatus.ordered)
     notes: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Shifokor tasdiqlagan natijalar bemorga (portal, Telegram) ko'rinadi; natija o'zgarsa tasdiq bekor bo'ladi
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 class LabOrderItem(BaseModel):

@@ -76,6 +76,10 @@ class Appointment(BranchScoped, BaseModel):
     # Ish vaqtidan tashqari majburan yozilgan (appointments:override): sabab va kim; band vaqtga baribir yozib bo'lmaydi
     override_reason: Mapped[str | None] = mapped_column(Text)
     override_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # Bemor tasdiqlashi / bekor qilishi (havola, portal, bot): kim va qachon
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_source: Mapped[str | None] = mapped_column(String(20))  # staff, link, portal, bot
 
     @hybrid_property
     def date(self) -> date:  # klinika vaqti bo'yicha sana

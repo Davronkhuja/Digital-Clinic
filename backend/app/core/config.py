@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     click_test_secret_key: str = ""
     click_test_mode: bool = True
 
+    # Xabarlar (4-bosqich): Redis + Celery, SMS adapteri (hozircha mock), Telegram bot (token faqat .env da)
+    redis_url: str = "redis://redis:6379/0"
+    public_base_url: str = "http://localhost:5180"  # xabardagi havolalar (tasdiqlash, onlayn yozilish) uchun
+    sms_backend: str = "mock"
+    telegram_bot_token: str = ""
+    link_secret: str = ""  # imzolangan havolalar kaliti; bo'sh bo'lsa jwt_secret dan olinadi
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"

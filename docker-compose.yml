@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       # Demo ma'lumotlar standart o'chiq; lokal ishlash uchun .env da SEED_DEMO=true
       SEED_DEMO: ${SEED_DEMO:-false}
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - uploads:/data/uploads   # EMR fayl ilovalari (keyinchalik S3/MinIO: STORAGE_BACKEND)
     depends_on:
@@ -35,6 +36,74 @@ services:
         condition: service_healthy
     ports:
       - "8010:8000"   # Swagger: http://localhost:8010/docs
+
+  # Xabarlar (4-bosqich): Redis + Celery worker va beat. Yengil: redis alpine (64 MB), worker/beat backend imajidan (qo'shimcha imaj yo'q).
+  redis:
+    image: redis:7-alpine
+    container_name: digital-clinic-redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Host portiga ochilmagan
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    image: digital-clinic-backend
+    container_name: digital-clinic-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./backend
+      target: runtime
+    image: digital-clinic-backend
+    container_name: digital-clinic-beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Telegram bot (lokalda long polling): faqat `docker compose --profile bot up -d bot`; token .env da (TELEGRAM_BOT_TOKEN)
+  bot:
+    profiles: ["bot"]
+    build:
+      context: ./backend
+      target: runtime
+    image: digital-clinic-backend
+    container_name: digital-clinic-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: ["python", "-m", "app.bot"]
+    depends_on:
+      backend:
+        condition: service_healthy
 
   # Testlar: docker compose --profile test run --rm test   (alohida `<POSTGRES_DB>_test` bazasi)
   test:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import CommissionEntry, CommissionRule, Invoice, InvoiceLine, Payment, PaymentRefund
 from app.schemas.enums import CommissionBase, CommissionEntryKind, CommissionKind
+from app.services import app_settings
 from app.services.invoicing import allocate
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ, clinic_today
@@ -29,10 +30,10 @@ def resolve_rule(db: Session, doctor_id: uuid.UUID, service_id: uuid.UUID, on: d
     return max(rules, key=lambda r: ((r.doctor_id is not None) * 2 + (r.service_id is not None), r.valid_from, r.created_at))
 
 
-def _commission(rule: CommissionRule, line: InvoiceLine, share: Decimal) -> tuple[Decimal, Decimal]:
-    """(asos, foiz summasi) to'lov ulushi `share` uchun."""
+def _commission(rule: CommissionRule, line: InvoiceLine, share: Decimal, kind: CommissionBase) -> tuple[Decimal, Decimal]:
+    """(asos, foiz summasi) to'lov ulushi `share` uchun; `kind`: qoida asosi yoki sozlamadagi standart."""
     vat = q2(share * line.vat_percent / (100 + line.vat_percent))
-    base = share - vat if rule.base == CommissionBase.net_of_vat else share
+    base = share - vat if kind == CommissionBase.net_of_vat else share
     if rule.kind == CommissionKind.percent:
         return base, q2(base * rule.percent / 100)
     full = q2(rule.fixed_amount * line.quantity)  # qat'iy summa har sotilgan birlik uchun; qisman to'lovda ulushga proporsional
@@ -42,6 +43,7 @@ def _commission(rule: CommissionRule, line: InvoiceLine, share: Decimal) -> tupl
 def accrue(db: Session, payment: Payment, inv: Invoice) -> list[CommissionEntry]:
     lines = list(db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id).order_by(InvoiceLine.position)))
     today = (payment.paid_at.astimezone(CLINIC_TZ).date() if payment.paid_at else clinic_today())
+    default_kind = CommissionBase(app_settings.commission_base(db, payment.branch_id))  # sozlama hisoblash paytida: keyingilarga ta'sir qiladi
     out = []
     for line, share in allocate(lines, payment.amount):
         if share <= 0 or not line.doctor_id:
@@ -49,10 +51,11 @@ def accrue(db: Session, payment: Payment, inv: Invoice) -> list[CommissionEntry]
         rule = resolve_rule(db, line.doctor_id, line.service_id, today)
         if not rule:
             continue
-        base, amount = _commission(rule, line, share)
+        kind = rule.base or default_kind
+        base, amount = _commission(rule, line, share, kind)
         entry = CommissionEntry(kind=CommissionEntryKind.accrual, doctor_id=line.doctor_id, service_id=line.service_id, payment_id=payment.id,
                                 invoice_line_id=line.id, rule_id=rule.id, rule_kind=rule.kind, rule_percent=rule.percent,
-                                rule_fixed=rule.fixed_amount, base_amount=base, amount=amount, entry_date=today,
+                                rule_fixed=rule.fixed_amount, base_kind=kind, base_amount=base, amount=amount, entry_date=today,
                                 branch_id=payment.branch_id, created_by=payment.created_by)
         db.add(entry)
         out.append(entry)
@@ -76,7 +79,7 @@ def reverse(db: Session, refund: PaymentRefund, payment: Payment) -> list[Commis
             continue
         entry = CommissionEntry(kind=CommissionEntryKind.reversal, doctor_id=e.doctor_id, service_id=e.service_id, payment_id=payment.id,
                                 refund_id=refund.id, invoice_line_id=e.invoice_line_id, accrual_id=e.id, rule_id=e.rule_id,
-                                rule_kind=e.rule_kind, rule_percent=e.rule_percent, rule_fixed=e.rule_fixed,
+                                rule_kind=e.rule_kind, rule_percent=e.rule_percent, rule_fixed=e.rule_fixed, base_kind=e.base_kind,
                                 base_amount=-max(d_base, ZERO), amount=-max(d_amount, ZERO), entry_date=clinic_today(),
                                 branch_id=payment.branch_id, created_by=refund.created_by)
         db.add(entry)

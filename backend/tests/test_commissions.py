@@ -22,7 +22,7 @@ def _service(client, auth, name, price, vat=12):
 
 
 def _rule(client, auth, **kw):
-    body = {"kind": "Percent", "percent": 10, "valid_from": (TODAY - timedelta(days=30)).isoformat(), **kw}
+    body = {"kind": "Percent", "percent": 10, "base": "WithVat", "valid_from": (TODAY - timedelta(days=30)).isoformat(), **kw}
     res = client.post("/commission-rules", headers=auth("admin"), json=body)
     assert res.status_code == 201, res.text
     return res.json()

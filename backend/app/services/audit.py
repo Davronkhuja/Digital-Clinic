@@ -37,7 +37,9 @@ def client_ip(request: Request) -> str | None:
     return peer
 
 
-def client_meta(request: Request) -> tuple[str | None, str | None]:
+def client_meta(request: Request | None) -> tuple[str | None, str | None]:
+    if request is None:  # fon jarayonlari (Telegram bot): so'rov yo'q
+        return None, None
     ua = (request.headers.get("user-agent") or "")[:300] or None
     return client_ip(request), ua
 

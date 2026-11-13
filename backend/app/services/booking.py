@@ -2,6 +2,7 @@
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 from fastapi import HTTPException, Request
 from sqlalchemy.exc import IntegrityError
@@ -49,6 +50,15 @@ def booking_conflicts(db: Session) -> Iterator[None]:
 def commit_booking(db: Session) -> None:
     with booking_conflicts(db):
         db.commit()
+
+
+@dataclass
+class SystemActor:
+    """Login talab qilmaydigan oqimlar (havola, portal, bot) uchun: ruxsatsiz, `created_by` bo'sh."""
+
+    branch_id: uuid.UUID
+    id: uuid.UUID | None = None
+    permissions: frozenset = frozenset()
 
 
 OVERRIDE_PERM = "appointments:override"

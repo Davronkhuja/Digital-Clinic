@@ -156,6 +156,10 @@
                     <option v-for="a in apptOptions" :key="a.id" :value="a.id">{{ a.date }} {{ a.time }} · {{ a.type }} · {{ a.doctor }}</option>
                   </select>
                 </div>
+                <div>
+                  <label :class="lbl">Qayta ko'rik (necha kundan keyin; bemorga eslatma ketadi, rozilik bo'lsa)</label>
+                  <input v-model.number="form.recall_days" type="number" min="1" max="730" class="input w-40" placeholder="masalan 14" />
+                </div>
                 <div v-for="f in sectionFields" :key="f.key">
                   <label :class="lbl">{{ f.label }}</label>
                   <textarea v-model="form[f.key]" rows="3" class="input" />
@@ -357,11 +361,11 @@ async function saveRecord() {
                       notes: form.notes || null, visit_date: form.visit_date,
                       complaints: withSymptoms(form.complaints, form.symptoms) || null, anamnesis: form.anamnesis || null,
                       examination: form.examination || null, recommendations: form.recommendations || null,
-                      appointment_id: form.appointment_id || null }
+                      appointment_id: form.appointment_id || null, recall_days: form.recall_days || null }
     // tahrirlashda ko'rik yangilanadi (yangi yozuv yaratilmaydi); retsept alohida boshqariladi
     const { data } = editingId.value
       ? await api.put(`/emr/${editingId.value}`, { diagnosis: form.diagnosis, icd_code: form.icd_code || null, notes: form.notes || null,
-          complaints: payload.complaints, anamnesis: payload.anamnesis, examination: payload.examination, recommendations: payload.recommendations })
+          complaints: payload.complaints, anamnesis: payload.anamnesis, examination: payload.examination, recommendations: payload.recommendations, recall_days: payload.recall_days })
       : await api.post('/emr', payload)
     // Backend saqlamaydigan maydonlar (simptomlar, dorilar, fayllar) faqat ekranda qoladi
     const merged = { ...JSON.parse(JSON.stringify(form)), ...data }

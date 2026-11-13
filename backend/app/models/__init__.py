@@ -2,12 +2,13 @@ from app.models.appointment import Appointment, AppointmentType
 from app.models.attachment import Attachment
 from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
-from app.models.cash_shift import CashShift
-from app.models.commission import CommissionEntry, CommissionRule, CommissionSettlement
+from app.models.cash_shift import CashMovement, CashShift
+from app.models.commission import CommissionEntry, CommissionPayout, CommissionRule, CommissionSettlement
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.icd10 import Icd10Code
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.lab import LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
+from app.models.messaging import Message, MessageTemplate, OtpCode, PatientConsent, RateEvent, TelegramLink
 from app.models.patient import Patient
 from app.models.payment import Payment, PaymentRefund
 from app.models.rbac import Permission, Role, role_permissions
@@ -24,7 +25,8 @@ __all__ = [
     "Permission", "Role", "Room",
     "DoctorSchedule", "ScheduleException", "WaitlistEntry", "Icd10Code", "ExamTemplate",
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
-    "CommissionEntry", "CommissionRule", "CommissionSettlement", "CashShift",
+    "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
+    "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

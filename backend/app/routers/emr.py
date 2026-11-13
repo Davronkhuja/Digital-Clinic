@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -64,7 +64,9 @@ def create_emr(data: EMRCreate, request: Request, db: Session = Depends(get_db),
     enc = Encounter(patient_id=patient.id, doctor_id=doctor.id, visit_date=visit_date, icd_code=icd_code,
                     diagnosis=data.diagnosis, notes=data.notes, complaints=data.complaints, anamnesis=data.anamnesis,
                     examination=data.examination, recommendations=data.recommendations,
-                    appointment_id=appt.id if appt else None, branch_id=user.branch_id, created_by=user.id)
+                    appointment_id=appt.id if appt else None,
+                    recall_date=visit_date + timedelta(days=data.recall_days) if data.recall_days else None,
+                    branch_id=user.branch_id, created_by=user.id)
     if appt:
         appt.status = AppointmentStatus.completed  # qabul -> ko'rik: qog'ozsiz zanjirning bir bo'g'ini
     db.add(enc)
@@ -159,6 +161,9 @@ def update_emr(record_id: uuid.UUID, data: EMRUpdate, request: Request, db: Sess
             raise HTTPException(422, f"MKB-10 kodi topilmadi: {fields['icd_code']}")
         enc.icd_code = code
         fields.pop("icd_code")
+    if "recall_days" in fields:
+        days = fields.pop("recall_days")
+        enc.recall_date = enc.visit_date + timedelta(days=days) if days else None
     for key, value in fields.items():
         if key == "diagnosis" and not value:
             continue

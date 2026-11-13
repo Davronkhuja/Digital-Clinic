@@ -2,6 +2,34 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.7] - 2026-11-13
+Eslatma: v1.7.10–v1.8.7 bitta commit sifatida chiqdi (mashina yuklangani uchun testlar bir martada yurgizildi, 363 test o'tdi).
+### Added (v1.7.10) Foiz asosi sozlamasi
+- Standart "chegirmadan keyin, QQS'siz" (`clinic_settings.commission_base`, `GET/PUT /settings/finance`); qoida asosi ixtiyoriy (bo'sh: sozlama bo'yicha); yozuvda `base_kind` nusxalanadi: o'zgarish faqat keyingi hisoblarga. Migratsiya 0023.
+### Added (v1.7.11) Inkassatsiya
+- `finance:cash_withdrawal`, `POST /cash-shifts/{id}/withdrawals` (summa, qabul qiluvchi, izoh), `cash_movements`; kutilgan naqd kamayadi, Z-hisobotda (JSON va PDF) alohida qator, auditda. Migratsiya 0024.
+### Added (v1.7.12) Foiz to'lov hujjati
+- Oy yopilganda `commission_payouts` (Draft -> Approved -> Paid): `/commission-payouts`, `approve` (`commissions:manage`), `pay` (`commissions:pay`: naqd kassa smenasiga chiqim yoki o'tkazma; xarajat `Shifokor foizi`). Migratsiya 0025.
+### Added (v1.7.13) Click qaytarish
+- Click to'lovi `refund_method` Cash/Card bilan qaytariladi (original to'lovga bog'langan, `finance:refund`, fiskal qaytarish cheki, smena hisobi qaytarish usuli bo'yicha); `needs_provider_reconcile` va `/payment-refunds/pending-reconcile`, `/reconcile`. Migratsiya 0026.
+### Added (v1.8.0) Redis, Celery, xabar asosi
+- `redis` (alpine, 64 MB), `worker` va `beat` (backend imajidan, qo'shimcha imaj yo'q), `bot` (profil). Adapterlar: SMS (mock), Telegram. `messages` logi (holat, urinishlar, SMS qismlari), rozilik (`patient_consents`), shablonlar (uz/ru, tahrirlanadi), tungi vaqt sozlamasi. Migratsiya 0027.
+### Added (v1.8.1) Rozilik
+- Kanal bo'yicha rozilik/voz kechish (`PUT /patients/{id}/consents`), tilni tanlash; rozilik bo'lmasa xabar yuborilmaydi (navbatga qo'yishda va yuborishda tekshiriladi), `Skipped` + sabab.
+### Added (v1.8.2) Eslatmalar
+- 24 soat va 2 soat oldin (Celery beat), tungi 21:00-08:00 ertalabga suriladi (qabuldan keyinga qolsa o'tkazib yuboriladi), qayta urinish 3 marta (5/15/60 daqiqa), Telegram ulangan bo'lsa SMS o'rniga; `GET /messages`, `/messages/stats` (SMS soni va qismlari).
+### Added (v1.8.3) Havolalar
+- Imzolangan, muddatli havolalar: `/public/appointments/{token}` (ko'rish, tasdiqlash, bekor qilish), bekor bo'lsa vaqt bo'shaydi va kutish ro'yxatidagi roziligi bor birinchi bemorga taklif (`/public/offers/{token}/book`). Migratsiya 0028.
+### Added (v1.8.4) Manba va qayta tashrif
+- `patients.source` (reklama, tavsiya, instagram, onlayn, boshqa), `GET /patients/sources`; ko'rikda `recall_days`, shu kuni 10:00 da eslatma. Migratsiya 0029.
+### Added (v1.8.5) Onlayn yozilish
+- OTP (`/public/otp/request|verify`: 6 raqam, xeshlangan, 5 daqiqa, 5 urinish; telefonga 15 daqiqada 3, IP ga soatiga 10), honeypot, tezlik cheklovi; `/public/booking/*` (xizmat -> shifokor -> bo'sh vaqt -> telefon), mavjud bemor qayta ishlatiladi (dublikat yo'q), yangi bemor manba `onlayn`. Sahifa `/p/book`. Migratsiya 0030.
+### Added (v1.8.6) Bemor portali
+- `/portal/*`: telefon OTP bilan kirish, qabullar (tasdiqlash/bekor), hisob-fakturalar, faqat shifokor tasdiqlagan lab natijalari (PDF); EMR matni yo'q. `POST /lab/orders/{id}/approve` (`lab:approve`), natija o'zgarsa tasdiq bekor. Migratsiya 0031.
+### Added (v1.8.7) Telegram bot
+- aiogram transport (`python -m app.bot`, `docker compose --profile bot up -d bot`), mantiq `services/telegram_bot.py`: faqat o'z kontakti + SMS OTP, tibbiy natija faqat tasdiqlangan telefon bilan, `/consent`, `/stop`, qabullar va tasdiqlash/bekor tugmalari.
+- Frontend: rozilik kartasi, Xabarlar sahifasi, Sozlamalar > Xabarlar, ochiq sahifalar (`/p/a`, `/p/o`, `/p/book`), bemor manbasi va qayta ko'rik maydonlari.
+
 ## [1.7.9] - 2026-11-12
 ### Added
 - Chegirma limiti (biznes qarori): kassir (`finance:discount`) sozlamadagi foizgacha (standart 10%) chegirma beradi; jami chegirma (qator + umumiy) chegirmasiz summaga nisbatan yaxlitlamasdan solishtiriladi; oshsa `finance:discount_override` (admin) kerak, aks holda 403 (limit xabarda). Sabab majburiy, hammasi auditda (avvalgidek). Qoralamani o'zgartirishda ham qayta tekshiriladi.

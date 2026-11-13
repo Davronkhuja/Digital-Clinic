@@ -112,18 +112,22 @@ def refundable(db: Session, payment: Payment) -> Decimal:
 
 
 def create_refund(db: Session, payment: Payment, inv: Invoice, amount: Decimal, reason: str, user: CurrentUser | None,
-                  provider_reason: int | None = None, strict_receipt: bool = True) -> PaymentRefund:
+                  provider_reason: int | None = None, strict_receipt: bool = True,
+                  refund_method: PaymentMethod | None = None) -> PaymentRefund:
     """Qaytarish: chek (qaytarish), xarajat yozuvi, holat. Summa to'langanidan oshmaydi."""
     if payment.status != PaymentStatus.paid:
         raise HTTPException(409, "Faqat to'langan to'lovni qaytarish mumkin")
     if amount <= 0 or amount > refundable(db, payment):
         raise HTTPException(422, f"Qaytariladigan summa noto'g'ri (mumkin: {refundable(db, payment)})")
+    alt = refund_method is not None and refund_method != payment.method   # boshqa usulda qaytarish (Click -> naqd/karta)
     refund = PaymentRefund(payment_id=payment.id, amount=amount, reason=reason, provider_reason=provider_reason,
+                           refund_method=refund_method,
+                           needs_provider_reconcile=alt and payment.method in (PaymentMethod.click, PaymentMethod.payme),
                            branch_id=payment.branch_id, created_by=user.id if user else None)
     db.add(refund)
     db.flush()
     lines = list(db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id).order_by(InvoiceLine.position)))
-    receipt = build_receipt(inv, lines, amount, payment.method, "refund")
+    receipt = build_receipt(inv, lines, amount, refund_method or payment.method, "refund")
     refund.receipt_data = receipt
     try:
         result = fiscal.get_fiscal().refund(receipt, payment.receipt_id)

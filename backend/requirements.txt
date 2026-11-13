@@ -10,3 +10,7 @@ sqlalchemy==2.0.31
 alembic==1.13.2
 psycopg[binary]==3.2.1
 reportlab==4.2.2
+celery[redis]==5.4.0
+aiogram==3.13.1
+packaging==24.1
+kombu==5.4.2

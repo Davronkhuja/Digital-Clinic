@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,6 +49,10 @@ class PaymentRefund(BranchScoped, BaseModel):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     reason: Mapped[str] = mapped_column(Text)
     provider_reason: Mapped[int | None] = mapped_column(Integer)  # Payme bekor qilish sababi kodi
+    # Qaytarish usuli: Cash/Card (kassadan) yoki null (provayder o'zi qaytargan, masalan Payme). Click to'lovi kalit kelguncha
+    # "boshqa usulda" (Cash/Card) qaytariladi: original to'lovga bog'liq, provayder bilan solishtirish kerak (`needs_provider_reconcile`)
+    refund_method: Mapped[PaymentMethod | None] = mapped_column(enum_col(PaymentMethod, "refund_method", 6))
+    needs_provider_reconcile: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("cash_shifts.id", ondelete="RESTRICT"), index=True)
     receipt_status: Mapped[ReceiptStatus | None] = mapped_column(enum_col(ReceiptStatus, "receipt_status", 8))
     receipt_id: Mapped[str | None] = mapped_column(String(100))

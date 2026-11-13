@@ -17,12 +17,14 @@
           <span class="text-sm text-slate-500">{{ shift.cashier }} · {{ shift.opened_at.slice(0, 16).replace('T', ' ') }}</span>
           <span class="flex-1"></span>
           <button class="btn-secondary text-sm" @click="openShiftPdf(shift)"><FileDown class="w-4 h-4" /> X-hisobot PDF</button>
+          <button v-if="auth.can('finance:cash_withdrawal')" class="btn-secondary text-sm" @click="showWithdraw = true">Inkassatsiya</button>
           <button class="btn-primary text-sm" @click="showClose = true">Smenani yopish</button>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <div><p class="text-xs text-slate-400">Boshlang'ich naqd</p><p class="font-mono font-semibold">{{ fmt(shift.opening_cash) }}</p></div>
           <div><p class="text-xs text-slate-400">Naqd tushum / qaytarish</p><p class="font-mono">{{ fmt(shift.cash.payments_total) }} / {{ fmt(shift.cash.refunds_total) }}</p></div>
           <div><p class="text-xs text-slate-400">Karta tushum / qaytarish</p><p class="font-mono">{{ fmt(shift.card.payments_total) }} / {{ fmt(shift.card.refunds_total) }}</p></div>
+          <div><p class="text-xs text-slate-400">Inkassatsiya / foiz to'lovlari (naqd)</p><p class="font-mono">{{ fmt(shift.withdrawals.total) }} / {{ fmt(shift.payouts.total) }}</p></div>
           <div><p class="text-xs text-slate-400">Kassada kutilgan naqd</p><p class="font-mono font-semibold text-cyan-600">{{ fmt(shift.expected_cash) }}</p></div>
         </div>
         <p v-if="shift.receipts_missing" class="text-sm text-amber-600">Diqqat: {{ shift.receipts_missing }} ta to'lovning fiskal cheki berilmagan (hisob-faktura ichida "Chekni qayta berish").</p>
@@ -76,6 +78,19 @@
         <h3 :class="titleClass">Smenani ochish</h3>
         <div><label class="text-xs text-slate-400 block mb-1">Kassadagi boshlang'ich naqd (UZS)</label><input v-model.number="openCash" type="number" min="0" step="0.01" class="input" /></div>
         <div class="flex justify-end gap-2"><button class="btn-secondary" @click="showOpen = false">Bekor qilish</button><button class="btn-primary" :disabled="busy" @click="openShift">Ochish</button></div>
+      </div>
+    </div>
+
+    <!-- Inkassatsiya -->
+    <div v-if="showWithdraw" class="modal-overlay" @click.self="showWithdraw = false">
+      <div :class="modalClass('max-w-sm')">
+        <h3 :class="titleClass">Inkassatsiya (kassadan naqd chiqarish)</h3>
+        <p class="text-sm text-slate-500">Kassada: <b class="font-mono">{{ fmt(shift.expected_cash) }}</b></p>
+        <div><label class="text-xs text-slate-400 block mb-1">Summa (UZS) *</label><input v-model.number="wd.amount" type="number" min="0.01" step="0.01" class="input" /></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Qabul qiluvchi *</label><input v-model="wd.recipient" class="input" maxlength="200" /></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Izoh</label><input v-model="wd.note" class="input" maxlength="300" /></div>
+        <div class="flex justify-end gap-2"><button class="btn-secondary" @click="showWithdraw = false">Bekor qilish</button>
+          <button class="btn-primary" :disabled="busy || !wd.amount || wd.recipient.trim().length < 2" @click="withdraw">Chiqarish</button></div>
       </div>
     </div>
 
@@ -164,6 +179,7 @@
               <div v-if="p.status === 'Pending' && !p.provider_txn_id" class="mt-1"><button class="text-xs text-red-500 underline" @click="cancelPending(p)">Bekor qilish</button></div>
               <div v-if="canRefund(p)" class="mt-2 flex items-center gap-2 flex-wrap">
                 <input v-model="refund[p.id].amount" type="number" min="0" step="0.01" class="input w-32 py-1 text-xs" :placeholder="'summa (' + fmt(p.amount - p.refunded_amount) + ')'" />
+                <select v-if="p.method === 'Click'" v-model="refund[p.id].method" class="input w-36 py-1 text-xs" title="Click to'lovi boshqa usulda qaytariladi"><option value="Cash">Naqd bilan</option><option value="Card">Karta bilan</option></select>
                 <input v-model="refund[p.id].reason" class="input flex-1 py-1 text-xs" placeholder="Qaytarish sababi" />
                 <button class="text-xs text-red-500 underline" :disabled="busy || (refund[p.id].reason || '').length < 3" @click="doRefund(p)">Qaytarish</button>
               </div>
@@ -207,6 +223,7 @@ const payClass = { Pending: 'badge-yellow', Paid: 'badge-green', Failed: 'badge-
 
 // Smena
 const shift = ref(null), shiftLoading = ref(true), lastZ = ref(null), busy = ref(false)
+const showWithdraw = ref(false), wd = reactive({ amount: null, recipient: '', note: '' })
 const showOpen = ref(false), showClose = ref(false), openCash = ref(0), countedCash = ref('')
 async function loadShift() {
   shiftLoading.value = true
@@ -228,6 +245,15 @@ async function closeShift() {
     toast.success('Smena yopildi')
     await loadShift()
   } catch (e) { toast.error(e, "Smenani yopib bo'lmadi") } finally { busy.value = false }
+}
+async function withdraw() {
+  busy.value = true
+  try {
+    await api.post(`/cash-shifts/${shift.value.shift_id}/withdrawals`, { amount: wd.amount, recipient: wd.recipient.trim(), note: wd.note || null })
+    toast.success('Inkassatsiya qayd etildi')
+    showWithdraw.value = false; Object.assign(wd, { amount: null, recipient: '', note: '' })
+    await loadShift()
+  } catch (e) { toast.error(e, "Inkassatsiyani qayd etib bo'lmadi") } finally { busy.value = false }
 }
 async function openShiftPdf(s) {
   try { window.open(URL.createObjectURL((await api.get(`/cash-shifts/${s.shift_id}/z-report/pdf`, { responseType: 'blob' })).data), '_blank') }
@@ -266,12 +292,12 @@ async function createInvoice() {
 
 // Tafsilot, to'lov, qaytarish
 const detail = ref(null), payments = ref([]), pay = reactive({ method: 'Cash', amount: '' }), refund = reactive({})
-const canRefund = p => auth.can('finance:refund') && p.status === 'Paid' && ['Cash', 'Card'].includes(p.method) && p.amount - p.refunded_amount > 0
+const canRefund = p => auth.can('finance:refund') && p.status === 'Paid' && ['Cash', 'Card', 'Click'].includes(p.method) && p.amount - p.refunded_amount > 0
 async function openDetail(i) {
   try {
     detail.value = (await api.get(`/invoices/${i.id}`)).data
     payments.value = (await api.get(`/invoices/${i.id}/payments`)).data
-    payments.value.forEach(p => { refund[p.id] = refund[p.id] || { amount: '', reason: '' } })
+    payments.value.forEach(p => { refund[p.id] = refund[p.id] || { amount: '', reason: '', method: 'Cash' } })
     Object.assign(pay, { method: 'Cash', amount: '' })
   } catch (e) { toast.error(e, "Hisob-fakturani yuklab bo'lmadi") }
 }
@@ -287,8 +313,8 @@ async function doPay() {
 async function doRefund(p) {
   busy.value = true
   try {
-    await api.post(`/payments/${p.id}/refunds`, { reason: refund[p.id].reason, ...(refund[p.id].amount ? { amount: refund[p.id].amount } : {}) })
-    toast.success('Qaytarildi'); refund[p.id] = { amount: '', reason: '' }
+    await api.post(`/payments/${p.id}/refunds`, { reason: refund[p.id].reason, ...(p.method === 'Click' ? { refund_method: refund[p.id].method } : {}), ...(refund[p.id].amount ? { amount: refund[p.id].amount } : {}) })
+    toast.success(p.method === 'Click' ? 'Qaytarildi (Click kabinetida ham qaytarishni tasdiqlang)' : 'Qaytarildi'); refund[p.id] = { amount: '', reason: '', method: 'Cash' }
     await refreshDetail()
   } catch (e) { toast.error(e, "Qaytarib bo'lmadi") } finally { busy.value = false }
 }

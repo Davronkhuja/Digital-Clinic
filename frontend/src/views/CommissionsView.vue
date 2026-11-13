@@ -44,9 +44,29 @@
       <p v-if="report.doctors.length" class="p-4 text-sm text-right">Jami sof: <b class="font-mono">{{ fmt(report.total_net) }}</b> UZS</p>
     </div>
 
+    <div class="card p-5 space-y-3">
+      <h3 :class="['font-heading font-semibold', dark ? 'text-white' : 'text-slate-900']">To'lov hujjatlari (chiqim)</h3>
+      <p class="text-xs text-slate-400">Oy yopilganda qoralama yaratiladi → tasdiqlanadi → to'lanadi. Naqd to'lov kassa smenasiga chiqim bo'lib tushadi.</p>
+      <EmptyState v-if="!payouts.length" title="To'lov hujjati yo'q" description="Oyni yopganda yaratiladi" />
+      <ul v-else class="divide-y" :class="dark ? 'divide-slate-800' : 'divide-slate-100'">
+        <li v-for="p in payouts" :key="p.id" class="py-2 flex items-center gap-3 text-sm flex-wrap">
+          <span class="font-medium">{{ p.doctor }}</span><span class="text-slate-400">{{ p.month }}</span>
+          <span class="font-mono font-semibold">{{ fmt(p.amount) }}</span>
+          <span :class="payoutClass[p.status]">{{ payoutLabel[p.status] }}</span>
+          <span v-if="p.pay_method" class="text-xs text-slate-400">{{ p.pay_method === 'Cash' ? 'naqd' : "o'tkazma" }} · {{ p.paid_at?.slice(0, 10) }}</span>
+          <span class="flex-1"></span>
+          <button v-if="canManage && p.status === 'Draft'" class="text-xs text-cyan-600 underline" :disabled="busy" @click="approve(p)">Tasdiqlash</button>
+          <template v-if="canPay && p.status === 'Approved'">
+            <select v-model="payMethod[p.id]" class="input w-32 py-1 text-xs"><option value="Transfer">O'tkazma</option><option value="Cash">Naqd (kassadan)</option></select>
+            <button class="text-xs text-emerald-600 underline" :disabled="busy" @click="payOut(p)">To'lash</button>
+          </template>
+        </li>
+      </ul>
+    </div>
+
     <div v-if="canManage" class="card p-5 space-y-4">
       <h3 :class="['font-heading font-semibold', dark ? 'text-white' : 'text-slate-900']">Qoidalar</h3>
-      <p class="text-xs text-slate-400">Tanlash: shifokor+xizmat &gt; shifokor &gt; xizmat &gt; umumiy; teng bo'lsa boshlanishi kechroq qoida. Asos: to'langan summa (chegirmadan keyin).</p>
+      <p class="text-xs text-slate-400">Tanlash: shifokor+xizmat &gt; shifokor &gt; xizmat &gt; umumiy; teng bo'lsa boshlanishi kechroq qoida. Asos: chegirmadan keyin to'langan summa; QQS bilan/QQSsiz Sozlamalar > Moliya da (qoidada alohida belgilash mumkin).</p>
       <form class="grid grid-cols-2 sm:grid-cols-8 gap-2 items-end" @submit.prevent="addRule">
         <div class="sm:col-span-2"><label class="text-xs text-slate-400 block mb-1">Shifokor</label><select v-model="rule.doctor_id" class="input"><option value="">Hamma</option><option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option></select></div>
         <div class="sm:col-span-2"><label class="text-xs text-slate-400 block mb-1">Xizmat</label><select v-model="rule.service_id" class="input"><option value="">Hamma</option><option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option></select></div>
@@ -54,7 +74,7 @@
         <div><label class="text-xs text-slate-400 block mb-1">{{ rule.kind === 'Percent' ? '%' : 'UZS / birlik' }}</label><input v-model.number="rule.value" type="number" min="0.01" step="0.01" class="input" required /></div>
         <div><label class="text-xs text-slate-400 block mb-1">Dan</label><input v-model="rule.valid_from" type="date" class="input" required /></div>
         <div><label class="text-xs text-slate-400 block mb-1">Gacha</label><input v-model="rule.valid_to" type="date" class="input" /></div>
-        <div><label class="text-xs text-slate-400 block mb-1">Asos</label><select v-model="rule.base" class="input"><option value="WithVat">QQS bilan</option><option value="NetOfVat">QQSsiz</option></select></div>
+        <div><label class="text-xs text-slate-400 block mb-1">Asos</label><select v-model="rule.base" class="input"><option value="">Sozlama bo'yicha</option><option value="WithVat">QQS bilan</option><option value="NetOfVat">QQSsiz</option></select></div>
         <button class="btn-primary text-sm" :disabled="busy"><Plus class="w-4 h-4" /> Qo'shish</button>
       </form>
       <EmptyState v-if="!rules.length" title="Qoida yo'q" />
@@ -62,7 +82,7 @@
         <li v-for="r in rules" :key="r.id" class="py-2 flex items-center gap-3 text-sm flex-wrap">
           <span class="font-medium">{{ r.doctor || 'Hamma shifokor' }}</span><span class="text-slate-400">·</span><span>{{ r.service || 'hamma xizmat' }}</span>
           <span class="badge-blue">{{ r.kind === 'Percent' ? r.percent + '%' : fmt(r.fixed_amount) + ' UZS' }}</span>
-          <span class="text-xs text-slate-400">{{ r.valid_from }} – {{ r.valid_to || '…' }} · {{ r.base === 'WithVat' ? 'QQS bilan' : 'QQSsiz' }}</span>
+          <span class="text-xs text-slate-400">{{ r.valid_from }} – {{ r.valid_to || '…' }} · {{ r.base === 'WithVat' ? 'QQS bilan' : r.base === 'NetOfVat' ? 'QQSsiz' : 'sozlama bo\'yicha' }}</span>
           <span class="flex-1"></span>
           <button class="text-xs text-red-500 underline" @click="deactivate(r)">O'chirib qo'yish</button>
         </li>
@@ -85,6 +105,9 @@ const theme = useThemeStore()
 const auth = useAuthStore()
 const dark = computed(() => theme.isDark)
 const canManage = computed(() => auth.can('commissions:manage'))
+const canPay = computed(() => auth.can('commissions:pay'))
+const payoutLabel = { Draft: 'Qoralama', Approved: 'Tasdiqlangan', Paid: "To'langan" }
+const payoutClass = { Draft: 'badge-slate', Approved: 'badge-yellow', Paid: 'badge-green' }
 const fmt = v => new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 2 }).format(v ?? 0)
 
 const month = ref(new Date().toISOString().slice(0, 7))
@@ -103,18 +126,24 @@ async function toggle(d) {
 }
 async function settle(d) {
   busy.value = true
-  try { await api.post('/commissions/settle', { month: month.value, doctor_id: d.doctor_id }); toast.success('Oy yopildi'); await load() }
+  try { await api.post('/commissions/settle', { month: month.value, doctor_id: d.doctor_id }); toast.success('Oy yopildi: to\'lov hujjati yaratildi'); await Promise.all([load(), loadPayouts()]) }
   catch (e) { toast.error(e, "Oyni yopib bo'lmadi") } finally { busy.value = false }
 }
 
 // Qoidalar
+const payouts = ref([]), payMethod = reactive({})
+async function loadPayouts() {
+  try { payouts.value = (await api.get('/commission-payouts')).data; payouts.value.forEach(p => { payMethod[p.id] = payMethod[p.id] || 'Transfer' }) } catch (e) { payouts.value = []; toast.error(e, "To'lov hujjatlarini yuklab bo'lmadi") }
+}
+async function approve(p) { busy.value = true; try { await api.post(`/commission-payouts/${p.id}/approve`); toast.success('Tasdiqlandi'); await loadPayouts() } catch (e) { toast.error(e, "Tasdiqlab bo'lmadi") } finally { busy.value = false } }
+async function payOut(p) { busy.value = true; try { await api.post(`/commission-payouts/${p.id}/pay`, { method: payMethod[p.id] }); toast.success("To'landi"); await loadPayouts() } catch (e) { toast.error(e, "To'lab bo'lmadi") } finally { busy.value = false } }
 const rules = ref([]), doctors = ref([]), services = ref([])
-const blank = () => ({ doctor_id: '', service_id: '', kind: 'Percent', value: null, valid_from: new Date().toISOString().slice(0, 10), valid_to: '', base: 'WithVat' })
+const blank = () => ({ doctor_id: '', service_id: '', kind: 'Percent', value: null, valid_from: new Date().toISOString().slice(0, 10), valid_to: '', base: '' })
 const rule = reactive(blank())
 async function loadRules() { try { rules.value = (await api.get('/commission-rules')).data } catch (e) { rules.value = []; toast.error(e, "Qoidalarni yuklab bo'lmadi") } }
 async function addRule() {
   busy.value = true
-  const body = { doctor_id: rule.doctor_id || null, service_id: rule.service_id || null, kind: rule.kind, base: rule.base, valid_from: rule.valid_from, valid_to: rule.valid_to || null,
+  const body = { doctor_id: rule.doctor_id || null, service_id: rule.service_id || null, kind: rule.kind, base: rule.base || null, valid_from: rule.valid_from, valid_to: rule.valid_to || null,
                  percent: rule.kind === 'Percent' ? rule.value : null, fixed_amount: rule.kind === 'Fixed' ? rule.value : null }
   try { await api.post('/commission-rules', body); toast.success("Qoida qo'shildi"); Object.assign(rule, blank()); await loadRules() }
   catch (e) { toast.error(e, "Qoidani qo'shib bo'lmadi") } finally { busy.value = false }
@@ -129,6 +158,7 @@ async function deactivate(r) {
 
 onMounted(async () => {
   load()
+  loadPayouts()
   if (canManage.value) {
     loadRules()
     try { doctors.value = (await api.get('/staff', { params: { role: 'Doctor' } })).data } catch { doctors.value = [] }

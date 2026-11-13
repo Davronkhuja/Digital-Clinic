@@ -88,6 +88,7 @@
             <p v-if="appointments.length === 0" class="text-center text-slate-400 py-4 text-sm">Uchrashuvlar topilmadi</p>
           </div>
         </div>
+        <ConsentCard :patient-id="patient.id" />
         <AttachmentsPanel v-if="auth.can('emr:read')" :patient-id="patient.id" title="Bemor fayllari (barcha ilovalar)" />
       </div>
     </div>
@@ -117,6 +118,7 @@ import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import AttachmentsPanel from '@/components/AttachmentsPanel.vue'
+import ConsentCard from '@/components/ConsentCard.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()

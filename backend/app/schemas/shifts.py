@@ -33,6 +33,28 @@ class OnlineTotals(BaseModel):
     payments_total: Money
 
 
+class MovementTotals(BaseModel):
+    count: int = 0
+    total: Money = Decimal("0")
+
+
+class WithdrawalIn(BaseModel):
+    amount: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]
+    recipient: str = Field(..., min_length=2, max_length=200, description="Qabul qiluvchi (F.I.Sh.)")
+    note: Optional[str] = Field(None, max_length=300)
+
+
+class MovementOut(BaseModel):
+    id: str
+    shift_id: str
+    kind: str
+    amount: Money
+    counterparty: str
+    note: Optional[str] = None
+    by: Optional[str] = None
+    created_at: datetime
+
+
 class ShiftReport(BaseModel):
     shift_id: str
     z_number: Optional[str] = None
@@ -44,6 +66,8 @@ class ShiftReport(BaseModel):
     cash: MethodTotals
     card: MethodTotals
     online: dict[str, OnlineTotals]
+    withdrawals: MovementTotals = MovementTotals()
+    payouts: MovementTotals = MovementTotals()
     sales_total: Money
     refunds_total: Money
     net_total: Money

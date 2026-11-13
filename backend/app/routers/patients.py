@@ -44,6 +44,16 @@ def get_patients(
     return result
 
 
+@router.get("/patients/sources", tags=["👥 Patients"], summary="Bemor manbalari bo'yicha soni",
+            description="Manba bo'yicha bemorlar soni (ko'rsatilmaganlar `null`).")
+def patient_sources(db: Session = Depends(get_db), user: CurrentUser = Depends(require("patients:read"))):
+    from sqlalchemy import func
+    from sqlalchemy import select as _select
+
+    rows = db.execute(_select(Patient.source, func.count()).group_by(Patient.source)).all()
+    return {(src or "ko'rsatilmagan"): n for src, n in rows}
+
+
 @router.get("/patients/duplicates", tags=["👥 Patients"], summary="Ehtimoliy dublikatlar",
             description="Bir xil ism va (telefon raqamlari yoki tug'ilgan sana) bo'lgan faol bemorlar guruhlari.")
 def get_patient_duplicates(request: Request, db: Session = Depends(get_db),
@@ -60,7 +70,7 @@ def create_patient(data: PatientCreate, request: Request, db: Session = Depends(
     doctor = resolve_doctor(db, None, data.doctor) if data.doctor else None
     patient = Patient(
         full_name=data.name.strip(), phone=data.phone, birth_date=_birth_date(data.age, data.birth_date),
-        gender=data.gender, pinfl=data.pinfl, address=data.address, blood_type=data.blood_type,
+        gender=data.gender, pinfl=data.pinfl, address=data.address, source=data.source, blood_type=data.blood_type,
         allergies=data.allergies, primary_doctor_id=doctor.id if doctor else None,
         branch_id=user.branch_id, created_by=user.id,
     )
@@ -93,8 +103,8 @@ def update_patient(patient_id: uuid.UUID, data: PatientUpdate, request: Request,
     fields = data.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"]:
         patient.full_name = fields["name"].strip()
-    for key in ("phone", "gender", "pinfl", "address", "blood_type", "allergies", "status"):
-        if key in fields and (fields[key] is not None or key in ("pinfl", "address", "blood_type", "allergies")):
+    for key in ("phone", "gender", "pinfl", "address", "blood_type", "allergies", "status", "source"):
+        if key in fields and (fields[key] is not None or key in ("pinfl", "address", "blood_type", "allergies", "source")):
             setattr(patient, key, fields[key])
     if "birth_date" in fields or "age" in fields:
         patient.birth_date = _birth_date(fields.get("age"), fields.get("birth_date")) or patient.birth_date

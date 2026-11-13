@@ -11,7 +11,7 @@ from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Invoice, Payment, PaymentRefund, Staff, User
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus
-from app.schemas.payments import PaymentCreate, PaymentOut, RefundCreate
+from app.schemas.payments import PaymentCreate, PaymentOut, RefundCreate, RefundOut
 from app.services import audit, click, fiscal, payme, payments, shifts
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ
@@ -24,7 +24,8 @@ ONLINE_METHODS = (PaymentMethod.payme, PaymentMethod.click)
 
 def _refund_out(r: PaymentRefund) -> dict:
     return {"id": str(r.id), "payment_id": str(r.payment_id), "amount": r.amount, "reason": r.reason,
-            "receipt_status": r.receipt_status, "receipt_id": r.receipt_id, "created_at": r.created_at.astimezone(CLINIC_TZ).isoformat()}
+            "receipt_status": r.receipt_status, "receipt_id": r.receipt_id, "refund_method": r.refund_method,
+            "needs_provider_reconcile": r.needs_provider_reconcile, "created_at": r.created_at.astimezone(CLINIC_TZ).isoformat()}
 
 
 def payment_out(db: Session, p: Payment) -> dict:
@@ -143,20 +144,49 @@ def refund_payment(payment_id: uuid.UUID, data: RefundCreate, request: Request, 
     p = db.get(Payment, payment_id)
     if not p:
         raise HTTPException(404, "To'lov topilmadi")
-    if p.method not in CASHIER_METHODS:
-        raise HTTPException(409, "Click/Payme to'lovi provayder orqali qaytariladi (Payme bekor qilishi avtomatik yoziladi)")
+    if p.method == PaymentMethod.payme:
+        raise HTTPException(409, "Payme to'lovi Payme orqali qaytariladi (Payme bekor qilishi avtomatik yoziladi)")
+    if p.method == PaymentMethod.click:
+        if data.refund_method not in CASHIER_METHODS:
+            raise HTTPException(422, "Click to'lovini hozircha boshqa usulda qaytarish kerak: refund_method = Cash yoki Card")
+        method = data.refund_method
+    else:
+        method = p.method
     inv = db.get(Invoice, p.invoice_id)
     shift = shifts.require_open_shift(db, user.id)        # qaytarilgan pul shu kassa smenasidan chiqadi
     amount = q2(data.amount) if data.amount is not None else payments.refundable(db, p)
     try:
-        refund = payments.create_refund(db, p, inv, amount, data.reason.strip(), user)
+        refund = payments.create_refund(db, p, inv, amount, data.reason.strip(), user, refund_method=method)
         refund.shift_id = shift.id
     except fiscal.FiscalError:
         db.rollback()
         raise HTTPException(502, "Qaytarish cheki berilmadi: qaytarish yozilmadi, qayta urinib ko'ring")
-    audit.record(db, user, request, "refund", "payment", p.id, {"invoice": inv.number, "amount": str(amount), "reason": data.reason.strip(),
-                                                                 "refund_id": str(refund.id), "receipt_id": refund.receipt_id})
+    audit.record(db, user, request, "refund", "payment", p.id,
+                 {"invoice": inv.number, "amount": str(amount), "reason": data.reason.strip(), "refund_id": str(refund.id),
+                  "receipt_id": refund.receipt_id, "refund_method": method.value})
     db.commit()
     return payment_out(db, p)
 
 
+
+
+@router.get("/payment-refunds/pending-reconcile", tags=[TAG], response_model=List[RefundOut],
+            summary="Provayder bilan solishtirilishi kerak qaytarishlar",
+            description="Click to'lovi boshqa usulda (naqd/karta) qaytarilgan: Click kabinetida ham qaytarilganini tasdiqlang.")
+def pending_reconcile(db: Session = Depends(get_db), user: CurrentUser = Depends(require("finance:refund"))):
+    rows = db.scalars(select(PaymentRefund).where(PaymentRefund.needs_provider_reconcile.is_(True)).order_by(PaymentRefund.created_at))
+    return [_refund_out(r) for r in rows]
+
+
+@router.post("/payment-refunds/{refund_id}/reconcile", tags=[TAG], response_model=RefundOut, summary="Provayder bilan solishtirildi")
+def reconcile_refund(refund_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("finance:refund"))):
+    r = db.get(PaymentRefund, refund_id)
+    if not r:
+        raise HTTPException(404, "Qaytarish topilmadi")
+    if not r.needs_provider_reconcile:
+        raise HTTPException(409, "Bu qaytarish solishtirishni talab qilmaydi")
+    r.needs_provider_reconcile = False
+    audit.record(db, user, request, "update", "payment", r.payment_id, {"refund_id": str(r.id), "reconciled": True})
+    db.commit()
+    return _refund_out(r)

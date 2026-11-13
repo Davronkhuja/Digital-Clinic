@@ -181,6 +181,8 @@ def z_report_pdf(rep: dict, clinic: dict) -> bytes:
     story += [t, Spacer(1, 4 * mm)]
     for name, m in rep["online"].items():
         story.append(_p(f"Onlayn {name.capitalize()} (kassaga kirmaydi): {m['payments_count']} ta, {money(m['payments_total'])}", base))
+    story += [Spacer(1, 2 * mm), _p(f"Inkassatsiya: {rep['withdrawals']['count']} ta, {money(rep['withdrawals']['total'])}", base),
+              _p(f"Foiz to'lovlari (naqd): {rep['payouts']['count']} ta, {money(rep['payouts']['total'])}", base)]
     story += [Spacer(1, 3 * mm), _p(f"Sotuv jami: {money(rep['sales_total'])}   Qaytarish: {money(rep['refunds_total'])}   Sof: {money(rep['net_total'])}", strong),
               Spacer(1, 4 * mm), _p(f"Boshlang'ich naqd: {money(rep['opening_cash'])}", base),
               _p(f"Kutilgan naqd: {money(rep['expected_cash'])}", strong)]

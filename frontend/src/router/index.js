@@ -5,6 +5,11 @@ const routes = [
   { path: '/login',           name: 'Login',          component: () => import('@/views/LoginView.vue'),          meta: { guest: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPasswordView.vue'), meta: { guest: true } },
 
+  // Ochiq sahifalar (login kerak emas): imzolangan havolalar
+  { path: '/p/a/:token', name: 'PublicAppointment', component: () => import('@/views/PublicAppointmentView.vue') },
+  { path: '/p/book', name: 'PublicBooking', component: () => import('@/views/PublicBookingView.vue') },
+  { path: '/p/o/:token', name: 'PublicOffer', component: () => import('@/views/PublicOfferView.vue') },
+
   {
     path: '/',
     component: () => import('@/components/layout/AppLayout.vue'),
@@ -16,6 +21,7 @@ const routes = [
       { path: 'appointments', name: 'Appointments', component: () => import('@/views/AppointmentsView.vue'), meta: { perm: 'appointments:read' } },
       { path: 'emr',          name: 'EMR',          component: () => import('@/views/EMRView.vue'), meta: { perm: 'emr:read' } },
       { path: 'lab',          name: 'Lab',          component: () => import('@/views/LabView.vue'), meta: { perm: 'lab:read' } },
+      { path: 'messages',     name: 'Messages',     component: () => import('@/views/MessagesView.vue'), meta: { perm: 'messages:read' } },
       { path: 'cashier',      name: 'Cashier',      component: () => import('@/views/CashierView.vue'), meta: { perm: 'finance:read' } },
       { path: 'commissions',  name: 'Commissions',  component: () => import('@/views/CommissionsView.vue'), meta: { perm: 'commissions:read' } },
       { path: 'finance',      name: 'Finance',      component: () => import('@/views/FinanceView.vue'), meta: { perm: 'finance:read' } },
@@ -39,7 +45,7 @@ const router = createRouter({
 })
 
 const firstAllowed = [
-  ['/patients', 'patients:read'], ['/appointments', 'appointments:read'], ['/emr', 'emr:read'], ['/lab', 'lab:read'], ['/cashier', 'finance:read'], ['/commissions', 'commissions:read'],
+  ['/patients', 'patients:read'], ['/appointments', 'appointments:read'], ['/emr', 'emr:read'], ['/lab', 'lab:read'], ['/messages', 'messages:read'], ['/cashier', 'finance:read'], ['/commissions', 'commissions:read'],
   ['/finance', 'finance:read'], ['/analytics', 'analytics:read'], ['/ai', 'ai:use'],
   ['/reports', 'reports:read'], ['/staff', 'staff:read'], ['/security', 'audit:read'],
   ['/settings', 'settings:read'],

@@ -162,8 +162,8 @@ def test_receipt_failure_keeps_payment_and_is_retriable(client, auth, monkeypatc
     assert p["status"] == "Paid" and p["receipt_status"] == "Failed"
     monkeypatch.setattr(fiscal, "_adapter", fiscal.MockFiscalAdapter())
     assert client.post(f"/payments/{p['id']}/receipt", headers=cashier).json()["receipt_status"] == "Issued"
-    # Click to'lovini kassir/admin qo'lda qaytara olmaydi
-    assert client.post(f"/payments/{p['id']}/refunds", headers=auth("admin"), json={"reason": "Qo'lda"}).status_code == 409
+    # Click to'lovi boshqa usul (naqd/karta) ko'rsatilmasa qaytarilmaydi
+    assert client.post(f"/payments/{p['id']}/refunds", headers=auth("admin"), json={"reason": "Qo'lda"}).status_code == 422
 
 
 def test_payme_and_click_use_same_money_conversion():

@@ -19,6 +19,8 @@ class PaymentCreate(BaseModel):
 class RefundCreate(BaseModel):
     amount: Optional[PayAmount] = Field(None, description="Bo'lmasa: to'lovning qaytarilmagan qismi to'liq")
     reason: str = Field(..., min_length=3, max_length=300)
+    refund_method: Optional[PaymentMethod] = Field(
+        None, description="Click to'lovi uchun majburiy: Cash yoki Card (boshqa usulda qaytarish); naqd/karta to'lovida e'tiborsiz")
 
 
 class RefundOut(BaseModel):
@@ -28,6 +30,8 @@ class RefundOut(BaseModel):
     reason: str
     receipt_status: Optional[ReceiptStatus] = None
     receipt_id: Optional[str] = None
+    refund_method: Optional[PaymentMethod] = None
+    needs_provider_reconcile: bool = False
     created_at: str
 
 

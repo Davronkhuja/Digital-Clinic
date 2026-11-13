@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import Numeric, String
+from sqlalchemy import Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import BaseModel, BranchScoped
@@ -20,3 +20,8 @@ class ClinicSettings(BranchScoped, BaseModel):
     language: Mapped[str] = mapped_column(String(5), default="uz")
     # Moliya sozlamalari (Sozlamalar > Moliya): kassir chegirma limiti (%); undan oshig'i finance:discount_override
     discount_limit_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("10"), server_default="10")
+    # Shifokor foizi asosi (qoidada ko'rsatilmasa): NetOfVat = chegirmadan keyin, QQS'siz; WithVat = QQS bilan
+    commission_base: Mapped[str] = mapped_column(String(10), default="NetOfVat", server_default="NetOfVat")
+    # Xabarlar: tungi vaqtda (klinika vaqti) yuborilmaydi, ertalabga qoldiriladi
+    quiet_start_hour: Mapped[int] = mapped_column(Integer, default=21, server_default="21")
+    quiet_end_hour: Mapped[int] = mapped_column(Integer, default=8, server_default="8")
