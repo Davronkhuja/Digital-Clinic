@@ -131,9 +131,21 @@ class BatchOut(BaseModel):
     receipt_id: Optional[str] = None
 
 
+class ShortageOut(BaseModel):
+    id: str
+    invoice_id: str
+    invoice_number: str
+    item_id: str
+    item: str
+    unit: str
+    qty_missing: Money
+    created_at: str
+
+
 class AlertsOut(BaseModel):
     expiry_days: int = Field(..., description="Yaroqlilik ogohlantirishi oynasi (kun)")
     low_stock: List[StockRowOut] = Field(..., description="Yaroqli qoldiq minimaldan kam")
+    shortages: List[ShortageOut] = Field(..., description="To'lov paytida ombor yetmagan materiallar (kirimdan keyin hal qilinadi)")
     expiring: List[BatchOut] = Field(..., description="Muddati oynada tugaydigan partiyalar (qoldig'i bor), muddati yaqini tepada")
     expired: List[BatchOut] = Field(..., description="Muddati o'tgan, qoldig'i bor partiyalar: hisobdan chiqarish kerak")
 

@@ -38,6 +38,8 @@ class Invoice(BranchScoped, BaseModel):
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_reason: Mapped[str | None] = mapped_column(String(300))
+    # To'liq to'langanda xizmat sarflari ombordan yozilgan vaqt (bir marta; keyingi qaytarish/to'lov qayta yozmaydi)
+    stock_consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class InvoiceLine(BaseModel):

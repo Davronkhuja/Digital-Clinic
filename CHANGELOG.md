@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.5] - 2026-11-13
+### Added
+- To'lovda avtomatik sarf: hisob-faktura to'liq to'langanda (naqd, karta, Payme, Click) har qatorning xizmat normasi x miqdori FEFO bo'yicha ombordan `Consumption` sifatida yoziladi (harakatda hisob-faktura raqami). Bir marta (`invoices.stock_consumed_at`): qisman to'lov yozmaydi; keyingi qaytarish yoki qayta to'lov qayta yozmaydi (material ishlatilgan, qaytarilmaydi).
+- Ombor yetmasa to'lov va chek to'xtamaydi: yetmagan miqdor `stock_shortages` ga yoziladi; `GET /warehouse/shortages`, `/warehouse/alerts` (`shortages`), kirimdan keyin `POST /warehouse/shortages/{id}/resolve` (FEFO, to'liq yoki 409, audit). Muddati o'tgan partiya ishlatilmaydi. Migratsiya 0036.
+
 ## [1.9.4] - 2026-11-13
 ### Added
 - Xizmatga bog'langan sarf normasi (`service_materials`): `GET/PUT /warehouse/services/{id}/materials` (to'liq ro'yxat almashtiriladi; PUT `services:write`, audit). Migratsiya 0035.

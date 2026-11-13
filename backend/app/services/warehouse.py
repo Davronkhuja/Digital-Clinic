@@ -1,14 +1,14 @@
 # ruff: noqa: E501
 """Ombor: kirim, qoldiq, partiyalar. Qoldiq filial bo'yicha partiyalarda; harakatlar jurnali (`stock_movements`) faqat qo'shiladi."""
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Service, ServiceMaterial, StockBatch, StockItem, StockMovement, StockReceipt
+from app.models import Invoice, InvoiceLine, Service, ServiceMaterial, StockBatch, StockItem, StockMovement, StockReceipt, StockShortage
 from app.schemas.enums import StockMovementKind
 from app.services.money import q2
 from app.services.periods import clinic_today
@@ -112,7 +112,8 @@ class Allocation:
         return q2(self.qty * self.batch.unit_cost)
 
 
-def fefo_allocate(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: Decimal, *, for_update: bool = True) -> list[Allocation]:
+def fefo_allocate(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: Decimal, *, for_update: bool = True,
+                  partial: bool = False) -> list[Allocation]:
     """Birinchi tugaydigan birinchi chiqadi: yaroqli (muddati o'tmagan yoki muddatsiz) partiyalar muddati bo'yicha, muddatsizlar oxirida;
     muddati teng bo'lsa avval kirgani. Muddati o'tgan partiyalar ishlatilmaydi. Yetmasa 409 (hech narsa o'zgarmaydi)."""
     today = clinic_today()
@@ -128,6 +129,8 @@ def fefo_allocate(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: De
         left -= take
         if left <= 0:
             break
+    if left > 0 and partial:       # bor qadarini olamiz (to'lov to'xtamasligi uchun); yetmagani chaqiruvchida hisoblanadi
+        return out
     if left > 0:
         have = qty - left
         expired = db.scalar(select(func.coalesce(func.sum(StockBatch.qty_remaining), 0)).where(
@@ -157,7 +160,7 @@ def allocations_out(allocs: list[Allocation]) -> list[dict]:
 def alerts(db: Session, branch_id: uuid.UUID, days: int = EXPIRY_WARN_DAYS) -> dict:
     """Ogohlantirishlar: minimal qoldiqdan kam, `days` ichida muddati tugaydigan va muddati o'tgan (qoldig'i bor) partiyalar."""
     rows = batch_rows(db, branch_id, expiring_within=days)           # muddat bo'yicha: o'tganlar ham tepada
-    return {"expiry_days": days, "low_stock": stock_rows(db, branch_id, low_only=True),
+    return {"expiry_days": days, "low_stock": stock_rows(db, branch_id, low_only=True), "shortages": open_shortages(db, branch_id),
             "expiring": [r for r in rows if not r["expired"]], "expired": [r for r in rows if r["expired"]]}
 
 
@@ -214,3 +217,58 @@ def service_cost(db: Session, branch_id: uuid.UUID, service: Service) -> dict:
     return {"service_id": str(service.id), "service": service.name, "price": service.price, "vat_percent": service.vat_percent, "net_price": net,
             "cost": cost_total, "margin": margin, "margin_percent": float(round(margin * 100 / net, 1)) if net > 0 else None,
             "complete": not missing and bool(lines), "missing": missing, "materials": lines}
+
+
+def _consume(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: Decimal, inv: Invoice, created_by: uuid.UUID | None) -> Decimal:
+    """FEFO bo'yicha `Consumption` yozadi; yozilgan miqdorni qaytaradi (omborda yetmasa qismini)."""
+    allocs = fefo_allocate(db, branch_id, item_id, qty, partial=True)
+    for a in allocs:
+        a.batch.qty_remaining -= a.qty
+        db.add(StockMovement(item_id=item_id, batch_id=a.batch.id, kind=StockMovementKind.consumption, qty=-a.qty, unit_cost=a.batch.unit_cost,
+                             reason=f"Hisob-faktura {inv.number}", ref_type="invoice", ref_id=inv.id, branch_id=branch_id, created_by=created_by))
+    return sum((a.qty for a in allocs), Decimal(0))
+
+
+def consume_for_invoice(db: Session, inv: Invoice, created_by: uuid.UUID | None) -> dict:
+    """Hisob-faktura to'liq to'langanda xizmatlarning sarf normasi (norma x qator miqdori) FEFO bo'yicha yoziladi. Bir marta (`stock_consumed_at`):
+    keyingi qaytarish yoki qayta to'lov qayta yozmaydi (material ishlatilgan). Ombor yetmasa to'lov to'xtamaydi: yetmagani `stock_shortages`ga."""
+    if inv.stock_consumed_at is not None:
+        return {"consumed": 0, "shortages": 0}
+    need: dict[uuid.UUID, Decimal] = {}
+    for line in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id)):
+        for norm in db.scalars(select(ServiceMaterial).where(ServiceMaterial.service_id == line.service_id)):
+            need[norm.item_id] = need.get(norm.item_id, Decimal(0)) + norm.qty * line.quantity
+    shortages = 0
+    for item_id, qty in sorted(need.items(), key=lambda kv: str(kv[0])):          # qulflash tartibi barqaror (deadlock'siz)
+        missing = qty - _consume(db, inv.branch_id, item_id, qty, inv, created_by)
+        if missing > 0:
+            db.add(StockShortage(invoice_id=inv.id, item_id=item_id, qty_missing=missing, branch_id=inv.branch_id, created_by=created_by))
+            shortages += 1
+    inv.stock_consumed_at = datetime.now(UTC)
+    return {"consumed": len(need) - shortages, "shortages": shortages}
+
+
+def open_shortages(db: Session, branch_id: uuid.UUID) -> list[dict]:
+    rows = db.execute(select(StockShortage, StockItem, Invoice.number).join(StockItem, StockShortage.item_id == StockItem.id)
+                      .join(Invoice, StockShortage.invoice_id == Invoice.id)
+                      .where(StockShortage.branch_id == branch_id, StockShortage.resolved_at.is_(None)).order_by(StockShortage.created_at)).all()
+    return [{"id": str(sh.id), "invoice_id": str(sh.invoice_id), "invoice_number": number, "item_id": str(i.id), "item": i.name, "unit": i.unit,
+             "qty_missing": sh.qty_missing, "created_at": sh.created_at.isoformat()} for sh, i, number in rows]
+
+
+def resolve_shortage(db: Session, user, shortage_id: uuid.UUID) -> StockShortage:
+    """Kirimdan keyin yetmagan miqdorni FEFO bo'yicha yozadi (hammasi yoki 409, qisman emas)."""
+    sh = db.scalar(select(StockShortage).where(StockShortage.id == shortage_id).with_for_update())
+    if not sh or sh.branch_id != user.branch_id:
+        raise HTTPException(404, "Yetishmovchilik topilmadi")
+    if sh.resolved_at is not None:
+        raise HTTPException(409, "Yetishmovchilik allaqachon hal qilingan")
+    inv = db.get(Invoice, sh.invoice_id)
+    allocs = fefo_allocate(db, sh.branch_id, sh.item_id, sh.qty_missing)
+    for a in allocs:
+        a.batch.qty_remaining -= a.qty
+        db.add(StockMovement(item_id=sh.item_id, batch_id=a.batch.id, kind=StockMovementKind.consumption, qty=-a.qty, unit_cost=a.batch.unit_cost,
+                             reason=f"Hisob-faktura {inv.number} (kechiktirilgan)", ref_type="invoice", ref_id=inv.id, branch_id=sh.branch_id,
+                             created_by=user.id))
+    sh.resolved_at = datetime.now(UTC)
+    return sh

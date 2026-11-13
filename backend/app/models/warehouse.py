@@ -1,9 +1,9 @@
 # ruff: noqa: E501
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Numeric, String, Text, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -94,3 +94,15 @@ class ServiceMaterial(BaseModel):
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"), index=True)
     item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
     qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+
+class StockShortage(BranchScoped, BaseModel):
+    """To'lov paytida ombor yetmagan material (to'lov to'xtamaydi): kirimdan keyin `resolve` bilan FEFO bo'yicha yoziladi."""
+
+    __tablename__ = "stock_shortages"
+    __table_args__ = (CheckConstraint("qty_missing > 0", name="qty_missing_positive"),)
+
+    invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
+    qty_missing: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

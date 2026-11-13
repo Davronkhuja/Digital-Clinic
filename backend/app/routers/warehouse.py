@@ -21,6 +21,7 @@ from app.schemas import (
     ReceiptIn,
     ReceiptOut,
     ServiceCostOut,
+    ShortageOut,
     StockItemIn,
     StockItemOut,
     StockItemUpdate,
@@ -247,3 +248,18 @@ def get_cost(service_id: uuid.UUID, db: Session = Depends(get_db), user: Current
 def list_costs(db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
     services = db.scalars(select(Service).where(Service.is_active.is_(True), Service.id.in_(select(ServiceMaterial.service_id))).order_by(Service.name))
     return [wh.service_cost(db, user.branch_id, s) for s in services]
+
+
+@router.get("/warehouse/shortages", tags=[TAG], response_model=List[ShortageOut], summary="Yetmagan materiallar (hal qilinmagan)",
+            description="To'lov paytida ombor yetmagan sarflar: to'lov to'xtamagan, yetmagani shu yerda. Kirimdan keyin `resolve`.")
+def shortages(db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    return wh.open_shortages(db, user.branch_id)
+
+
+@router.post("/warehouse/shortages/{shortage_id}/resolve", tags=[TAG], response_model=List[ShortageOut], summary="Yetmaganni yozish",
+             description="Kirimdan keyin yetmagan miqdorni FEFO bo'yicha `Consumption` sifatida yozadi (to'liq yoki 409). Javob: qolgan ochiq yetishmovchiliklar.")
+def resolve_shortage(shortage_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:write"))):
+    sh = wh.resolve_shortage(db, user, shortage_id)
+    audit.record(db, user, request, "update", "stock_shortage", sh.id, {"invoice_id": str(sh.invoice_id), "qty": str(sh.qty_missing)})
+    db.commit()
+    return wh.open_shortages(db, user.branch_id)
