@@ -18,3 +18,4 @@ from app.schemas.services import *  # noqa: F401,F403
 from app.schemas.settings import *  # noqa: F401,F403
 from app.schemas.shifts import *  # noqa: F401,F403
 from app.schemas.staff import *  # noqa: F401,F403
+from app.schemas.warehouse import *  # noqa: F401,F403

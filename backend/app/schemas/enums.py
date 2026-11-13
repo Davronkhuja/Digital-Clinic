@@ -137,3 +137,8 @@ class MessageStatus(str, Enum):
     sent = "Sent"
     failed = "Failed"
     skipped = "Skipped"
+
+
+class StockKind(str, Enum):
+    medicine = "Medicine"
+    supply = "Supply"

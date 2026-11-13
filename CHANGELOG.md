@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.0] - 2026-11-13
+### Added
+- 5-bosqich boshlandi: ombor katalogi `stock_items` (dori `Medicine` / sarf `Supply`, birlik, SKU, minimal qoldiq `min_qty`, faol). Hamma filialga umumiy; qoldiq filial bo'yicha partiyalarda (keyingi versiyalar). O'chirilmaydi, faolsizlantiriladi; nom va SKU registrsiz noyob.
+- `GET/POST /warehouse/items`, `PUT /warehouse/items/{id}`; audit. Ruxsatlar `warehouse:read` (admin, shifokor, hamshira), `warehouse:write` (admin, hamshira). Migratsiya 0033.
+
 ## [1.8.14] - 2026-11-13
 ### Fixed
 - `worker` va `beat` konteynerlari doim `unhealthy` ko'rinardi: backend imajidagi HTTP healthcheck (:8000) ularga mos emas edi. Worker uchun `celery inspect ping`, beat uchun jarayon tekshiruvi qo'yildi.

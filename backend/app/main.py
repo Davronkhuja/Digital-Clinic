@@ -39,6 +39,7 @@ from app.routers import (
     shifts,
     staff,
     waitlist,
+    warehouse,
 )
 from app.routers import settings as settings_router
 
@@ -97,5 +98,5 @@ def root():
 
 for module in (access, auth, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
                reports, rooms, schedule, waitlist, icd10, lab, attachments, services, invoices, payments, payme, click,
-               commissions, shifts, messaging, public, public_booking, portal):
+               commissions, shifts, messaging, public, public_booking, portal, warehouse):
     app.include_router(module.router)
