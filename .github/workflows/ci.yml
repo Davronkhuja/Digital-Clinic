@@ -94,3 +94,54 @@ jobs:
           push: false
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+
+  e2e:
+    name: "E2E smoke (Playwright, alohida test bazasi)"
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Test muhiti (.env): alohida clinic_e2e bazasi, demo ma'lumot, mock SMS va fiskal"
+        run: |
+          cat > .env <<'ENV'
+          POSTGRES_USER=clinic
+          POSTGRES_PASSWORD=ci-e2e-password
+          POSTGRES_DB=clinic_e2e
+          SEED_DEMO=true
+          JWT_SECRET=ci-e2e-secret-ci-e2e-secret-ci-e2e-secret
+          LINK_SECRET=ci-e2e-link-secret-ci-e2e-link-secret
+          CORS_ORIGINS=http://localhost:5180
+          PUBLIC_BASE_URL=http://localhost:5180
+          SMS_BACKEND=mock
+          FISCAL_BACKEND=mock
+          AI_ENABLED=false
+          ENV
+      - name: Stekni ishga tushirish (db, redis, backend, frontend)
+        run: docker compose up -d --build --wait db redis backend frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Playwright testlari
+        run: npx playwright test
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:5180
+      - name: "Xato bo'lsa: konteyner jurnallari"
+        if: failure()
+        run: docker compose logs --no-color --tail 200 backend frontend > e2e/container-logs.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            e2e/container-logs.txt
+          retention-days: 7

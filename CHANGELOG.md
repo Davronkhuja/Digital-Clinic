@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.11] - 2026-11-13
+### Added
+- Playwright e2e smoke (`e2e/`): login, bemor qo'shish, qabul yozish, kassada naqd to'lov va fiskal chek (mock), portalga telefon + OTP bilan kirish (qabullar, hisoblar, tahlillar). OTP mock SMS jurnalidan o'qiladi.
+- CI: alohida `e2e` job (`docker compose` steki, alohida `clinic_e2e` bazasi, demo ma'lumot); xato bo'lsa hisobot va konteyner jurnallari artefakt sifatida saqlanadi.
+- Portal sahifasiga `data-testid` belgilari.
+
 ## [1.8.10] - 2026-11-13
 ### Added
 - Bemor portali sahifasi `/portal` (mobil ekranga moslangan, o'zbek/rus almashtirgich): telefon -> SMS OTP -> bemor (bir telefonda bir nechta bo'lsa tanlanadi) -> Qabullar (tasdiqlash, tasdiq bilan bekor qilish), Hisoblar (jami, to'langan, qarz), Tahlillar (faqat shifokor tasdiqlagan, PDF). Seans brauzer tabida (`sessionStorage`), 2 soat; xodim tokenidan alohida.

@@ -19,7 +19,9 @@ Xususiy klinikalar uchun boshqaruv tizimi (bemorlar, uchrashuvlar, EMR, moliya, 
 
 ## Ish qoidalari
 
-1. **Bitta band = bitta commit = bitta versiya (SemVer)**: xato tuzatish PATCH, yangi imkoniyat yoki ichki qayta qurish MINOR,
+1. **Bitta band = bitta commit = bitta versiya (SemVer). Bir nechta bandni bitta commitga birlashtirma** (mashina sekin yoki testlar uzoq bo'lsa ham:
+   har band alohida testlanadi, commit qilinadi, tag qo'yiladi). v1.7.10-v1.8.7 bitta commit bo'lib chiqqan va push qilingan: uni qayta yozma, faqat takrorlama.
+   Xato tuzatish PATCH, yangi imkoniyat yoki ichki qayta qurish MINOR,
    API'ni buzadigan o'zgarish MAJOR. Joriy bosqichlar uchun raqamlash: 1-bosqich v1.5.x, 2-bosqich v1.6.x, 3: v1.7.x, 4: v1.8.x, 5: v1.9.x, 6: v2.0.0
    (hujjatdagi v1.3-v2.0 raqamlariga qaralmaydi). Joriy versiya: `VERSION` faylida.
 2. Versiya uch joyda bir vaqtda: `VERSION`, `frontend/package.json`, `backend/app/__init__.py` (`__version__`):
@@ -50,6 +52,7 @@ docker compose up -d --build                           # hammasi
 docker compose --profile test run --rm --build test    # pytest (alohida <POSTGRES_DB>_test bazasi)
 ruff check backend                                     # backend lint
 cd frontend && npm run lint && npm run build           # frontend lint va build
+cd e2e && npm ci && npx playwright install chromium && npx playwright test   # e2e smoke (stek ishlab turishi kerak; CI: alohida `e2e` job, `clinic_e2e` bazasi)
 docker compose exec backend alembic revision --autogenerate -m "..." --rev-id NNNN   # migratsiya; faylni docker cp bilan chiqarib ol
 ```
 
@@ -103,6 +106,9 @@ permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `mo
   (`payment_id`/`refund_id`) avtomatik yoziladi. Qaytarish faqat `finance:refund` + ochiq smena; Payme -2 avtomatik qaytaradi; Click qaytarishi yozilmagan.
 - **Smena:** bir kassirda bitta ochiq smena; yopilganda Z-raqam va qotgan snapshot; onlayn to'lovlar smenaga bog'lanmaydi.
 - **Kalitlar** (`PAYME_*`, `CLICK_*`, `FISCAL_BACKEND`) faqat `.env`; bo'sh kalit: endpoint hamma so'rovni rad etadi; `*_TEST_MODE=true` standart (sandbox).
+- **Lab tasdiqi:** tasdiqlangan (`lab:approve`) natija tahrirlanmaydi (PUT 409, tasdiqni qaytarish yo'q); o'zgartirish faqat `POST /lab/orders/{id}/corrections`
+  (`lab_corrections`: sabab majburiy, kim, qachon, eski/yangi qiymat; o'chirilmaydi; audit). Bemor portali va bot faqat tasdiqlanganini ko'rsatadi.
+- **Bemor portali:** `/portal` (telefon + OTP, uz/ru, mobil); seans `sessionStorage`da, xodim tokenidan alohida axios. Mock SMS matni `app.sms.mock` jurnaliga yoziladi (e2e OTP shundan oladi).
 - **Fayllar:** EMR ilovalari `Storage` interfeysi orqali (`STORAGE_BACKEND=local`, docker volume `uploads`, `MAX_UPLOAD_MB`); tur baytlar bo'yicha aniqlanadi.
 - **Frontend:** demo/zaxira ma'lumot yo'q; xatoda toast + "Qayta urinish", bo'sh ro'yxatda `EmptyState`. Chat va Obuna sahifalari yashirilgan (`hidden`, kodi bor).
 
@@ -135,7 +141,7 @@ eslatmali/eslatmasiz) `backend/tests/test_e2e_stage4.py` bilan isbotlangan.
 - Env: `REDIS_URL`, `PUBLIC_BASE_URL`, `SMS_BACKEND=mock`, `TELEGRAM_BOT_TOKEN`, `LINK_SECRET`.
 - Biznes qarorlari (v1.7.9-v1.7.13): chegirma limiti (`finance:discount_override`), foiz asosi standart "chegirmadan keyin, QQS'siz" (Sozlamalar),
   foiz to'lov hujjati (Draft/Approved/Paid), inkassatsiya (`finance:cash_withdrawal`), Click qaytarishi naqd/karta bilan.
-- Ochiq: haqiqiy SMS provayder adapteri va Telegram token; bemor portali frontend sahifasi yo'q (faqat backend va bot); LabView'da "Tasdiqlash" tugmasi yo'q.
+- Ochiq: haqiqiy SMS provayder adapteri va Telegram token. (Portal sahifasi v1.8.10, LabView tasdiqlash v1.8.9, Playwright e2e v1.8.11 da qilindi.)
 
 ### 5-bosqich: Ombor va filiallar (v1.9.x)
 - Dori va sarf materiallar: kirim, qoldiq, minimal qoldiq ogohlantirishi, xizmatga bog'langan sarf, tannarx.
