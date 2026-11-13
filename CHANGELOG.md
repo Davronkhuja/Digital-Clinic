@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.13] - 2026-11-13
+### Added
+- Frontend: Dashboard'da "Hamma filial birga" tanlovi (`branches:all`): ko'rsatkichlar va haftalik kelmay qolish ulushi hamma filial bo'yicha (`all_branches=true`), aks holda faol filial.
+- Dashboard'da ombor ogohlantirish kartasi (`warehouse:read`): minimaldan kam, 30 kunda muddati tugaydi, muddati o'tgan, yetmagan sarf; kartadan Omborga o'tiladi.
+- E2E: ogohlantirish kartasi va hamma filial hisobi so'rovi.
+
 ## [1.9.12] - 2026-11-13
 ### Added
 - Frontend: Sozlamalar > Narxnoma: har xizmat uchun "Sarf normasi" (material va miqdor ro'yxati), tannarx va foyda foizi ustunlari (ombor narxidan avtomatik: o'rtacha tortilgan narx, qoldiq bo'lmasa oxirgi kirim; narxi noma'lum bo'lsa "?" belgisi). Norma modalida material bo'yicha hisob (miqdor x narx, manba), QQS'siz narx va foyda.

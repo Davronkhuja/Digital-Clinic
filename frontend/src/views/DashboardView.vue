@@ -5,9 +5,14 @@
         <h2 :class="['text-2xl font-heading font-bold', dark ? 'text-white' : 'text-slate-900']">{{ lang.t('page.dashboard') }}</h2>
         <p :class="['text-sm mt-1', dark ? 'text-slate-400' : 'text-slate-500']">{{ lang.t('dashboard.welcome') }}, {{ auth.user?.name || '' }}</p>
       </div>
-      <select v-if="canView" v-model="period" class="input w-auto text-sm">
-        <option v-for="p in periods" :key="p.value" :value="p.value">{{ p.label }}</option>
-      </select>
+      <div v-if="canView" class="flex items-center gap-3 flex-wrap">
+        <label v-if="auth.can('branches:all')" class="flex items-center gap-2 text-sm" :class="dark ? 'text-slate-300' : 'text-slate-600'">
+          <input v-model="allBranches" type="checkbox" data-testid="dash-all-branches" /> Hamma filial birga
+        </label>
+        <select v-model="period" class="input w-auto text-sm">
+          <option v-for="p in periods" :key="p.value" :value="p.value">{{ p.label }}</option>
+        </select>
+      </div>
     </div>
 
     <div v-if="!canView" :class="['rounded-2xl border p-6 text-sm', dark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-600']">
@@ -72,14 +77,23 @@
         </div>
       </div>
     </template>
-    <NoShowCard v-if="canView" />
+    <router-link v-if="canView && stockAlerts.length" to="/warehouse" class="card p-4 flex items-center gap-4 flex-wrap border-l-4 border-amber-400" data-testid="dash-stock-alert">
+      <PackageOpen class="w-5 h-5 text-amber-500" />
+      <div class="flex-1 min-w-48">
+        <p :class="['font-heading font-semibold', dark ? 'text-white' : 'text-slate-900']">Ombor ogohlantirishlari</p>
+        <p class="text-xs text-slate-500">{{ stockAlerts.join(' · ') }}</p>
+      </div>
+      <span class="text-sm text-cyan-600">Omborga o'tish →</span>
+    </router-link>
+
+    <NoShowCard v-if="canView" :all-branches="allBranches" />
 </div>
 </template>
 
 <script setup>
 import NoShowCard from '@/components/NoShowCard.vue'
 import { ref, computed, watch, onMounted } from 'vue'
-import { DollarSign, Users, UserPlus, Calendar, CalendarCheck, Stethoscope } from 'lucide-vue-next'
+import { DollarSign, Users, UserPlus, Calendar, CalendarCheck, Stethoscope, PackageOpen } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore } from '@/stores/theme'
@@ -102,6 +116,8 @@ const periods = [
 const MONTHS = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek']
 
 const period = ref('month')
+const allBranches = ref(false)           // administrator: hamma filial birga
+const stockAlerts = ref([])
 const data = ref(null)
 const loading = ref(false)
 const error = ref(false)
@@ -134,7 +150,7 @@ async function load() {
   loading.value = true
   error.value = false
   try {
-    const { data: res } = await api.get('/analytics/dashboard', { params: { period: period.value } })
+    const { data: res } = await api.get('/analytics/dashboard', { params: { period: period.value, ...(allBranches.value ? { all_branches: true } : {}) } })
     data.value = res
   } catch (e) {
     error.value = true
@@ -144,6 +160,19 @@ async function load() {
   }
 }
 
-watch(period, load)
-onMounted(load)
+watch([period, allBranches], load)
+
+async function loadStockAlerts() {
+  if (!auth.can('warehouse:read')) return
+  try {
+    const a = (await api.get('/warehouse/alerts')).data
+    stockAlerts.value = [
+      a.low_stock.length && `minimaldan kam: ${a.low_stock.length}`,
+      a.expiring.length && `${a.expiry_days} kunda muddati tugaydi: ${a.expiring.length}`,
+      a.expired.length && `muddati o'tgan: ${a.expired.length}`,
+      a.shortages.length && `yetmagan sarf: ${a.shortages.length}`,
+    ].filter(Boolean)
+  } catch { stockAlerts.value = [] }
+}
+onMounted(() => { load(); loadStockAlerts() })
 </script>

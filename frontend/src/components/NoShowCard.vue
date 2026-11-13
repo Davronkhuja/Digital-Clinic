@@ -28,11 +28,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import { useThemeStore } from '@/stores/theme'
 
+const props = defineProps({ allBranches: { type: Boolean, default: false } })
 const toast = useToast(), theme = useThemeStore()
 const dark = computed(() => theme.isDark)
 const data = ref(null), error = ref(false)
@@ -41,7 +42,8 @@ const rateClass = r => (r == null ? 'text-slate-400' : r >= 20 ? 'text-red-500' 
 
 async function load() {
   error.value = false
-  try { data.value = (await api.get('/analytics/no-show', { params: { weeks: 8 } })).data } catch (e) { error.value = true; toast.error(e, "Kelmay qolish ulushini yuklab bo'lmadi") }
+  try { data.value = (await api.get('/analytics/no-show', { params: { weeks: 8, ...(props.allBranches ? { all_branches: true } : {}) } })).data } catch (e) { error.value = true; toast.error(e, "Kelmay qolish ulushini yuklab bo'lmadi") }
 }
 onMounted(load)
+watch(() => props.allBranches, load)
 </script>

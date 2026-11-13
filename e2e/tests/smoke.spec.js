@@ -201,7 +201,31 @@ test.describe('tannarx', () => {
   })
 })
 
-test('8. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('dashboard', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('8. dashboard: ombor ogohlantirishi va "hamma filial birga" hisobi', async ({ page, request }) => {
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const item = await (await request.post('/api/warehouse/items', { headers, data: { name: `E2E Dash ${Date.now()}`, unit: 'dona', min_qty: 5 } })).json()
+    expect(item.id).toBeTruthy()                                      // qoldiq 0 < minimal 5: ogohlantirish chiqadi
+    await page.goto('/')
+    const alert = page.getByTestId('dash-stock-alert')
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText('minimaldan kam')
+    await alert.click()
+    await expect(page).toHaveURL(/\/warehouse/)
+
+    await page.goto('/')
+    const toggle = page.getByTestId('dash-all-branches')
+    await expect(toggle).toBeVisible()
+    const responded = page.waitForResponse(r => r.url().includes('/analytics/dashboard') && r.url().includes('all_branches=true'))
+    await toggle.check()
+    expect((await responded).status()).toBe(200)
+  })
+})
+
+test('9. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
