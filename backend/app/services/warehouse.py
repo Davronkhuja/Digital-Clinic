@@ -8,8 +8,22 @@ from fastapi import HTTPException
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Invoice, InvoiceLine, Service, ServiceMaterial, StockBatch, StockItem, StockMovement, StockReceipt, StockShortage
-from app.schemas.enums import StockMovementKind
+from app.models import (
+    Branch,
+    Invoice,
+    InvoiceLine,
+    Service,
+    ServiceMaterial,
+    StockBatch,
+    StockItem,
+    StockMovement,
+    StockReceipt,
+    StockShortage,
+    StockTransfer,
+    StockTransferLine,
+)
+from app.models.warehouse import stock_transfer_number_seq
+from app.schemas.enums import StockMovementKind, TransferStatus
 from app.services.money import q2
 from app.services.periods import clinic_today
 
@@ -272,3 +286,89 @@ def resolve_shortage(db: Session, user, shortage_id: uuid.UUID) -> StockShortage
                              created_by=user.id))
     sh.resolved_at = datetime.now(UTC)
     return sh
+
+
+# ---------- Filiallar orasida ko'chirish ----------
+
+def send_transfer(db: Session, user, *, to_branch_id: uuid.UUID, notes: str | None, lines: list) -> StockTransfer:
+    """Hujjatni yuboradi: manba (faol) filial qoldig'i FEFO bo'yicha darhol kamayadi (`TransferOut`); yo'lda turadi."""
+    if to_branch_id == user.branch_id:
+        raise HTTPException(422, "Bir filialning o'ziga ko'chirib bo'lmaydi")
+    target = db.get(Branch, to_branch_id)
+    if not target or not target.is_active:
+        raise HTTPException(422, "Qabul qiluvchi filial topilmadi yoki faol emas")
+    need: dict[uuid.UUID, Decimal] = {}
+    for ln in lines:
+        need[ln.item_id] = need.get(ln.item_id, Decimal(0)) + ln.qty
+    transfer = StockTransfer(number=f"TR-{db.scalar(select(stock_transfer_number_seq.next_value())):06d}", from_branch_id=user.branch_id,
+                             to_branch_id=target.id, status=TransferStatus.sent, notes=(notes or "").strip() or None,
+                             sent_at=datetime.now(UTC), created_by=user.id)
+    db.add(transfer)
+    db.flush()
+    for item_id, qty in sorted(need.items(), key=lambda kv: str(kv[0])):            # qulflash tartibi barqaror
+        item = db.get(StockItem, item_id)
+        if not item or not item.is_active:
+            raise HTTPException(422, "Material topilmadi yoki faol emas")
+        for a in fefo_allocate(db, user.branch_id, item_id, qty):
+            a.batch.qty_remaining -= a.qty
+            db.add(StockMovement(item_id=item_id, batch_id=a.batch.id, kind=StockMovementKind.transfer_out, qty=-a.qty, unit_cost=a.batch.unit_cost,
+                                 reason=f"{transfer.number} -> {target.name}", ref_type="transfer", ref_id=transfer.id, branch_id=user.branch_id,
+                                 created_by=user.id))
+            db.add(StockTransferLine(transfer_id=transfer.id, item_id=item_id, source_batch_id=a.batch.id, batch_no=a.batch.batch_no,
+                                     expires_on=a.batch.expires_on, unit_cost=a.batch.unit_cost, qty=a.qty, created_by=user.id))
+    return transfer
+
+
+def _locked_transfer(db: Session, user, transfer_id: uuid.UUID) -> StockTransfer:
+    t = db.scalar(select(StockTransfer).where(StockTransfer.id == transfer_id).with_for_update())
+    if not t or user.branch_id not in (t.from_branch_id, t.to_branch_id):
+        raise HTTPException(404, "Ko'chirish hujjati topilmadi")
+    if t.status != TransferStatus.sent:
+        raise HTTPException(409, f"Hujjat holati {t.status.value}: o'zgartirib bo'lmaydi")
+    return t
+
+
+def receive_transfer(db: Session, user, transfer_id: uuid.UUID) -> StockTransfer:
+    """Qabul qiluvchi filial qabul qiladi: shu filialda xuddi shu partiya raqami, muddati va narxi bilan partiya ochiladi (`TransferIn`)."""
+    t = _locked_transfer(db, user, transfer_id)
+    if user.branch_id != t.to_branch_id:
+        raise HTTPException(403, "Faqat qabul qiluvchi filial qabul qila oladi")
+    today = clinic_today()
+    for line in db.scalars(select(StockTransferLine).where(StockTransferLine.transfer_id == t.id).order_by(StockTransferLine.created_at, StockTransferLine.id)):
+        batch = StockBatch(item_id=line.item_id, receipt_id=None, batch_no=line.batch_no, expires_on=line.expires_on, received_on=today,
+                           unit_cost=line.unit_cost, qty_received=line.qty, qty_remaining=line.qty, branch_id=t.to_branch_id, created_by=user.id)
+        db.add(batch)
+        db.flush()
+        line.dest_batch_id = batch.id
+        db.add(StockMovement(item_id=line.item_id, batch_id=batch.id, kind=StockMovementKind.transfer_in, qty=line.qty, unit_cost=line.unit_cost,
+                             reason=t.number, ref_type="transfer", ref_id=t.id, branch_id=t.to_branch_id, created_by=user.id))
+    t.status, t.received_at, t.received_by = TransferStatus.received, datetime.now(UTC), user.id
+    return t
+
+
+def cancel_transfer(db: Session, user, transfer_id: uuid.UUID, reason: str) -> StockTransfer:
+    """Qabul qilinmagan hujjatni yuboruvchi filial bekor qiladi: qoldiq o'z partiyalariga qaytadi."""
+    t = _locked_transfer(db, user, transfer_id)
+    if user.branch_id != t.from_branch_id:
+        raise HTTPException(403, "Faqat yuboruvchi filial bekor qila oladi")
+    for line in db.scalars(select(StockTransferLine).where(StockTransferLine.transfer_id == t.id)):
+        batch = db.scalar(select(StockBatch).where(StockBatch.id == line.source_batch_id).with_for_update())
+        batch.qty_remaining += line.qty
+        db.add(StockMovement(item_id=line.item_id, batch_id=batch.id, kind=StockMovementKind.transfer_in, qty=line.qty, unit_cost=batch.unit_cost,
+                             reason=f"{t.number} bekor qilindi", ref_type="transfer", ref_id=t.id, branch_id=t.from_branch_id, created_by=user.id))
+    t.status, t.cancelled_at, t.cancel_reason = TransferStatus.cancelled, datetime.now(UTC), reason[:300]
+    return t
+
+
+def transfer_out(db: Session, t: StockTransfer) -> dict:
+    names = {b.id: b.name for b in db.scalars(select(Branch).where(Branch.id.in_([t.from_branch_id, t.to_branch_id])))}
+    rows = db.execute(select(StockTransferLine, StockItem).join(StockItem, StockTransferLine.item_id == StockItem.id)
+                      .where(StockTransferLine.transfer_id == t.id).order_by(StockItem.name, StockTransferLine.expires_on.asc().nulls_last(),
+                                                                              StockTransferLine.batch_no)).all()
+    lines = [{"item_id": str(i.id), "item": i.name, "unit": i.unit, "batch_no": ln.batch_no, "expires_on": ln.expires_on, "qty": ln.qty,
+              "unit_cost": ln.unit_cost, "amount": q2(ln.qty * ln.unit_cost)} for ln, i in rows]
+    iso = lambda d: d.isoformat() if d else None          # noqa: E731
+    return {"id": str(t.id), "number": t.number, "status": t.status, "from_branch_id": str(t.from_branch_id), "from_branch": names[t.from_branch_id],
+            "to_branch_id": str(t.to_branch_id), "to_branch": names[t.to_branch_id], "notes": t.notes, "sent_at": iso(t.sent_at),
+            "received_at": iso(t.received_at), "cancelled_at": iso(t.cancelled_at), "cancel_reason": t.cancel_reason,
+            "total": sum((ln["amount"] for ln in lines), q2(0)), "lines": lines}

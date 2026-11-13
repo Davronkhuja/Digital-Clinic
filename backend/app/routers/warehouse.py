@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Service, ServiceMaterial, Staff, StockBatch, StockItem, StockMovement, StockReceipt, User
+from app.models import Service, ServiceMaterial, Staff, StockBatch, StockItem, StockMovement, StockReceipt, StockTransfer, User
 from app.schemas import (
     AlertsOut,
     BatchOut,
@@ -26,6 +26,9 @@ from app.schemas import (
     StockItemOut,
     StockItemUpdate,
     StockRowOut,
+    TransferCancelIn,
+    TransferIn,
+    TransferOut,
     WriteoffIn,
 )
 from app.schemas.enums import StockKind, StockMovementKind
@@ -263,3 +266,52 @@ def resolve_shortage(shortage_id: uuid.UUID, request: Request, db: Session = Dep
     audit.record(db, user, request, "update", "stock_shortage", sh.id, {"invoice_id": str(sh.invoice_id), "qty": str(sh.qty_missing)})
     db.commit()
     return wh.open_shortages(db, user.branch_id)
+
+
+@router.post("/warehouse/transfers", tags=[TAG], response_model=TransferOut, status_code=201, summary="Filialga ko'chirish hujjati (yuborish)",
+             description="Faol filialdan boshqa filialga: manba qoldig'i FEFO bo'yicha darhol kamayadi, hujjat `Sent` (yo'lda). Qabul qiluvchi filial "
+                         "`receive` qilgach o'sha partiya raqami, muddati va narxi bilan o'z omboriga tushadi. Yetmasa 409. `warehouse:transfer`.")
+def create_transfer(data: TransferIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:transfer"))):
+    t = wh.send_transfer(db, user, to_branch_id=data.to_branch_id, notes=data.notes, lines=data.lines)
+    audit.record(db, user, request, "create", "stock_transfer", t.id, {"number": t.number, "to_branch_id": str(t.to_branch_id), "lines": len(data.lines)})
+    db.commit()
+    return wh.transfer_out(db, t)
+
+
+@router.get("/warehouse/transfers", tags=[TAG], response_model=List[TransferOut], summary="Ko'chirish hujjatlari (shu filial)",
+            description="`direction`: out (yuborilgan), in (kelayotgan/qabul qilingan), bo'sh: ikkalasi. Yangilari tepada.")
+def list_transfers(direction: Optional[str] = Query(None, pattern="^(in|out)$"), status: Optional[str] = Query(None, pattern="^(Sent|Received|Cancelled)$"),
+                   limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    mine = {"out": StockTransfer.from_branch_id == user.branch_id, "in": StockTransfer.to_branch_id == user.branch_id}
+    cond = mine[direction] if direction else (mine["out"] | mine["in"])
+    stmt = select(StockTransfer).where(cond).order_by(StockTransfer.sent_at.desc(), StockTransfer.number.desc()).limit(limit)
+    if status:
+        stmt = stmt.where(StockTransfer.status == status)
+    return [wh.transfer_out(db, t) for t in db.scalars(stmt)]
+
+
+@router.get("/warehouse/transfers/{transfer_id}", tags=[TAG], response_model=TransferOut, summary="Bitta ko'chirish hujjati")
+def get_transfer(transfer_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    t = db.get(StockTransfer, transfer_id)
+    if not t or user.branch_id not in (t.from_branch_id, t.to_branch_id):
+        raise HTTPException(404, "Ko'chirish hujjati topilmadi")
+    return wh.transfer_out(db, t)
+
+
+@router.post("/warehouse/transfers/{transfer_id}/receive", tags=[TAG], response_model=TransferOut, summary="Qabul qilish (qabul qiluvchi filial)",
+             description="Qabul qiluvchi filialda partiyalar ochiladi (`TransferIn`). Faqat `Sent` hujjat; faqat qabul qiluvchi filial (403).")
+def receive_transfer(transfer_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:transfer"))):
+    t = wh.receive_transfer(db, user, transfer_id)
+    audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "status": "Received"})
+    db.commit()
+    return wh.transfer_out(db, t)
+
+
+@router.post("/warehouse/transfers/{transfer_id}/cancel", tags=[TAG], response_model=TransferOut, summary="Bekor qilish (yuboruvchi filial)",
+             description="Qabul qilinmagan hujjat: qoldiq manba partiyalariga qaytadi. Sabab majburiy; faqat yuboruvchi filial (403).")
+def cancel_transfer(transfer_id: uuid.UUID, data: TransferCancelIn, request: Request, db: Session = Depends(get_db),
+                    user: CurrentUser = Depends(require("warehouse:transfer"))):
+    t = wh.cancel_transfer(db, user, transfer_id, data.reason)
+    audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "status": "Cancelled", "reason": data.reason})
+    db.commit()
+    return wh.transfer_out(db, t)

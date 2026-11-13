@@ -152,3 +152,9 @@ class StockMovementKind(str, Enum):
     transfer_in = "TransferIn"
     adjust = "Adjust"
     consumption = "Consumption"
+
+
+class TransferStatus(str, Enum):
+    sent = "Sent"
+    received = "Received"
+    cancelled = "Cancelled"

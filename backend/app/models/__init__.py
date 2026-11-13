@@ -19,7 +19,16 @@ from app.models.settings import ClinicSettings
 from app.models.staff import Staff, User
 from app.models.transaction import Transaction
 from app.models.waitlist import WaitlistEntry
-from app.models.warehouse import ServiceMaterial, StockBatch, StockItem, StockMovement, StockReceipt, StockShortage
+from app.models.warehouse import (
+    ServiceMaterial,
+    StockBatch,
+    StockItem,
+    StockMovement,
+    StockReceipt,
+    StockShortage,
+    StockTransfer,
+    StockTransferLine,
+)
 
 __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
@@ -28,7 +37,8 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "ServiceMaterial", "StockBatch", "StockItem", "StockMovement", "StockReceipt", "StockShortage",
+    "LabCorrection", "ServiceMaterial", "StockBatch", "StockItem", "StockMovement", "StockReceipt",
+    "StockShortage", "StockTransfer", "StockTransferLine",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
 ]

@@ -3,12 +3,12 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, Text, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, Sequence, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import BaseModel, BranchScoped, enum_col
-from app.schemas.enums import StockKind, StockMovementKind
+from app.schemas.enums import StockKind, StockMovementKind, TransferStatus
 
 
 class StockItem(BaseModel):
@@ -106,3 +106,42 @@ class StockShortage(BranchScoped, BaseModel):
     item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
     qty_missing: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+stock_transfer_number_seq = Sequence("stock_transfer_number_seq")
+
+
+class StockTransfer(BaseModel):
+    """Filiallar orasida ko'chirish hujjati. Yuborilganda manba filial qoldig'i FEFO bo'yicha kamayadi (`TransferOut`), qabul qilinganda
+    qabul qiluvchi filialda xuddi shu partiya raqami, muddati va narxi bilan yangi partiya paydo bo'ladi (`TransferIn`).
+    Qabul qilinmaguncha manba filial bekor qilishi mumkin (qoldiq qaytadi). O'chirilmaydi."""
+
+    __tablename__ = "stock_transfers"
+    __table_args__ = (CheckConstraint("from_branch_id <> to_branch_id", name="different_branches"),)
+
+    number: Mapped[str] = mapped_column(String(20), unique=True)
+    from_branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="RESTRICT"), index=True)
+    to_branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="RESTRICT"), index=True)
+    status: Mapped[TransferStatus] = mapped_column(enum_col(TransferStatus, "status", 10), default=TransferStatus.sent)
+    notes: Mapped[str | None] = mapped_column(Text)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    received_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str | None] = mapped_column(String(300))
+
+
+class StockTransferLine(BaseModel):
+    """Ko'chirish qatori: manba partiyadan olingan miqdor (partiya raqami, muddat, narx nusxalangan)."""
+
+    __tablename__ = "stock_transfer_lines"
+    __table_args__ = (CheckConstraint("qty > 0", name="qty_positive"),)
+
+    transfer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_transfers.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
+    source_batch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_batches.id", ondelete="RESTRICT"))
+    dest_batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_batches.id", ondelete="RESTRICT"))
+    batch_no: Mapped[str] = mapped_column(String(60))
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))

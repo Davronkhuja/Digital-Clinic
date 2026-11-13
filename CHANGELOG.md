@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.9] - 2026-11-13
+### Added
+- Filiallar orasida ko'chirish hujjati: `POST /warehouse/transfers` (qabul qiluvchi filial, qatorlar: material, miqdor; bir material takrorlansa yig'iladi) manba (faol) filial qoldig'ini FEFO bo'yicha darhol kamaytiradi (`TransferOut`), hujjat `Sent` (yo'lda, raqami TR-000001). Yetmasa 409, hech narsa o'zgarmaydi; o'ziga, faolsiz yoki yo'q filialga 422.
+- `POST /warehouse/transfers/{id}/receive` (faqat qabul qiluvchi filial): qabul qiluvchida xuddi shu partiya raqami, yaroqlilik muddati va kirim narxi bilan partiyalar ochiladi (`TransferIn`). `POST /warehouse/transfers/{id}/cancel` (faqat yuboruvchi, sabab majburiy): qabul qilinmaguncha qoldiq o'z partiyalariga qaytadi. `GET /warehouse/transfers[/{id}]` (`direction=in|out`, `status`); aloqasiz filialga 404. Audit.
+- `warehouse:transfer` ruxsati (administrator, hamshira). Jadvallar `stock_transfers`, `stock_transfer_lines`. Migratsiya 0038.
+
 ## [1.9.8] - 2026-11-13
 ### Changed
 - Dashboard (`/analytics/dashboard`), tahliliy hisobotlar (`/analytics/reports`), kelmay qolish ulushi (`/analytics/no-show`), AI tavsiyalari va CSV hisobotlari (moliyaviy, xodimlar, uchrashuvlar) faol filial bo'yicha. Bemor soni, yangi bemorlar va demografiya bemor ro'yxatdan o'tgan filial bo'yicha; "Bemorlar statistikasi" CSV umumiy bazadan.

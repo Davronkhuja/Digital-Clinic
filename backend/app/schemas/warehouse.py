@@ -6,7 +6,7 @@ from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import Money
-from app.schemas.enums import StockKind, StockMovementKind
+from app.schemas.enums import StockKind, StockMovementKind, TransferStatus
 
 Qty = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)]
 
@@ -251,3 +251,54 @@ class ServiceCostOut(BaseModel):
     complete: bool = Field(..., description="Norma bor va hamma materialning narxi ma'lum")
     missing: List[str] = Field(..., description="Narxi noma'lum materiallar (hali kirim yo'q)")
     materials: List[CostLineOut]
+
+
+class TransferLineIn(BaseModel):
+    item_id: uuid.UUID
+    qty: QtyPositive
+
+
+class TransferIn(BaseModel):
+    to_branch_id: uuid.UUID
+    notes: Optional[str] = Field(None, max_length=500)
+    lines: List[TransferLineIn] = Field(..., min_length=1, max_length=100)
+
+
+class TransferCancelIn(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=300)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Sabab kamida 3 belgi")
+        return v
+
+
+class TransferLineOut(BaseModel):
+    item_id: str
+    item: str
+    unit: str
+    batch_no: str
+    expires_on: Optional[date] = None
+    qty: Money
+    unit_cost: Money
+    amount: Money
+
+
+class TransferOut(BaseModel):
+    id: str
+    number: str
+    status: TransferStatus
+    from_branch_id: str
+    from_branch: str
+    to_branch_id: str
+    to_branch: str
+    notes: Optional[str] = None
+    sent_at: str
+    received_at: Optional[str] = None
+    cancelled_at: Optional[str] = None
+    cancel_reason: Optional[str] = None
+    total: Money
+    lines: List[TransferLineOut]

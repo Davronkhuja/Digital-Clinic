@@ -33,6 +33,7 @@ PERMISSIONS: dict[str, str] = {
     "branches:all": "Boshqa filialga o'tib ishlash (faol filialni almashtirish)",
     "warehouse:read": "Ombor: katalog, qoldiq va ogohlantirishlarni ko'rish",
     "warehouse:write": "Ombor: katalog, kirim, chiqim va hisobdan chiqarish",
+    "warehouse:transfer": "Ombor: filiallar orasida ko'chirish hujjatini yuborish, qabul qilish va bekor qilish",
     "staff:read": "Xodimlarni ko'rish",
     "staff:write": "Xodimlarni boshqarish",
     "settings:read": "Klinika sozlamalarini ko'rish",
@@ -55,7 +56,8 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     ]),
     "nurse": ("Hamshira", [
         "patients:read", "patients:write", "appointments:read", "appointments:write",
-        "emr:read", "lab:read", "lab:write", "staff:read", "settings:read", "ai:use", "warehouse:read", "warehouse:write",
+        "emr:read", "lab:read", "lab:write", "staff:read", "settings:read", "ai:use",
+        "warehouse:read", "warehouse:write", "warehouse:transfer",
     ]),
     "receptionist": ("Qabulxona", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
