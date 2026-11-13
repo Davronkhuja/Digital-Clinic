@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.8] - 2026-11-13
+### Added
+- 4-bosqich "Shart"i: `GET /analytics/no-show?weeks=8` (`analytics:read`): haftalik (dushanbadan) kelmay qolish ulushi = no_show / (yakunlangan + kelmagan), eslatma yuborilgan (kamida bitta `reminder_*` xabari `Sent`) va yuborilmagan qabullar kesimida; hammasi bazadan.
+- Dashboard: "Kelmay qolish ulushi (haftalik)" kartasi (joriy hafta va 8 haftalik jadval, eslatmali/eslatmasiz ulush).
+- `tests/test_e2e_stage4.py`: ulushni eslatma kesimida hisoblash; zanjir: onlayn yozilish (OTP) -> eslatma -> havola bilan tasdiqlash/bekor -> kutuvchiga taklif -> xabarlar logi.
+
 ## [1.8.7] - 2026-11-13
 Eslatma: v1.7.10–v1.8.7 bitta commit sifatida chiqdi (mashina yuklangani uchun testlar bir martada yurgizildi, 363 test o'tdi).
 ### Added (v1.7.10) Foiz asosi sozlamasi

@@ -72,10 +72,12 @@
         </div>
       </div>
     </template>
-  </div>
+    <NoShowCard v-if="canView" />
+</div>
 </template>
 
 <script setup>
+import NoShowCard from '@/components/NoShowCard.vue'
 import { ref, computed, watch, onMounted } from 'vue'
 import { DollarSign, Users, UserPlus, Calendar, CalendarCheck, Stethoscope } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'

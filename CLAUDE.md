@@ -124,13 +124,18 @@ Click Prepare/Complete), fiskal chek adapteri (mock), qaytarish, shifokor foizi 
 (X/Z-hisobot). **Shart** (har bir to'lov chek bilan yopiladi, mock'da chek ID) `backend/tests/test_e2e_stage3.py` bilan isbotlangan.
 Frontend: Kassa (`/cashier`) va Shifokor foizi (`/commissions`) sahifalari, Sozlamalar > Narxnoma.
 
-### 4-bosqich: Bemor bilan aloqa (v1.8.x)
-- Celery + Redis. Eslatmalar qabuldan 24 soat va 2 soat oldin, SMS va Telegram orqali; tasdiqlash va bekor qilish havolasi.
-  SMS shlyuzi adapter orqali (avval mock).
-- Telegram bot: yozilish, eslatma, natijani olish.
-- Onlayn yozilish sahifasi va bemor portali (o'zbek, rus).
-- Bemor manbasi (reklama, tavsiya, Instagram), qayta tashrif eslatmasi.
-- **Shart:** kelmay qolish ulushi har hafta hisoblanib, Dashboard'da ko'rinadi.
+### 4-bosqich: Bemor bilan aloqa (v1.8.x): TUGADI (v1.8.8)
+Celery + Redis (worker, beat: backend imajidan), SMS (mock) va Telegram adapterlari, kanal bo'yicha rozilik, eslatmalar 24 va 2 soat oldin
+(tungi 21:00-08:00 ertalabga suriladi, 3 marta qayta urinish), imzolangan muddatli tasdiqlash/bekor havolalari (bekor bo'lsa vaqt kutuvchiga taklif),
+xabarlar logi, onlayn yozilish (OTP, tezlik cheklovi, honeypot), bemor portali (`/portal/*`, faqat shifokor tasdiqlagan lab natijasi, EMR matni yo'q),
+Telegram bot (`app/bot.py`, profil `bot`), bemor manbasi va qayta tashrif eslatmasi. **Shart** (haftalik kelmay qolish ulushi Dashboard'da,
+eslatmali/eslatmasiz) `backend/tests/test_e2e_stage4.py` bilan isbotlangan.
+- Qarorlar: tranzaksion OTP rozilik va tungi vaqtdan mustasno; rozilik navbatga qo'yishda ham, yuborishda ham tekshiriladi; havola/OTP HMAC (`LINK_SECRET`);
+  ochiq oqimlar `SystemActor` (ruxsatsiz, `created_by` null); tibbiy ma'lumot Telegram'da faqat telefon tasdiqlangach.
+- Env: `REDIS_URL`, `PUBLIC_BASE_URL`, `SMS_BACKEND=mock`, `TELEGRAM_BOT_TOKEN`, `LINK_SECRET`.
+- Biznes qarorlari (v1.7.9-v1.7.13): chegirma limiti (`finance:discount_override`), foiz asosi standart "chegirmadan keyin, QQS'siz" (Sozlamalar),
+  foiz to'lov hujjati (Draft/Approved/Paid), inkassatsiya (`finance:cash_withdrawal`), Click qaytarishi naqd/karta bilan.
+- Ochiq: haqiqiy SMS provayder adapteri va Telegram token; bemor portali frontend sahifasi yo'q (faqat backend va bot); LabView'da "Tasdiqlash" tugmasi yo'q.
 
 ### 5-bosqich: Ombor va filiallar (v1.9.x)
 - Dori va sarf materiallar: kirim, qoldiq, minimal qoldiq ogohlantirishi, xizmatga bog'langan sarf, tannarx.

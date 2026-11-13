@@ -222,3 +222,43 @@ def insights(db: Session, today: date | None = None) -> list[dict]:
         out.append({"type": "info", "title": "Eng band kun",
                     "message": f"Oxirgi 90 kunda eng ko'p qabul haftaning {WEEKDAYS[int(dow[0]) - 1]} kuniga to'g'ri keldi ({dow[1]} ta)."})
     return out
+
+
+def no_show_weekly(db: Session, weeks: int = 8, today: date | None = None) -> dict:
+    """Haftalik kelmay qolish ulushi: no_show / (completed + no_show), eslatma yuborilgan va yuborilmagan qabullar kesimida.
+    Hafta dushanbadan (klinika sanasi). Eslatma yuborilgan: shu qabuldan kamida bitta eslatma xabari `Sent`."""
+    from sqlalchemy import exists
+
+    from app.models import Message
+    from app.schemas.enums import MessageStatus
+
+    today = today or clinic_today()
+    this_monday = today - timedelta(days=today.weekday())
+    first = this_monday - timedelta(weeks=weeks - 1)
+    reminded = exists().where(
+        Message.appointment_id == Appointment.id, Message.kind.like("reminder%"), Message.status == MessageStatus.sent)
+    rows = db.execute(
+        select(Appointment.date, Appointment.status, reminded.label("reminded"))
+        .where(Appointment.date >= first, Appointment.date < this_monday + timedelta(days=7),
+               Appointment.status.in_([AppointmentStatus.completed, AppointmentStatus.no_show]))
+    ).all()
+    buckets: dict[date, dict] = {
+        first + timedelta(weeks=i): {"total": 0, "no_show": 0, "reminded": [0, 0], "not_reminded": [0, 0]} for i in range(weeks)}
+    for day, status, was_reminded in rows:
+        b = buckets[day - timedelta(days=day.weekday())]
+        miss = status == AppointmentStatus.no_show
+        b["total"] += 1
+        b["no_show"] += miss
+        group = b["reminded" if was_reminded else "not_reminded"]
+        group[0] += 1
+        group[1] += miss
+
+    def rate(miss: int, total: int) -> float | None:
+        return round(miss * 100 / total, 1) if total else None
+
+    def group(g: list) -> dict:
+        return {"total": g[0], "no_show": g[1], "rate": rate(g[1], g[0])}
+
+    out = [{"week_start": w.isoformat(), "total": b["total"], "no_show": b["no_show"], "rate": rate(b["no_show"], b["total"]),
+            "reminded": group(b["reminded"]), "not_reminded": group(b["not_reminded"])} for w, b in sorted(buckets.items())]
+    return {"weeks": out, "current": out[-1]}
