@@ -108,7 +108,9 @@ permissions = ruxsatlar katalogi va standart rollar), `db/` (base, session), `mo
 - **Kalitlar** (`PAYME_*`, `CLICK_*`, `FISCAL_BACKEND`) faqat `.env`; bo'sh kalit: endpoint hamma so'rovni rad etadi; `*_TEST_MODE=true` standart (sandbox).
 - **Lab tasdiqi:** tasdiqlangan (`lab:approve`) natija tahrirlanmaydi (PUT 409, tasdiqni qaytarish yo'q); o'zgartirish faqat `POST /lab/orders/{id}/corrections`
   (`lab_corrections`: sabab majburiy, kim, qachon, eski/yangi qiymat; o'chirilmaydi; audit). Bemor portali va bot faqat tasdiqlanganini ko'rsatadi.
-- **Bemor portali:** `/portal` (telefon + OTP, uz/ru, mobil); seans `sessionStorage`da, xodim tokenidan alohida axios. Mock SMS matni `app.sms.mock` jurnaliga yoziladi (e2e OTP shundan oladi).
+- **Bemor portali:** `/portal` (telefon + OTP, uz/ru, mobil); seans `sessionStorage`da, xodim tokenidan alohida axios. Mock SMS matni (OTP) oddiy jurnalga YOZILMAYDI: faqat dev/test outbox faylga (`MOCK_SMS_OUTBOX`, 0600), e2e OTP'ni shundan oladi.
+  `APP_ENV=production` (yoki `ENV`) da `SMS_BACKEND=mock` va `MOCK_SMS_OUTBOX` bilan backend ishga tushmaydi. OTP: 5 daqiqa, 5 xato urinishdan keyin telefon 15 daqiqaga bloklanadi (429),
+  telefon (15 daqiqada 3) va IP (so'rov soatiga 10, tasdiqlash soatiga 30) bo'yicha cheklov; yuborilgach xabar matnidagi kod bazadan ham o'chiriladi.
 - **Fayllar:** EMR ilovalari `Storage` interfeysi orqali (`STORAGE_BACKEND=local`, docker volume `uploads`, `MAX_UPLOAD_MB`); tur baytlar bo'yicha aniqlanadi.
 - **Frontend:** demo/zaxira ma'lumot yo'q; xatoda toast + "Qayta urinish", bo'sh ro'yxatda `EmptyState`. Chat va Obuna sahifalari yashirilgan (`hidden`, kodi bor).
 

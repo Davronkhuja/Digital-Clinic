@@ -1,5 +1,5 @@
 # ruff: noqa: E501
-"""OTP (SMS kod) va tezlik cheklovi. Kod 6 raqam, xeshlanadi (kalit bilan), 5 daqiqa, 5 urinish; telefon uchun 15 daqiqada 3 ta so'rov,
+"""OTP (SMS kod) va tezlik cheklovi. Kod 6 raqam, xeshlanadi (kalit bilan), 5 daqiqa, 5 urinish (keyin telefon 15 daqiqaga bloklanadi); telefon uchun 15 daqiqada 3 ta so'rov,
 IP uchun soatiga 10 ta. Tasdiqlangach qisqa muddatli imzolangan `verification token` beriladi (telefon egaligini isbotlaydi)."""
 import hashlib
 import hmac
@@ -18,6 +18,7 @@ from app.services.audit import client_ip
 
 CODE_TTL = timedelta(minutes=5)
 MAX_ATTEMPTS = 5
+BLOCK_FOR = timedelta(minutes=15)    # 5 noto'g'ri urinishdan keyin telefon shu muddatga bloklanadi
 PHONE_LIMIT = (3, timedelta(minutes=15))
 IP_LIMIT = (10, timedelta(hours=1))
 VERIFIED_TTL = timedelta(minutes=30)
@@ -38,11 +39,22 @@ def rate_check(db: Session, key: str, action: str, limit: int, window: timedelta
         db.add(RateEvent(key=key, action=action))
 
 
+def _blocked(db: Session, phone: str) -> bool:
+    return bool(db.scalar(select(func.count()).select_from(RateEvent).where(
+        RateEvent.action == "otp_block", RateEvent.key == phone, RateEvent.created_at >= datetime.now(UTC) - BLOCK_FOR)))
+
+
+def _block_error() -> HTTPException:
+    return HTTPException(429, "Noto'g'ri urinishlar ko'p: telefon 15 daqiqaga bloklandi. Keyinroq urinib ko'ring")
+
+
 def request_ip(request: Request) -> str:
     return (client_ip(request) or "unknown")[:45]
 
 
 def send_code(db: Session, ip: str, phone: str, purpose: str, branch_id, language: str = "uz") -> None:
+    if _blocked(db, phone):
+        raise _block_error()
     rate_check(db, ip, "otp_ip", *IP_LIMIT)
     rate_check(db, phone, "otp_phone", *PHONE_LIMIT)
     code = f"{secrets.randbelow(900000) + 100000}"
@@ -57,12 +69,18 @@ def send_code(db: Session, ip: str, phone: str, purpose: str, branch_id, languag
 
 def verify_code(db: Session, phone: str, purpose: str, code: str) -> str:
     """To'g'ri bo'lsa imzolangan tasdiqlash tokenini qaytaradi. Noto'g'ri urinish hisoblanadi; limit oshsa kod bekor."""
+    if _blocked(db, phone):
+        raise _block_error()
     otp = db.scalar(select(OtpCode).where(OtpCode.phone == phone, OtpCode.purpose == purpose, OtpCode.verified_at.is_(None),
                                           OtpCode.expires_at > datetime.now(UTC)).order_by(OtpCode.created_at.desc()).with_for_update())
     if not otp or otp.attempts >= MAX_ATTEMPTS:
         raise HTTPException(400, "Kod yaroqsiz yoki muddati tugagan: yangi kod so'rang")
     otp.attempts += 1
     if not hmac.compare_digest(otp.code_hash, _hash(phone, code.strip())):
+        if otp.attempts >= MAX_ATTEMPTS:        # oxirgi urinish ham xato: kod bekor, telefon bloklanadi
+            db.add(RateEvent(key=phone, action="otp_block"))
+            db.commit()
+            raise _block_error()
         db.commit()
         raise HTTPException(400, "Kod noto'g'ri")
     otp.verified_at = datetime.now(UTC)

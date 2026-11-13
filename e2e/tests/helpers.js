@@ -2,14 +2,16 @@ import { execSync } from 'node:child_process'
 
 export const ADMIN = { email: process.env.E2E_EMAIL || 'admin@clinic.uz', password: process.env.E2E_PASSWORD || 'password123' }
 
-// Mock SMS matni backend jurnaliga yoziladi (`app.sms.mock`): OTP shu yerdan o'qiladi.
-const LOG_CMD = process.env.E2E_LOG_CMD || 'docker compose logs backend --no-log-prefix --tail 300'
+// Mock SMS matni (OTP) faqat dev/test outbox faylida (MOCK_SMS_OUTBOX); oddiy jurnalga yozilmaydi.
+const OUTBOX_CMD = process.env.E2E_OUTBOX_CMD || 'docker compose exec -T backend cat /tmp/sms-outbox.jsonl'
 
 export function lastOtp(phone) {
   const digits = phone.replace(/\D/g, '')
-  const out = execSync(`${LOG_CMD} 2>&1`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-  const hits = [...out.matchAll(new RegExp(`MOCK SMS to=\\+?${digits} text=.*?(\\d{6})`, 'g'))]
-  return hits.length ? hits[hits.length - 1][1] : null
+  let out = ''
+  try { out = execSync(OUTBOX_CMD, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) } catch { return null }   // fayl hali yo'q
+  const rows = out.split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(r => r.to.replace(/\D/g, '') === digits)
+  const hit = rows.length ? rows[rows.length - 1].text.match(/\b(\d{6})\b/) : null
+  return hit ? hit[1] : null
 }
 
 export async function waitForOtp(phone, timeoutMs = 15_000) {

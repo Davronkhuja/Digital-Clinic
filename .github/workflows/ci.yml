@@ -113,7 +113,9 @@ jobs:
           LINK_SECRET=ci-e2e-link-secret-ci-e2e-link-secret
           CORS_ORIGINS=http://localhost:5180
           PUBLIC_BASE_URL=http://localhost:5180
+          APP_ENV=test
           SMS_BACKEND=mock
+          MOCK_SMS_OUTBOX=/tmp/sms-outbox.jsonl
           FISCAL_BACKEND=mock
           AI_ENABLED=false
           ENV

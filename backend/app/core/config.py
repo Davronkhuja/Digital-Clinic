@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,7 +55,11 @@ class Settings(BaseSettings):
     # Xabarlar (4-bosqich): Redis + Celery, SMS adapteri (hozircha mock), Telegram bot (token faqat .env da)
     redis_url: str = "redis://redis:6379/0"
     public_base_url: str = "http://localhost:5180"  # xabardagi havolalar (tasdiqlash, onlayn yozilish) uchun
+    # Muhit: development | test | production (`APP_ENV` yoki `ENV`). Production'da mock SMS taqiqlangan (backend ishga tushmaydi).
+    app_env: str = Field("development", validation_alias=AliasChoices("APP_ENV", "ENV"))
     sms_backend: str = "mock"
+    # Faqat dev/test: mock SMS matnlari (OTP shu yerda) JSON-qator ko'rinishida shu faylga yoziladi. Oddiy jurnalga hech qachon yozilmaydi.
+    mock_sms_outbox: str = ""
     telegram_bot_token: str = ""
     link_secret: str = ""  # imzolangan havolalar kaliti; bo'sh bo'lsa jwt_secret dan olinadi
 
@@ -72,6 +76,19 @@ class Settings(BaseSettings):
         if len(v) < 32:
             raise ValueError("JWT_SECRET kamida 32 belgi bo'lishi kerak")
         return v
+
+    @model_validator(mode="after")
+    def _no_mock_sms_in_production(self):
+        if self.app_env.strip().lower() == "production":
+            if self.sms_backend == "mock":
+                raise ValueError("Production'da SMS_BACKEND=mock taqiqlangan: haqiqiy SMS provayderini sozlang")
+            if self.mock_sms_outbox:
+                raise ValueError("Production'da MOCK_SMS_OUTBOX ishlatib bo'lmaydi")
+        return self
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.strip().lower() == "production"
 
     @field_validator("cors_origins")
     @classmethod

@@ -2,6 +2,17 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.8.12] - 2026-11-13
+### Security
+- `APP_ENV=production` (yoki `ENV`) da mock SMS taqiqlangan: `SMS_BACKEND=mock` yoki `MOCK_SMS_OUTBOX` bilan backend ishga tushmaydi; adapter ham ishlab turgan jarayonda yuborishni rad etadi.
+- OTP kodi oddiy jurnalga yozilmaydi (v1.8.10 dagi `app.sms.mock` jurnali olib tashlandi). Mock matni faqat dev/test: jarayon xotirasi (testlar) va `MOCK_SMS_OUTBOX` fayli (0600, e2e).
+- Yuborilgach (yoki yuborib bo'lmay qolgach) OTP xabarining matni bazadan ham o'chiriladi.
+- 5 noto'g'ri urinishdan keyin telefon 15 daqiqaga bloklanadi (429: tasdiqlash va yangi kod so'rash); avval faqat shu kod bekor bo'lardi. Telefon, IP bo'yicha cheklovlar o'zgarmadi va testlandi.
+### Changed
+- E2E: OTP kodi outbox fayldan o'qiladi (CI `.env`: `APP_ENV=test`, `MOCK_SMS_OUTBOX`). `.env.example`: `APP_ENV`, `MOCK_SMS_OUTBOX`.
+### Added
+- `tests/test_otp_security.py`: production rad etishi, jurnal/bazada kod yo'qligi, 5 daqiqa muddat, blok va ochilishi, telefon va IP cheklovlari.
+
 ## [1.8.11] - 2026-11-13
 ### Added
 - Playwright e2e smoke (`e2e/`): login, bemor qo'shish, qabul yozish, kassada naqd to'lov va fiskal chek (mock), portalga telefon + OTP bilan kirish (qabullar, hisoblar, tahlillar). OTP mock SMS jurnalidan o'qiladi.

@@ -4,7 +4,9 @@
 Qoidalar: rozilik bo'lmasa xabar yuborilmaydi (navbatga qo'yishda va YUBORISH paytida ham tekshiriladi); tungi vaqtda
 (standart 21:00-08:00 Asia/Tashkent) eslatmalar ertalabga qoldiriladi; OTP tranzaksion: rozilik va tungi cheklov yo'q.
 Yuborilmagan xabar ham logga `Skipped` + sabab bilan yoziladi (hisobot uchun)."""
+import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -42,13 +44,19 @@ class ChannelAdapter(Protocol):
 
 
 class MockSmsAdapter:
-    """Test/demo: tashqi so'rovsiz. `SENT` ro'yxatida saqlanadi (testlar tekshiradi)."""
+    """Faqat dev/test: tashqi so'rovsiz. Matn `SENT` (jarayon xotirasi, testlar) va, `MOCK_SMS_OUTBOX` berilsa, shu fayl (e2e)ga yoziladi.
+    Matn (OTP) oddiy jurnalga yozilmaydi. Production'da ishlamaydi (config va `get_adapter` rad etadi)."""
 
     SENT: list[tuple[str, str]] = []
 
     def send(self, to: str, text: str) -> SendResult:
+        if settings.is_production:
+            raise RuntimeError("Production'da mock SMS ishlatib bo'lmaydi")
         self.SENT.append((to, text))
-        logging.getLogger("app.sms.mock").info("MOCK SMS to=%s text=%s", to, text)   # e2e va qo'lda sinov: OTP shu jurnaldan olinadi
+        if settings.mock_sms_outbox:
+            fd = os.open(settings.mock_sms_outbox, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"to": to, "text": text, "at": datetime.now(UTC).isoformat()}, ensure_ascii=False) + "\n")
         return SendResult(f"MOCKSMS-{uuid.uuid4().hex[:10]}")
 
 
@@ -79,6 +87,8 @@ _adapters: dict[Channel, ChannelAdapter] = {}
 def get_adapter(channel: Channel) -> ChannelAdapter:
     if channel not in _adapters:
         if channel == Channel.sms:
+            if settings.is_production and settings.sms_backend == "mock":
+                raise RuntimeError("Production'da SMS_BACKEND=mock taqiqlangan")
             if settings.sms_backend != "mock":
                 raise RuntimeError(f"Noma'lum SMS_BACKEND: {settings.sms_backend} (hozircha faqat mock; mahalliy provayder adapteri hujjat va kalit bilan)")
             _adapters[channel] = MockSmsAdapter()
@@ -187,6 +197,12 @@ def _skip(msg: Message, reason: str) -> None:
     msg.status, msg.skip_reason = MessageStatus.skipped, reason
 
 
+def _redact_otp(msg: Message) -> None:
+    """Yuborilgach (yoki yuborib bo'lmay qolgach) OTP kodi bazadan ham o'chiriladi: logda kod saqlanmaydi."""
+    if msg.kind == "otp":
+        msg.body = "(OTP kodi yashirilgan)"
+
+
 def deliver(db: Session, msg: Message, now: datetime) -> None:
     """Bitta navbatdagi xabarni yuboradi. Rozilik/qabul holati/tungi vaqt yuborish paytida qayta tekshiriladi."""
     if msg.kind not in TRANSACTIONAL:
@@ -210,11 +226,13 @@ def deliver(db: Session, msg: Message, now: datetime) -> None:
         msg.last_error = str(exc)[:300]
         if msg.attempts >= MAX_ATTEMPTS:
             msg.status = MessageStatus.failed
+            _redact_otp(msg)
         else:
             msg.scheduled_at = now + timedelta(minutes=BACKOFF_MINUTES[min(msg.attempts - 1, len(BACKOFF_MINUTES) - 1)])
         return
     msg.status, msg.sent_at, msg.provider_message_id, msg.last_error = MessageStatus.sent, now, result.provider_message_id, None
     msg.sms_segments = sms_segments(msg.body) if msg.channel == Channel.sms else 0
+    _redact_otp(msg)
 
 
 def dispatch_due(db: Session, now: datetime | None = None, limit: int = 200) -> dict[str, int]:

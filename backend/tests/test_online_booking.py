@@ -56,7 +56,7 @@ def test_otp_roundtrip_hashing_attempts_and_purpose(client, auth):
     code2 = _otp(client, "+998 90 321 00 02")
     for _ in range(5):
         client.post("/public/otp/verify", json={"phone": "+998 90 321 00 02", "code": "000000" if code2 != "000000" else "999999"})
-    assert client.post("/public/otp/verify", json={"phone": "+998 90 321 00 02", "code": code2}).status_code == 400    # 5 urinishdan keyin to'g'ri kod ham bekor
+    assert client.post("/public/otp/verify", json={"phone": "+998 90 321 00 02", "code": code2}).status_code == 429    # 5 urinishdan keyin to'g'ri kod ham bekor, telefon bloklangan
     # token boshqa maqsadga yaroqsiz
     portal = _token(client, "+998 90 321 00 03", "portal")
     assert _book(client, portal).status_code == 401
