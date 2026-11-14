@@ -63,7 +63,9 @@ class ServiceOut(BaseModel):
     name: str
     category_id: Optional[str] = None
     category: Optional[str] = None
-    price: Money
+    price: Money = Field(..., description="Asosiy narx")
+    branch_price: Optional[Money] = Field(None, description="Faol filial narxi (asosiydan farqli bo'lsa)")
+    effective_price: Optional[Money] = Field(None, description="Faol filialda amal qiladigan narx")
     mxik: Optional[str] = None
     package_code: Optional[str] = None
     vat_percent: Optional[Money] = None

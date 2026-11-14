@@ -46,3 +46,18 @@ class Service(BaseModel):
     @property
     def sellable(self) -> bool:
         return self.is_active and not self.missing_fields
+
+
+class ServiceBranchPrice(BaseModel):
+    """Filial narxi: xizmatning shu filialdagi narxi (asosiy narxdan farqli bo'lishi mumkin; QQS/MXIK xizmatniki). Yo'q bo'lsa asosiy narx.
+    Yangi hisob-fakturalarga ta'sir qiladi (yozilganlari o'zgarmaydi)."""
+
+    __tablename__ = "service_branch_prices"
+    __table_args__ = (
+        CheckConstraint("price >= 0", name="price_non_negative"),
+        Index("uq_service_branch_prices", "service_id", "branch_id", unique=True),
+    )
+
+    service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"), index=True)
+    branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="RESTRICT"), index=True)
+    price: Mapped[Decimal] = mapped_column(Numeric(14, 2))

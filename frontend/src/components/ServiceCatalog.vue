@@ -15,12 +15,12 @@
     <EmptyState v-else-if="!shown.length" title="Xizmat yo'q" description="Birinchi xizmatni qo'shing" />
     <div v-else class="table-container rounded-none border-0">
       <table class="table">
-        <thead><tr><th>Xizmat</th><th>Kategoriya</th><th class="text-right">Narx (UZS)</th><th>MXIK</th><th>Qadoq</th><th>QQS</th><th class="text-right" title="Sarf normasi x ombor narxi">Tannarx</th><th class="text-right">Foyda</th><th>Holat</th><th></th></tr></thead>
+        <thead><tr><th>Xizmat</th><th>Kategoriya</th><th class="text-right" title="Faol filialda amal qiladigan narx">Narx (UZS)</th><th>MXIK</th><th>Qadoq</th><th>QQS</th><th class="text-right" title="Sarf normasi x ombor narxi">Tannarx</th><th class="text-right">Foyda</th><th>Holat</th><th></th></tr></thead>
         <tbody>
           <tr v-for="s in shown" :key="s.id" :class="s.is_active ? '' : 'opacity-60'">
             <td class="font-medium">{{ s.name }}</td>
             <td class="text-sm text-slate-500">{{ s.category || '—' }}</td>
-            <td class="text-right font-mono">{{ fmt(s.price) }}</td>
+            <td class="text-right font-mono" data-testid="svc-price">{{ fmt(s.effective_price ?? s.price) }}<span v-if="s.branch_price != null" class="block text-[10px] text-cyan-600 font-sans" :title="'Asosiy narx ' + fmt(s.price)">filial narxi</span></td>
             <td class="font-mono text-xs">{{ s.mxik || '—' }}</td>
             <td class="font-mono text-xs">{{ s.package_code || '—' }}</td>
             <td class="text-sm">{{ s.vat_percent != null ? s.vat_percent + '%' : '—' }}</td>
@@ -73,6 +73,14 @@
           <div><label class="text-xs text-slate-400 block mb-1">Narx (UZS, QQS bilan) *</label><input v-model.number="form.price" type="number" min="0" step="0.01" class="input" /></div>
           <div><label class="text-xs text-slate-400 block mb-1">Kategoriya</label>
             <select v-model="form.category_id" class="input"><option value="">—</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></div>
+        </div>
+        <div v-if="editingId && auth.can('services:write')" class="rounded-xl p-3 space-y-2" :class="dark ? 'bg-slate-800' : 'bg-slate-50'" data-testid="branch-price-box">
+          <label class="text-xs text-slate-400 block">Faol filial narxi (UZS, QQS bilan). Bo'sh: asosiy narx amal qiladi. Yangi hisob-fakturalarga ta'sir qiladi.</label>
+          <div class="flex gap-2">
+            <input v-model.number="branchPrice" type="number" min="0" step="0.01" class="input" placeholder="Asosiy narx" data-testid="branch-price-input" />
+            <button class="btn-secondary text-xs" :disabled="branchPrice === '' || branchPrice == null" data-testid="branch-price-save" @click="saveBranchPrice">Belgilash</button>
+            <button v-if="editingBranchHas" class="text-xs text-red-500 hover:underline" @click="removeBranchPrice">Olib tashlash</button>
+          </div>
         </div>
         <div><label class="text-xs text-slate-400 block mb-1">MXIK (IKPU) — 17 raqam</label><input v-model="form.mxik" class="input font-mono" maxlength="21" placeholder="09302001001000000" />
           <p v-if="mxikHint" class="text-xs text-amber-600 mt-1">{{ mxikHint }}</p></div>
@@ -154,8 +162,10 @@ async function load() {
   } catch (e) { services.value = []; error.value = true; toast.error(e, "Narxnomani yuklab bo'lmadi") }
 }
 function openNew() { editingId.value = null; Object.assign(form, blank()); showForm.value = true }
+const branchPrice = ref(''), editingBranchHas = ref(false)
 function openEdit(s) {
   editingId.value = s.id
+  branchPrice.value = s.branch_price ?? ''; editingBranchHas.value = s.branch_price != null
   Object.assign(form, { name: s.name, price: s.price, category_id: s.category_id || '', mxik: s.mxik || '', package_code: s.package_code || '',
                         vat_percent: s.vat_percent ?? '', is_active: s.is_active })
   showForm.value = true
@@ -171,6 +181,14 @@ async function save() {
     showForm.value = false
     await load()
   } catch (e) { toast.error(e, "Xizmatni saqlab bo'lmadi") } finally { saving.value = false }
+}
+async function saveBranchPrice() {
+  try { await api.put(`/services/${editingId.value}/branch-price`, { price: branchPrice.value }); toast.success('Filial narxi belgilandi'); editingBranchHas.value = true; await load() }
+  catch (e) { toast.error(e, "Filial narxini belgilab bo'lmadi") }
+}
+async function removeBranchPrice() {
+  try { await api.delete(`/services/${editingId.value}/branch-price`); toast.success('Asosiy narxga qaytdi'); branchPrice.value = ''; editingBranchHas.value = false; await load() }
+  catch (e) { toast.error(e, "Filial narxini olib tashlab bo'lmadi") }
 }
 async function addCategory() {
   try {

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Hisob-faktura hisobi: qator chegirmasi, hisob-faktura chegirmasini qatorlarga proporsional taqsimlash, QQS (narx QQS bilan:
 QQS = net * p / (100 + p)). Pul faqat Decimal, 2 xonaga `money.q2`."""
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ class LineInput:
     doctor_id: object | None = None
     discount_percent: Decimal | None = None
     discount_amount: Decimal | None = None
+    price: Decimal | None = None          # filial narxi (bo'sh: xizmatning asosiy narxi)
 
 
 @dataclass
@@ -44,7 +46,7 @@ class Computed:
 def compute(lines: list[LineInput], discount_percent: Decimal | None, discount_amount: Decimal | None) -> Computed:
     gross, after_line, line_disc = [], [], []
     for i, ln in enumerate(lines, 1):
-        g = q2(ln.service.price * ln.quantity)
+        g = q2((ln.price if ln.price is not None else ln.service.price) * ln.quantity)
         if ln.discount_percent is not None:
             d = q2(g * ln.discount_percent / 100)
         elif ln.discount_amount is not None:
@@ -87,10 +89,19 @@ def compute(lines: list[LineInput], discount_percent: Decimal | None, discount_a
     for ln, d, share, a in zip(lines, line_disc, shares, after_line, strict=True):
         net = a - share
         p = ln.service.vat_percent
-        out.append(ComputedLine(ln.service, ln.quantity, ln.doctor_id, ln.service.price, d, share, net,
+        out.append(ComputedLine(ln.service, ln.quantity, ln.doctor_id, ln.price if ln.price is not None else ln.service.price, d, share, net,
                                 q2(net * p / (100 + p))))
     return Computed(out, sum(gross, ZERO), sum((c.line_discount + c.invoice_discount_share for c in out), ZERO),
                     sum((c.net_total for c in out), ZERO), sum((c.vat_amount for c in out), ZERO))
+
+
+def branch_prices(db, branch_id, service_ids) -> dict:
+    """Filialdagi narx farqlari: {service_id: price}."""
+    from sqlalchemy import select
+
+    from app.models import ServiceBranchPrice
+    return {r.service_id: r.price for r in db.scalars(select(ServiceBranchPrice).where(ServiceBranchPrice.branch_id == branch_id,
+                                                                                       ServiceBranchPrice.service_id.in_(list(service_ids))))}
 
 
 def require_sellable(services: dict) -> None:

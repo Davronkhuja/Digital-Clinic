@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.21] - 2026-11-14
+### Added
+- Filial bo'yicha narx: `service_branch_prices` (xizmat x filial, asosiy narxdan farqli bo'lishi mumkin; QQS/MXIK xizmatniki). `PUT /services/{id}/branch-price` (faol filial uchun, `services:write`), `DELETE` (asosiy narxga qaytish), `GET /services/{id}/branch-prices` (filiallar bo'yicha). `GET /services` da `branch_price` va `effective_price` (faol filialda amal qiladigan narx). Migratsiya 0044.
+- Hisob-faktura (yaratish va qoralamani o'zgartirish) xizmat narxini hisob-faktura filialidagi narxdan oladi, QQS shu narxdan ajratiladi; yozilgan hisob-fakturalar o'zgarmaydi. Tannarx va foyda (`/warehouse/services/{id}/cost`) filial narxidan.
+- Frontend: Narxnomada narx ustuni faol filial narxini ("filial narxi" belgisi) ko'rsatadi; xizmat oynasida filial narxini belgilash/olib tashlash. E2E: filial narxi va asosiy filialda o'zgarmasligi.
+
 ## [1.9.20] - 2026-11-14
 ### Added
 - Ko'chirishda qisman qabul: `POST /warehouse/transfers/{id}/receive` endi tanada qator bo'yicha haqiqatda kelgan miqdorni (`lines`) qabul qiladi (bo'sh: hammasi to'liq). Yuborilgandan ko'p yoki manfiy 422. Qabul qiluvchida faqat kelgan miqdor partiya bo'ladi; kam kelgan bo'lsa yuboruvchi filialga bildirishnoma ketadi. Hujjatda `received_qty`, `shortfall`, `has_discrepancy`, `discrepancy_open`, `shortfall_value`.

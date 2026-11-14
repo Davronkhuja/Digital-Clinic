@@ -68,17 +68,18 @@ def _doctor(db: Session, doctor_id: uuid.UUID | None) -> Staff | None:
     return doctor
 
 
-def _build_lines(db: Session, lines: list[InvoiceLineIn], default_doctor: uuid.UUID | None) -> list[invoicing.LineInput]:
+def _build_lines(db: Session, lines: list[InvoiceLineIn], default_doctor: uuid.UUID | None, branch_id: uuid.UUID) -> list[invoicing.LineInput]:
     services = {s.id: s for s in db.scalars(select(Service).where(Service.id.in_({ln.service_id for ln in lines})))}
     missing = {ln.service_id for ln in lines} - services.keys()
     if missing:
         raise HTTPException(422, f"Xizmat topilmadi: {', '.join(str(m) for m in missing)}")
     invoicing.require_sellable(services)
+    prices = invoicing.branch_prices(db, branch_id, services.keys())          # filial narxi bo'lsa shu, aks holda asosiy narx
     inputs = []
     for ln in lines:
         _doctor(db, ln.doctor_id)
         inputs.append(invoicing.LineInput(services[ln.service_id], ln.quantity, ln.doctor_id or default_doctor,
-                                          ln.discount_percent, ln.discount_amount))
+                                          ln.discount_percent, ln.discount_amount, prices.get(ln.service_id)))
     return inputs
 
 
@@ -133,7 +134,8 @@ def create_invoice(data: InvoiceCreate, request: Request, db: Session = Depends(
         enc = db.get(Encounter, data.encounter_id)
         if not enc or enc.deleted_at is not None or enc.patient_id != patient.id:
             raise HTTPException(422, "Ko'rik topilmadi yoki boshqa bemorga tegishli")
-    computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None), data.discount_percent, data.discount_amount)
+    computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None, user.branch_id), data.discount_percent,
+                                  data.discount_amount)
     _check_discount(db, user, computed, data.discount_reason)
     number = f"INV-{db.scalar(select(invoice_number_seq.next_value())):06d}"
     inv = Invoice(number=number, patient_id=patient.id, doctor_id=doctor.id if doctor else None, appointment_id=data.appointment_id,
@@ -185,7 +187,8 @@ def update_invoice(invoice_id: uuid.UUID, data: InvoiceUpdate, request: Request,
     if inv.status != InvoiceStatus.draft:
         raise HTTPException(409, "Faqat qoralama (Draft) hisob-fakturani o'zgartirish mumkin")
     doctor = _doctor(db, data.doctor_id) or (db.get(Staff, inv.doctor_id) if inv.doctor_id else None)
-    computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None), data.discount_percent, data.discount_amount)
+    computed = invoicing.compute(_build_lines(db, data.lines, doctor.id if doctor else None, inv.branch_id), data.discount_percent,
+                                  data.discount_amount)
     _check_discount(db, user, computed, data.discount_reason)
     for old in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id)):
         db.delete(old)

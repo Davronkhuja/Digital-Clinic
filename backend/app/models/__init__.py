@@ -15,7 +15,7 @@ from app.models.payment import Payment, PaymentRefund
 from app.models.rbac import Permission, Role, role_permissions
 from app.models.room import Room
 from app.models.schedule import DoctorSchedule, ScheduleException, StaffBranch
-from app.models.service import Service, ServiceCategory
+from app.models.service import Service, ServiceBranchPrice, ServiceCategory
 from app.models.settings import ClinicSettings
 from app.models.staff import Staff, User
 from app.models.transaction import Transaction
@@ -37,7 +37,7 @@ __all__ = [
     "Appointment", "AppointmentType", "AuditLog", "RefreshToken", "Branch", "Encounter", "Prescription", "Patient",
     "Permission", "Role", "Room",
     "DoctorSchedule", "ScheduleException", "StaffBranch", "WaitlistEntry", "Icd10Code", "ExamTemplate",
-    "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
+    "InnDrug", "Attachment", "Service", "ServiceBranchPrice", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
     "LabCorrection", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",

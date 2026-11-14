@@ -13,6 +13,7 @@ from app.models import (
     Invoice,
     InvoiceLine,
     Service,
+    ServiceBranchPrice,
     ServiceMaterial,
     StockBatch,
     StockCount,
@@ -231,9 +232,11 @@ def service_cost(db: Session, branch_id: uuid.UUID, service: Service) -> dict:
         lines.append({"item_id": str(item.id), "item": item.name, "unit": item.unit, "qty": m.qty,
                       "unit_cost": q2(unit_cost) if unit_cost is not None else None, "cost": cost, "source": source})
     cost_total = q2(total)
-    net = q2(service.price * 100 / (100 + service.vat_percent)) if service.vat_percent is not None else service.price
+    price = db.scalar(select(ServiceBranchPrice.price).where(ServiceBranchPrice.service_id == service.id, ServiceBranchPrice.branch_id == branch_id))
+    price = service.price if price is None else price        # filial narxi bo'lsa shu
+    net = q2(price * 100 / (100 + service.vat_percent)) if service.vat_percent is not None else price
     margin = q2(net - cost_total)
-    return {"service_id": str(service.id), "service": service.name, "price": service.price, "vat_percent": service.vat_percent, "net_price": net,
+    return {"service_id": str(service.id), "service": service.name, "price": price, "vat_percent": service.vat_percent, "net_price": net,
             "cost": cost_total, "margin": margin, "margin_percent": float(round(margin * 100 / net, 1)) if net > 0 else None,
             "complete": not missing and bool(lines), "missing": missing, "materials": lines}
 

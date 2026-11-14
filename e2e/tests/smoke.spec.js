@@ -317,7 +317,40 @@ test.describe('ko\'chirish', () => {
   })
 })
 
-test('11. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('filial narxi', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('11. narxnoma: faol filial narxi asosiydan farqli, asosiy filialda o\'zgarmaydi', async ({ page, request }) => {
+    const stamp = Date.now()
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const svc = await (await request.post('/api/services', { headers, data: { name: `E2E Filial narx ${stamp}`, price: 100000, mxik: '09302001001000000', package_code: '1500364', vat_percent: 12 } })).json()
+    const branch = await (await request.post('/api/branches', { headers, data: { name: `E2E Narx filiali ${stamp}` } })).json()
+    const openCatalog = async () => {
+      await page.goto('/settings')
+      await page.getByRole('button', { name: 'Narxnoma' }).click()
+      await page.getByPlaceholder('Xizmat qidirish...').fill(svc.name)
+      return page.getByRole('row', { name: new RegExp(svc.name) })
+    }
+    await page.goto('/')
+    await page.evaluate(id => localStorage.setItem('branch_id', id), branch.id)        // ikkinchi filial
+    const row = await openCatalog()
+    await row.getByTitle('Tahrirlash').click()
+    await page.getByTestId('branch-price-input').fill('130000')
+    await page.getByTestId('branch-price-save').click()
+    await expect(page.getByText('Filial narxi belgilandi')).toBeVisible()
+    await page.getByRole('button', { name: 'Bekor qilish' }).click()
+    await expect(row.getByTestId('svc-price')).toContainText(/130[,\s]?000/)
+    await expect(row.getByTestId('svc-price')).toContainText('filial narxi')
+
+    await page.evaluate(() => localStorage.removeItem('branch_id'))                      // asosiy filial: o'zgarmagan
+    const main = await openCatalog()
+    await expect(main.getByTestId('svc-price')).toContainText(/100[,\s]?000/)
+    await expect(main.getByTestId('svc-price')).not.toContainText('filial narxi')
+  })
+})
+
+test('12. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

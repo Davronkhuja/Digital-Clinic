@@ -1,14 +1,18 @@
+# ruff: noqa: E501
 import uuid
-from typing import List, Optional
+from decimal import Decimal
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Service, ServiceCategory
+from app.models import Branch, Service, ServiceBranchPrice, ServiceCategory
+from app.schemas.common import Money
 from app.schemas.services import ServiceCategoryIn, ServiceCategoryOut, ServiceIn, ServiceOut, ServiceUpdate
 from app.services import audit
 
@@ -16,9 +20,10 @@ router = APIRouter()
 TAG = "🏷 Services (narxnoma)"
 
 
-def service_out(s: Service, category: str | None) -> dict:
+def service_out(s: Service, category: str | None, branch_price=None) -> dict:
     return {"id": str(s.id), "name": s.name, "category_id": str(s.category_id) if s.category_id else None, "category": category,
-            "price": s.price, "mxik": s.mxik, "package_code": s.package_code, "vat_percent": s.vat_percent,
+            "price": s.price, "branch_price": branch_price, "effective_price": s.price if branch_price is None else branch_price,
+            "mxik": s.mxik, "package_code": s.package_code, "vat_percent": s.vat_percent,
             "is_active": s.is_active, "sellable": s.sellable, "missing": s.missing_fields}
 
 
@@ -34,12 +39,18 @@ def _category_id(db: Session, value: str | None) -> uuid.UUID | None:
     return cid
 
 
-def _load(db: Session, service_id: uuid.UUID) -> dict:
+def _overrides(db: Session, branch_id: uuid.UUID) -> dict:
+    return {r.service_id: r.price for r in db.scalars(select(ServiceBranchPrice).where(ServiceBranchPrice.branch_id == branch_id))}
+
+
+def _load(db: Session, service_id: uuid.UUID, branch_id: uuid.UUID | None = None) -> dict:
     row = db.execute(select(Service, ServiceCategory.name).outerjoin(ServiceCategory, Service.category_id == ServiceCategory.id)
                      .where(Service.id == service_id)).first()
     if not row:
         raise HTTPException(404, "Xizmat topilmadi")
-    return service_out(*row)
+    bp = db.scalar(select(ServiceBranchPrice.price).where(ServiceBranchPrice.service_id == service_id,
+                                                          ServiceBranchPrice.branch_id == branch_id)) if branch_id else None
+    return service_out(*row, bp)
 
 
 @router.get("/services", tags=[TAG], response_model=List[ServiceOut], summary="Narxnoma",
@@ -55,7 +66,8 @@ def list_services(search: Optional[str] = None, category_id: Optional[uuid.UUID]
         stmt = stmt.where(Service.name.ilike(f"%{search.strip()}%"))
     if category_id:
         stmt = stmt.where(Service.category_id == category_id)
-    rows = [service_out(s, c) for s, c in db.execute(stmt).all()]
+    over = _overrides(db, user.branch_id)
+    rows = [service_out(s, c, over.get(s.id)) for s, c in db.execute(stmt).all()]
     if sellable is not None:
         rows = [r for r in rows if r["sellable"] == sellable]
     return rows
@@ -75,7 +87,7 @@ def create_service(data: ServiceIn, request: Request, db: Session = Depends(get_
         raise HTTPException(409, "Bunday nomli xizmat allaqachon mavjud")
     audit.record(db, user, request, "create", "service", s.id, {"name": s.name, "price": str(s.price)})
     db.commit()
-    return _load(db, s.id)
+    return _load(db, s.id, user.branch_id)
 
 
 @router.put("/services/{service_id}", tags=[TAG], response_model=ServiceOut, summary="Xizmatni o'zgartirish",
@@ -106,7 +118,7 @@ def update_service(service_id: uuid.UUID, data: ServiceUpdate, request: Request,
     if changes:
         audit.record(db, user, request, "update", "service", s.id, {"changes": changes})
     db.commit()
-    return _load(db, s.id)
+    return _load(db, s.id, user.branch_id)
 
 
 @router.get("/service-categories", tags=[TAG], response_model=List[ServiceCategoryOut], summary="Xizmat kategoriyalari")
@@ -142,3 +154,54 @@ def update_category(category_id: uuid.UUID, data: ServiceCategoryIn, db: Session
         db.rollback()
         raise HTTPException(409, "Bunday kategoriya allaqachon mavjud")
     return {"id": str(c.id), "name": c.name, "is_active": c.is_active}
+
+
+class BranchPriceOut(BaseModel):
+    branch_id: str
+    branch: str
+    price: Money
+
+
+class BranchPriceIn(BaseModel):
+    price: Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2, description="Faol filialdagi narx (QQS bilan)")]
+
+
+@router.get("/services/{service_id}/branch-prices", tags=[TAG], response_model=List[BranchPriceOut], summary="Xizmatning filial narxlari",
+            description="Asosiy narxdan farqli narx belgilangan filiallar. Narxi belgilanmagan filialda asosiy narx amal qiladi.")
+def list_branch_prices(service_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("services:read"))):
+    if not db.get(Service, service_id):
+        raise HTTPException(404, "Xizmat topilmadi")
+    rows = db.execute(select(ServiceBranchPrice, Branch.name).join(Branch, ServiceBranchPrice.branch_id == Branch.id)
+                      .where(ServiceBranchPrice.service_id == service_id).order_by(Branch.name)).all()
+    return [{"branch_id": str(p.branch_id), "branch": name, "price": p.price} for p, name in rows]
+
+
+@router.put("/services/{service_id}/branch-price", tags=[TAG], response_model=ServiceOut, summary="Faol filial uchun narx belgilash",
+            description="Xizmatning shu (faol) filialdagi narxi; qolgan filiallar va asosiy narx o'zgarmaydi. Yangi hisob-fakturalarga ta'sir qiladi "
+                        "(yozilganlari o'zgarmaydi). `services:write`, audit.")
+def put_branch_price(service_id: uuid.UUID, data: BranchPriceIn, request: Request, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("services:write"))):
+    if not db.get(Service, service_id):
+        raise HTTPException(404, "Xizmat topilmadi")
+    row = db.scalar(select(ServiceBranchPrice).where(ServiceBranchPrice.service_id == service_id, ServiceBranchPrice.branch_id == user.branch_id))
+    old = row.price if row else None
+    if row:
+        row.price = data.price
+    else:
+        db.add(ServiceBranchPrice(service_id=service_id, branch_id=user.branch_id, price=data.price, created_by=user.id))
+    audit.record(db, user, request, "update", "service_branch_price", service_id,
+                 {"branch_id": str(user.branch_id), "price": {"from": str(old) if old is not None else None, "to": str(data.price)}})
+    db.commit()
+    return _load(db, service_id, user.branch_id)
+
+
+@router.delete("/services/{service_id}/branch-price", tags=[TAG], response_model=ServiceOut, summary="Faol filial narxini olib tashlash (asosiy narxga qaytish)")
+def delete_branch_price(service_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("services:write"))):
+    row = db.scalar(select(ServiceBranchPrice).where(ServiceBranchPrice.service_id == service_id, ServiceBranchPrice.branch_id == user.branch_id))
+    if not row:
+        raise HTTPException(404, "Bu filialda alohida narx belgilanmagan")
+    audit.record(db, user, request, "update", "service_branch_price", service_id,
+                 {"branch_id": str(user.branch_id), "price": {"from": str(row.price), "to": None}})
+    db.delete(row)
+    db.commit()
+    return _load(db, service_id, user.branch_id)
