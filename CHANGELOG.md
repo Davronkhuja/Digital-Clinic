@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.19] - 2026-11-14
+### Added
+- Inventarizatsiya (sanoq hujjati): `POST /warehouse/counts` (filialdagi qoldig'i bor hamma partiyalar yoki tanlangan materiallar, kutilgan qoldiq nusxasi; filialda bittadan ortiq ochiq hujjat bo'lmaydi), `PUT .../lines` (sanalgan miqdorlar; sanoqda topilgan, tizimda yo'q partiyalar `extras`), `POST .../submit` (hamma qator sanalgan bo'lishi shart; `warehouse:approve` egalariga bildirishnoma), `POST .../approve` (`warehouse:approve`, administrator): farq bo'yicha avtomatik harakatlar (`Adjust`: kam chiqqan partiya kamayadi, ko'p chiqqan yoki topilgan yangi partiya bo'lib kiradi), sanoqdan keyin qoldiq o'zgargan bo'lsa 409; `POST .../cancel` (sabab majburiy); `GET /warehouse/counts[/{id}]`. Farq qiymati (ortiqcha, kamomad, sof) hisoblanadi; audit. Raqam SK-000001. Migratsiya 0042.
+- Frontend: Ombor > Inventarizatsiya (hujjatlar ro'yxati, sanoq kiritish, farq va qiymat, topilgan partiya, tasdiqqa yuborish, tasdiqlash, bekor qilish). E2E: sanoq -> tasdiq -> farq bo'yicha chiqim.
+
 ## [1.9.18] - 2026-11-14
 ### Added
 - Onlayn yozilish va bemor portalida filial tanlash: `GET /public/booking/branches` (faol filiallar), `branch_id` parametri `doctors` (shu filialda ishlaydigan shifokorlar), `slots` (filial jadvali) va `POST /public/booking` (qabul va yangi bemor tanlangan filialga; bo'sh: asosiy filial; faolsiz/yo'q filial yoki shifokor ishlamaydigan filial 422).

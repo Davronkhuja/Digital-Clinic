@@ -33,6 +33,7 @@ PERMISSIONS: dict[str, str] = {
     "branches:all": "Boshqa filialga o'tib ishlash (faol filialni almashtirish)",
     "warehouse:read": "Ombor: katalog, qoldiq va ogohlantirishlarni ko'rish",
     "warehouse:write": "Ombor: katalog, kirim, chiqim va hisobdan chiqarish",
+    "warehouse:approve": "Ombor: inventarizatsiya farqini tasdiqlash (avtomatik kirim/chiqim yoziladi)",
     "warehouse:transfer": "Ombor: filiallar orasida ko'chirish hujjatini yuborish, qabul qilish va bekor qilish",
     "staff:read": "Xodimlarni ko'rish",
     "staff:write": "Xodimlarni boshqarish",

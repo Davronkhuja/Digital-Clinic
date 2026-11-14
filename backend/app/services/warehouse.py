@@ -15,6 +15,8 @@ from app.models import (
     Service,
     ServiceMaterial,
     StockBatch,
+    StockCount,
+    StockCountLine,
     StockItem,
     StockMovement,
     StockReceipt,
@@ -22,8 +24,8 @@ from app.models import (
     StockTransfer,
     StockTransferLine,
 )
-from app.models.warehouse import stock_transfer_number_seq
-from app.schemas.enums import InvoiceStatus, StockMovementKind, TransferStatus
+from app.models.warehouse import stock_count_number_seq, stock_transfer_number_seq
+from app.schemas.enums import CountStatus, InvoiceStatus, StockMovementKind, TransferStatus
 from app.services import notifications
 from app.services.money import q2
 from app.services.periods import clinic_today
@@ -411,3 +413,126 @@ def transfer_out(db: Session, t: StockTransfer) -> dict:
             "to_branch_id": str(t.to_branch_id), "to_branch": names[t.to_branch_id], "notes": t.notes, "sent_at": iso(t.sent_at),
             "received_at": iso(t.received_at), "cancelled_at": iso(t.cancelled_at), "cancel_reason": t.cancel_reason,
             "total": sum((ln["amount"] for ln in lines), q2(0)), "lines": lines}
+
+
+# ---------- Inventarizatsiya (sanoq) ----------
+
+def open_count(db: Session, user, *, notes: str | None, item_ids: list[uuid.UUID] | None) -> StockCount:
+    """Yangi sanoq hujjati: filialdagi (yoki tanlangan materiallar) qoldig'i bor hamma partiyalar kutilgan qoldiq nusxasi bilan. Filialda bittadan ortiq ochiq sanoq bo'lmaydi."""
+    if db.scalar(select(StockCount.id).where(StockCount.branch_id == user.branch_id, StockCount.status.in_([CountStatus.draft, CountStatus.submitted])).limit(1)):
+        raise HTTPException(409, "Filialda tugallanmagan inventarizatsiya bor: avval uni tasdiqlang yoki bekor qiling")
+    count = StockCount(number=f"SK-{db.scalar(select(stock_count_number_seq.next_value())):06d}", status=CountStatus.draft,
+                       notes=(notes or "").strip() or None, branch_id=user.branch_id, created_by=user.id)
+    db.add(count)
+    db.flush()
+    stmt = (select(StockBatch, StockItem).join(StockItem, StockBatch.item_id == StockItem.id)
+            .where(StockBatch.branch_id == user.branch_id, StockBatch.qty_remaining > 0).order_by(StockItem.name, StockBatch.expires_on.asc().nulls_last(),
+                                                                                                  StockBatch.batch_no))
+    if item_ids:
+        stmt = stmt.where(StockBatch.item_id.in_(item_ids))
+    rows = db.execute(stmt).all()
+    for b, item in rows:
+        db.add(StockCountLine(count_id=count.id, item_id=item.id, batch_id=b.id, batch_no=b.batch_no, expires_on=b.expires_on, unit_cost=b.unit_cost,
+                              expected_qty=b.qty_remaining, created_by=user.id))
+    if not rows:
+        raise HTTPException(422, "Sanaladigan qoldiq yo'q (tanlangan materiallarda partiya topilmadi)")
+    return count
+
+
+def _editable(count: StockCount, user) -> None:
+    if count.branch_id != user.branch_id:
+        raise HTTPException(404, "Inventarizatsiya topilmadi")
+    if count.status != CountStatus.draft:
+        raise HTTPException(409, f"Hujjat holati {count.status.value}: sanoqni o'zgartirib bo'lmaydi")
+
+
+def set_counted(db: Session, user, count: StockCount, counted: list, extras: list) -> None:
+    """Sanalgan miqdorlarni yozadi (Draft). `extras`: sanoqda topilgan, tizimda yo'q partiyalar (partiya raqami, muddat, narx bilan)."""
+    _editable(count, user)
+    lines = {ln.id: ln for ln in db.scalars(select(StockCountLine).where(StockCountLine.count_id == count.id))}
+    for c in counted:
+        ln = lines.get(c.line_id)
+        if not ln:
+            raise HTTPException(422, f"Qator bu hujjatda yo'q: {c.line_id}")
+        ln.counted_qty = c.counted_qty
+    for e in extras:
+        item = db.get(StockItem, e.item_id)
+        if not item or not item.is_active:
+            raise HTTPException(422, "Material topilmadi yoki faol emas")
+        if e.expires_on and e.expires_on < clinic_today():
+            raise HTTPException(422, f"{item.name}: yaroqlilik muddati o'tgan partiyani qo'shib bo'lmaydi")
+        db.add(StockCountLine(count_id=count.id, item_id=item.id, batch_id=None, batch_no=e.batch_no, expires_on=e.expires_on, unit_cost=q2(e.unit_cost),
+                              expected_qty=Decimal(0), counted_qty=e.counted_qty, created_by=user.id))
+
+
+def submit_count(db: Session, user, count: StockCount) -> None:
+    _editable(count, user)
+    if db.scalar(select(StockCountLine.id).where(StockCountLine.count_id == count.id, StockCountLine.counted_qty.is_(None)).limit(1)):
+        raise HTTPException(422, "Hamma qatorning sanalgan miqdori kiritilmagan")
+    count.status, count.submitted_at, count.submitted_by = CountStatus.submitted, datetime.now(UTC), user.id
+    diff_lines = db.scalar(select(func.count()).select_from(StockCountLine).where(StockCountLine.count_id == count.id,
+                                                                                   StockCountLine.counted_qty != StockCountLine.expected_qty))
+    notifications.notify(db, branch_id=count.branch_id, permission="warehouse:approve", kind="stock_count", link="/warehouse",
+                         title=f"Inventarizatsiya tasdiq kutmoqda: {count.number}", body=f"Farqli qatorlar: {diff_lines}",
+                         dedupe_key=f"count:{count.id}")
+
+
+def approve_count(db: Session, user, count: StockCount) -> dict:
+    """Tasdiq: farq bo'yicha avtomatik harakatlar (`Adjust`). Kam chiqqan: partiya qoldig'i kamayadi; ko'p chiqqan yoki yangi topilgan: yangi partiya."""
+    if count.branch_id != user.branch_id:
+        raise HTTPException(404, "Inventarizatsiya topilmadi")
+    if count.status != CountStatus.submitted:
+        raise HTTPException(409, f"Faqat tasdiq kutayotgan hujjat tasdiqlanadi (holati {count.status.value})")
+    today = clinic_today()
+    adjusted = 0
+    for ln in db.scalars(select(StockCountLine).where(StockCountLine.count_id == count.id).order_by(StockCountLine.created_at, StockCountLine.id)):
+        diff = ln.counted_qty - ln.expected_qty
+        if diff == 0:
+            continue
+        if diff < 0:
+            batch = db.scalar(select(StockBatch).where(StockBatch.id == ln.batch_id).with_for_update())
+            if batch.qty_remaining < -diff:
+                raise HTTPException(409, f"{ln.batch_no}: qoldiq sanoqdan keyin o'zgargan, kamayishni yozib bo'lmaydi. Yangi inventarizatsiya oching")
+            batch.qty_remaining += diff
+            batch_id, cost = batch.id, batch.unit_cost
+        else:
+            nb = StockBatch(item_id=ln.item_id, receipt_id=None, batch_no=ln.batch_no, expires_on=ln.expires_on, received_on=today, unit_cost=ln.unit_cost,
+                            qty_received=diff, qty_remaining=diff, branch_id=count.branch_id, created_by=user.id)
+            db.add(nb)
+            db.flush()
+            batch_id, cost = nb.id, ln.unit_cost
+        db.add(StockMovement(item_id=ln.item_id, batch_id=batch_id, kind=StockMovementKind.adjust, qty=diff, unit_cost=cost,
+                             reason=f"Inventarizatsiya {count.number}", ref_type="count", ref_id=count.id, branch_id=count.branch_id, created_by=user.id))
+        adjusted += 1
+    count.status, count.approved_at, count.approved_by = CountStatus.approved, datetime.now(UTC), user.id
+    db.flush()
+    notifications.check_low_stock(db, count.branch_id)
+    return {"adjusted": adjusted}
+
+
+def cancel_count(db: Session, user, count: StockCount, reason: str) -> None:
+    if count.branch_id != user.branch_id:
+        raise HTTPException(404, "Inventarizatsiya topilmadi")
+    if count.status not in (CountStatus.draft, CountStatus.submitted):
+        raise HTTPException(409, f"Hujjat holati {count.status.value}: bekor qilib bo'lmaydi")
+    count.status, count.cancelled_at, count.cancel_reason = CountStatus.cancelled, datetime.now(UTC), reason[:300]
+
+
+def count_out(db: Session, count: StockCount) -> dict:
+    rows = db.execute(select(StockCountLine, StockItem).join(StockItem, StockCountLine.item_id == StockItem.id).where(StockCountLine.count_id == count.id)
+                      .order_by(StockItem.name, StockCountLine.expires_on.asc().nulls_last(), StockCountLine.batch_no, StockCountLine.created_at)).all()
+    lines, surplus, shortage = [], q2(0), q2(0)
+    for ln, item in rows:
+        diff = (ln.counted_qty - ln.expected_qty) if ln.counted_qty is not None else None
+        value = q2(diff * ln.unit_cost) if diff is not None else None
+        if value is not None:
+            surplus += value if value > 0 else 0
+            shortage += -value if value < 0 else 0
+        lines.append({"id": str(ln.id), "item_id": str(item.id), "item": item.name, "unit": item.unit, "batch_id": str(ln.batch_id) if ln.batch_id else None,
+                      "batch_no": ln.batch_no, "expires_on": ln.expires_on, "unit_cost": ln.unit_cost, "expected_qty": ln.expected_qty,
+                      "counted_qty": ln.counted_qty, "diff": diff, "diff_value": value, "found": ln.batch_id is None})
+    iso = lambda d: d.isoformat() if d else None        # noqa: E731
+    return {"id": str(count.id), "number": count.number, "status": count.status, "notes": count.notes, "created_at": iso(count.created_at),
+            "submitted_at": iso(count.submitted_at), "approved_at": iso(count.approved_at), "cancelled_at": iso(count.cancelled_at),
+            "cancel_reason": count.cancel_reason, "surplus_value": surplus, "shortage_value": shortage, "net_value": q2(surplus - shortage),
+            "diff_lines": sum(1 for ln in lines if ln["diff"] not in (None, 0)), "lines": lines}

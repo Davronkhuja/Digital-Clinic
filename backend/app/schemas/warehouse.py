@@ -6,7 +6,7 @@ from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import Money
-from app.schemas.enums import StockKind, StockMovementKind, TransferStatus
+from app.schemas.enums import CountStatus, StockKind, StockMovementKind, TransferStatus
 
 Qty = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)]
 
@@ -302,3 +302,59 @@ class TransferOut(BaseModel):
     cancel_reason: Optional[str] = None
     total: Money
     lines: List[TransferLineOut]
+
+
+class CountOpenIn(BaseModel):
+    notes: Optional[str] = Field(None, max_length=500)
+    item_ids: Optional[List[uuid.UUID]] = Field(None, description="Faqat shu materiallar (bo'sh: qoldig'i bor hamma)")
+
+
+class CountedIn(BaseModel):
+    line_id: uuid.UUID
+    counted_qty: Qty
+
+
+class CountExtraIn(BaseModel):
+    item_id: uuid.UUID
+    batch_no: str = Field(..., min_length=1, max_length=60)
+    expires_on: Optional[date] = None
+    unit_cost: Cost
+    counted_qty: QtyPositive
+
+
+class CountLinesIn(BaseModel):
+    counted: List[CountedIn] = Field(default_factory=list)
+    extras: List[CountExtraIn] = Field(default_factory=list, description="Sanoqda topilgan, tizimda yo'q partiyalar")
+
+
+class CountLineOut(BaseModel):
+    id: str
+    item_id: str
+    item: str
+    unit: str
+    batch_id: Optional[str] = None
+    batch_no: str
+    expires_on: Optional[date] = None
+    unit_cost: Money
+    expected_qty: Money
+    counted_qty: Optional[Money] = None
+    diff: Optional[Money] = Field(None, description="Sanalgan - kutilgan")
+    diff_value: Optional[Money] = Field(None, description="Farq x narx (UZS)")
+    found: bool = Field(..., description="Sanoqda topilgan yangi partiya")
+
+
+class CountOut(BaseModel):
+    id: str
+    number: str
+    status: CountStatus
+    notes: Optional[str] = None
+    created_at: str
+    submitted_at: Optional[str] = None
+    approved_at: Optional[str] = None
+    cancelled_at: Optional[str] = None
+    cancel_reason: Optional[str] = None
+    surplus_value: Money
+    shortage_value: Money
+    net_value: Money
+    diff_lines: int
+    lines: List[CountLineOut]

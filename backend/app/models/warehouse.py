@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import BaseModel, BranchScoped, enum_col
-from app.schemas.enums import StockKind, StockMovementKind, TransferStatus
+from app.schemas.enums import CountStatus, StockKind, StockMovementKind, TransferStatus
 
 
 class StockItem(BaseModel):
@@ -146,3 +146,40 @@ class StockTransferLine(BaseModel):
     expires_on: Mapped[date | None] = mapped_column(Date)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+
+stock_count_number_seq = Sequence("stock_count_number_seq")
+
+
+class StockCount(BranchScoped, BaseModel):
+    """Inventarizatsiya (sanoq) hujjati: Draft (sanoq kiritiladi) -> Submitted (tasdiq kutadi) -> Approved (farq bo'yicha avtomatik `Adjust` harakatlari).
+    Qoldiq `expected_qty` hujjat ochilgan paytdagi nusxa. O'chirilmaydi: bekor qilinadi."""
+
+    __tablename__ = "stock_counts"
+
+    number: Mapped[str] = mapped_column(String(20), unique=True)
+    status: Mapped[CountStatus] = mapped_column(enum_col(CountStatus, "status", 10), default=CountStatus.draft)
+    notes: Mapped[str | None] = mapped_column(Text)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str | None] = mapped_column(String(300))
+
+
+class StockCountLine(BaseModel):
+    """Sanoq qatori. Mavjud partiya (`batch_id`, `expected_qty` = ochilgandagi qoldiq) yoki yangi topilgan partiya (`batch_id` yo'q, `expected_qty` 0:
+    partiya raqami, muddat va narx kiritiladi). Farq = sanalgan - kutilgan."""
+
+    __tablename__ = "stock_count_lines"
+    __table_args__ = (CheckConstraint("counted_qty IS NULL OR counted_qty >= 0", name="counted_non_negative"),)
+
+    count_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_counts.id", ondelete="RESTRICT"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_batches.id", ondelete="RESTRICT"))
+    batch_no: Mapped[str] = mapped_column(String(60))
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    expected_qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    counted_qty: Mapped[Decimal | None] = mapped_column(Numeric(14, 3))

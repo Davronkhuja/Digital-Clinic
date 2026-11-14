@@ -128,6 +128,23 @@
         </div>
       </div>
 
+      <!-- Inventarizatsiya -->
+      <div v-else-if="tab === 'counts'" data-testid="wh-counts">
+        <div class="p-4 flex justify-between gap-3 flex-wrap items-center">
+          <p class="text-sm text-slate-500">Sanoq hujjati: kutilgan qoldiq bilan solishtiriladi, farq tasdiqlangach avtomatik kirim/chiqim bo'ladi.</p>
+          <button v-if="auth.can('warehouse:write')" class="btn-primary text-sm" data-testid="count-new" @click="openCount">Yangi inventarizatsiya</button>
+        </div>
+        <EmptyState v-if="!counts.length" title="Inventarizatsiya yo'q" />
+        <div v-else class="table-container rounded-none border-0">
+          <table class="table"><thead><tr><th>Raqam</th><th>Sana</th><th>Holat</th><th class="text-right">Farqli qator</th><th class="text-right">Farq (UZS)</th><th></th></tr></thead>
+            <tbody><tr v-for="c in counts" :key="c.id">
+              <td class="font-mono">{{ c.number }}</td><td class="text-sm">{{ c.created_at.slice(0, 10) }}</td>
+              <td><span :class="countClass[c.status]">{{ countLabel[c.status] }}</span></td>
+              <td class="text-right font-mono">{{ c.diff_lines }}</td><td class="text-right font-mono" :class="c.net_value < 0 ? 'text-red-600' : ''">{{ fmt(c.net_value) }}</td>
+              <td><button class="text-xs text-cyan-600 hover:underline" data-testid="count-open" @click="showCount(c)">Ochish</button></td></tr></tbody></table>
+        </div>
+      </div>
+
       <!-- Yetishmovchilik -->
       <div v-else-if="tab === 'shortages'" data-testid="wh-shortages">
         <EmptyState v-if="!alerts.shortages.length" title="Yetishmovchilik yo'q" />
@@ -135,6 +152,38 @@
           <table class="table"><thead><tr><th>Hisob-faktura</th><th>Material</th><th class="text-right">Yetmagan</th><th></th></tr></thead>
             <tbody><tr v-for="s in alerts.shortages" :key="s.id"><td class="font-mono">{{ s.invoice_number }}</td><td>{{ s.item }}</td><td class="text-right font-mono">{{ q(s.qty_missing) }} {{ s.unit }}</td>
               <td><button v-if="auth.can('warehouse:write')" class="text-xs text-cyan-600 hover:underline" @click="resolveShortage(s)">Ombordan yozish</button></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventarizatsiya hujjati -->
+    <div v-if="cnt" class="modal-overlay" @click.self="cnt = null">
+      <div :class="boxClass('max-w-4xl')" data-testid="count-modal">
+        <div class="flex justify-between gap-3 flex-wrap">
+          <h3 :class="titleClass">{{ cnt.number }} <span :class="countClass[cnt.status]">{{ countLabel[cnt.status] }}</span></h3>
+          <p class="text-sm text-slate-500" data-testid="count-totals">Ortiqcha {{ fmt(countTotals.surplus) }} · kamomad {{ fmt(countTotals.shortage) }} · <b>sof {{ fmt(countTotals.surplus - countTotals.shortage) }} UZS</b></p>
+        </div>
+        <div class="table-container rounded-none border-0">
+          <table class="table"><thead><tr><th>Material</th><th>Partiya</th><th>Muddati</th><th class="text-right">Kutilgan</th><th class="text-right">Sanalgan</th><th class="text-right">Farq</th></tr></thead>
+            <tbody><tr v-for="l in cnt.lines" :key="l.id">
+              <td class="font-medium">{{ l.item }}<span v-if="l.found" class="badge-blue ml-1">topilgan</span></td><td class="font-mono text-xs">{{ l.batch_no }}</td><td class="text-xs">{{ l.expires_on || 'muddatsiz' }}</td>
+              <td class="text-right font-mono">{{ q(l.expected_qty) }} {{ l.unit }}</td>
+              <td class="text-right"><input v-if="cnt.status === 'Draft'" v-model.number="countInputs[l.id]" type="number" min="0" step="0.001" class="input w-28 py-1 text-right" data-testid="count-qty" /><span v-else class="font-mono">{{ q(l.counted_qty) }}</span></td>
+              <td class="text-right font-mono" :class="(entered(l) - l.expected_qty) < 0 ? 'text-red-600' : (entered(l) - l.expected_qty) > 0 ? 'text-emerald-600' : ''">{{ entered(l) == null ? '—' : q(entered(l) - l.expected_qty) }}</td></tr></tbody></table>
+        </div>
+        <div v-if="cnt.status === 'Draft'" class="grid grid-cols-12 gap-2 items-end">
+          <p class="col-span-12 text-xs text-slate-400">Sanoqda tizimda yo'q partiya topilsa:</p>
+          <select v-model="extra.item_id" class="input col-span-4"><option value="" disabled>Material</option><option v-for="it in items" :key="it.id" :value="it.id">{{ it.name }}</option></select>
+          <input v-model="extra.batch_no" class="input col-span-2" placeholder="Partiya №" /><input v-model="extra.expires_on" type="date" class="input col-span-2" />
+          <input v-model.number="extra.counted_qty" type="number" min="0" step="0.001" class="input col-span-1" placeholder="Soni" /><input v-model.number="extra.unit_cost" type="number" min="0" class="input col-span-2" placeholder="Narx" />
+          <button class="btn-secondary col-span-1 text-sm" @click="addExtra">+</button>
+        </div>
+        <div class="flex justify-end gap-2 flex-wrap">
+          <button v-if="['Draft', 'Submitted'].includes(cnt.status) && auth.can('warehouse:write')" class="text-sm text-red-500 hover:underline mr-auto" @click="cancelCount">Bekor qilish</button>
+          <button class="btn-secondary" @click="cnt = null">Yopish</button>
+          <button v-if="cnt.status === 'Draft'" class="btn-secondary" :disabled="busy" data-testid="count-save" @click="saveCount(false)">Saqlash</button>
+          <button v-if="cnt.status === 'Draft'" class="btn-primary" :disabled="busy" data-testid="count-submit" @click="saveCount(true)">Tasdiqqa yuborish</button>
+          <button v-if="cnt.status === 'Submitted' && auth.can('warehouse:approve')" class="btn-primary" :disabled="busy" data-testid="count-approve" @click="approveCount">Tasdiqlash</button>
         </div>
       </div>
     </div>
@@ -249,13 +298,16 @@ const q = v => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 }).form
 const today = new Date().toISOString().slice(0, 10)
 
 const tabs = [{ key: 'stock', label: 'Qoldiq' }, { key: 'batches', label: 'Partiyalar' }, { key: 'receipts', label: 'Kirim' },
-  { key: 'movements', label: 'Harakatlar' }, { key: 'transfers', label: "Ko'chirish" }, { key: 'shortages', label: 'Yetishmovchilik' }]
+  { key: 'movements', label: 'Harakatlar' }, { key: 'transfers', label: "Ko'chirish" }, { key: 'counts', label: 'Inventarizatsiya' }, { key: 'shortages', label: 'Yetishmovchilik' }]
 const kindLabel = { Receipt: 'Kirim', Issue: 'Chiqim', Writeoff: 'Hisobdan chiqarish', TransferOut: "Ko'chirish (chiqim)", TransferIn: "Ko'chirish (kirim)", Adjust: 'Tuzatish', Consumption: 'Xizmat sarfi' }
 const statusLabel = { Sent: "Yo'lda", Received: 'Qabul qilingan', Cancelled: 'Bekor qilingan' }
 const statusClass = { Sent: 'badge-yellow', Received: 'badge-green', Cancelled: 'badge-slate' }
 
 const tab = ref('stock'), loading = ref(true), error = ref(false), busy = ref(false), modal = ref('')
 const items = ref([]), stock = ref([]), batches = ref([]), receipts = ref([]), movements = ref([]), transfers = ref([]), branches = ref([])
+const counts = ref([]), cnt = ref(null), countInputs = reactive({}), extra = reactive({ item_id: '', batch_no: '', expires_on: '', counted_qty: null, unit_cost: null })
+const countLabel = { Draft: 'Sanoq', Submitted: 'Tasdiq kutadi', Approved: 'Tasdiqlangan', Cancelled: 'Bekor qilingan' }
+const countClass = { Draft: 'badge-yellow', Submitted: 'badge-blue', Approved: 'badge-green', Cancelled: 'badge-slate' }
 const alerts = reactive({ expiry_days: 30, low_stock: [], expiring: [], expired: [], shortages: [] })
 const search = ref(''), lowOnly = ref(false), expOnly = ref(false)
 const currentBranch = computed(() => branches.value.find(b => b.current)?.id)
@@ -275,6 +327,7 @@ async function loadTab() {
     else if (tab.value === 'receipts') receipts.value = (await api.get('/warehouse/receipts')).data
     else if (tab.value === 'movements') movements.value = (await api.get('/warehouse/movements', { params: { limit: 200 } })).data
     else if (tab.value === 'transfers') transfers.value = (await api.get('/warehouse/transfers')).data
+    else if (tab.value === 'counts') counts.value = (await api.get('/warehouse/counts')).data
   } catch (e) { error.value = true; toast.error(e, "Omborni yuklab bo'lmadi") } finally { loading.value = false }
 }
 async function refresh() { await Promise.all([loadTab(), loadAlerts()]) }
@@ -349,6 +402,50 @@ async function cancelTransfer(t) {
   const reason = window.prompt('Bekor qilish sababi:')
   if (!reason || reason.trim().length < 3) return
   try { await api.post(`/warehouse/transfers/${t.id}/cancel`, { reason }); toast.success('Bekor qilindi, qoldiq qaytdi'); await refresh() } catch (e) { toast.error(e, "Bekor qilib bo'lmadi") }
+}
+const countTotals = computed(() => {
+  let surplus = 0, shortage = 0
+  for (const l of cnt.value?.lines || []) {
+    const e = entered(l)
+    if (e == null) continue
+    const v = (e - l.expected_qty) * l.unit_cost
+    if (v > 0) surplus += v; else shortage -= v
+  }
+  return { surplus: Math.round(surplus), shortage: Math.round(shortage) }
+})
+const entered = l => (cnt.value?.status === 'Draft' ? (countInputs[l.id] === '' || countInputs[l.id] == null ? null : countInputs[l.id]) : l.counted_qty)
+function showCount(c) {
+  cnt.value = c
+  Object.keys(countInputs).forEach(k => delete countInputs[k])
+  c.lines.forEach(l => { countInputs[l.id] = l.counted_qty ?? '' })
+}
+async function openCount() {
+  busy.value = true
+  try { const { data } = await api.post('/warehouse/counts', {}); showCount(data); await loadTab() } catch (e) { toast.error(e, "Inventarizatsiyani ochib bo'lmadi") } finally { busy.value = false }
+}
+function addExtra() {
+  if (!extra.item_id || !extra.batch_no || !extra.counted_qty) { toast.error('Material, partiya raqami va miqdorni kiriting'); return }
+  cnt.value.pendingExtras = [...(cnt.value.pendingExtras || []), { item_id: extra.item_id, batch_no: extra.batch_no, expires_on: extra.expires_on || null, unit_cost: extra.unit_cost ?? 0, counted_qty: extra.counted_qty }]
+  Object.assign(extra, { item_id: '', batch_no: '', expires_on: '', counted_qty: null, unit_cost: null })
+  toast.info("Topilgan partiya qo'shiladi (Saqlash bosilganda)")
+}
+async function saveCount(submit) {
+  busy.value = true
+  try {
+    const counted = cnt.value.lines.filter(l => countInputs[l.id] !== '' && countInputs[l.id] != null).map(l => ({ line_id: l.id, counted_qty: countInputs[l.id] }))
+    let { data } = await api.put(`/warehouse/counts/${cnt.value.id}/lines`, { counted, extras: cnt.value.pendingExtras || [] })
+    if (submit) data = (await api.post(`/warehouse/counts/${cnt.value.id}/submit`)).data
+    toast.success(submit ? 'Tasdiqqa yuborildi' : 'Sanoq saqlandi'); showCount(data); await loadTab()
+  } catch (e) { toast.error(e, "Sanoqni saqlab bo'lmadi") } finally { busy.value = false }
+}
+async function approveCount() {
+  busy.value = true
+  try { const { data } = await api.post(`/warehouse/counts/${cnt.value.id}/approve`); toast.success('Tasdiqlandi: farq bo\'yicha kirim/chiqim yozildi'); showCount(data); await refresh() } catch (e) { toast.error(e, "Tasdiqlab bo'lmadi") } finally { busy.value = false }
+}
+async function cancelCount() {
+  const reason = window.prompt('Bekor qilish sababi:')
+  if (!reason || reason.trim().length < 3) return
+  try { const { data } = await api.post(`/warehouse/counts/${cnt.value.id}/cancel`, { reason }); toast.success('Bekor qilindi'); showCount(data); await loadTab() } catch (e) { toast.error(e, "Bekor qilib bo'lmadi") }
 }
 async function resolveShortage(s) {
   try { await api.post(`/warehouse/shortages/${s.id}/resolve`); toast.success('Ombordan yozildi'); await refresh() } catch (e) { toast.error(e, "Yozib bo'lmadi") }

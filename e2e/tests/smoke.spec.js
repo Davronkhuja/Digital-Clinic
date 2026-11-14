@@ -240,7 +240,40 @@ test('8. onlayn yozilish: bir nechta filialda avval filial tanlanadi', async ({ 
   await expect(page.getByText('Xizmatni tanlang')).toBeVisible()
 })
 
-test('9. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('inventarizatsiya', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('9. inventarizatsiya: sanoq kiritish, tasdiqqa yuborish, tasdiqlash va farq bo\'yicha avtomatik chiqim', async ({ page, request }) => {
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    for (const c of await (await request.get('/api/warehouse/counts', { headers })).json()) {      // ochiq hujjat bo'lmasin (filialda bittadan ortiq mumkin emas)
+      if (['Draft', 'Submitted'].includes(c.status)) await request.post(`/api/warehouse/counts/${c.id}/cancel`, { headers, data: { reason: 'e2e tozalash' } })
+    }
+    const item = await (await request.post('/api/warehouse/items', { headers, data: { name: `E2E Sanoq ${Date.now()}`, unit: 'dona' } })).json()
+    const exp = new Date(Date.now() + 200 * 864e5).toISOString().slice(0, 10)
+    await request.post('/api/warehouse/receipts', { headers, data: { lines: [{ item_id: item.id, batch_no: 'C-1', qty: 10, unit_cost: 500, expires_on: exp }] } })
+    const count = await (await request.post('/api/warehouse/counts', { headers, data: { item_ids: [item.id] } })).json()
+
+    await page.goto('/warehouse')
+    await page.getByTestId('wh-tab-counts').click()
+    await page.getByTestId('wh-counts').getByRole('row', { name: new RegExp(count.number) }).getByTestId('count-open').click()
+    const modal = page.getByTestId('count-modal')
+    await modal.getByTestId('count-qty').fill('8')                       // 10 kutilgan, 8 sanaldi: kamomad 2 x 500
+    await expect(modal).toContainText(/kamomad 1[ ,\u00a0]?000/)
+    await modal.getByTestId('count-submit').click()
+    await expect(page.getByText('Tasdiqqa yuborildi')).toBeVisible()
+    await modal.getByTestId('count-approve').click()                     // admin: warehouse:approve bor
+    await expect(page.getByText(/Tasdiqlandi/)).toBeVisible()
+    await expect(modal).toContainText('Tasdiqlangan')
+    await modal.getByRole('button', { name: 'Yopish' }).click()
+    await page.getByTestId('wh-tab-movements').click()
+    await expect(page.getByTestId('wh-movements')).toContainText('Inventarizatsiya')
+    const batches = await (await request.get('/api/warehouse/batches', { headers, params: { item_id: item.id } })).json()
+    expect(batches[0].qty_remaining).toBe(8)
+  })
+})
+
+test('10. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

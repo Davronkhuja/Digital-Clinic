@@ -23,6 +23,8 @@ from app.models.waitlist import WaitlistEntry
 from app.models.warehouse import (
     ServiceMaterial,
     StockBatch,
+    StockCount,
+    StockCountLine,
     StockItem,
     StockMovement,
     StockReceipt,
@@ -38,7 +40,8 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch", "StockItem", "StockMovement", "StockReceipt",
+    "LabCorrection", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
+    "StockCount", "StockCountLine", "StockItem", "StockMovement", "StockReceipt",
     "StockShortage", "StockTransfer", "StockTransferLine",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",

@@ -159,3 +159,10 @@ class TransferStatus(str, Enum):
     sent = "Sent"
     received = "Received"
     cancelled = "Cancelled"
+
+
+class CountStatus(str, Enum):
+    draft = "Draft"
+    submitted = "Submitted"
+    approved = "Approved"
+    cancelled = "Cancelled"

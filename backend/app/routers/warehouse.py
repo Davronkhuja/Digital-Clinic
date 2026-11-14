@@ -9,10 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.models import Service, ServiceMaterial, Staff, StockBatch, StockItem, StockMovement, StockReceipt, StockTransfer, User
+from app.models import Service, ServiceMaterial, Staff, StockBatch, StockCount, StockItem, StockMovement, StockReceipt, StockTransfer, User
 from app.schemas import (
     AlertsOut,
     BatchOut,
+    CountLinesIn,
+    CountOpenIn,
+    CountOut,
     IssueIn,
     IssueOut,
     MaterialNormOut,
@@ -315,3 +318,75 @@ def cancel_transfer(transfer_id: uuid.UUID, data: TransferCancelIn, request: Req
     audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "status": "Cancelled", "reason": data.reason})
     db.commit()
     return wh.transfer_out(db, t)
+
+
+# ---------- Inventarizatsiya ----------
+
+def _count(db: Session, user: CurrentUser, count_id: uuid.UUID) -> StockCount:
+    count = db.get(StockCount, count_id)
+    if not count or count.branch_id != user.branch_id:
+        raise HTTPException(404, "Inventarizatsiya topilmadi")
+    return count
+
+
+@router.post("/warehouse/counts", tags=[TAG], response_model=CountOut, status_code=201, summary="Inventarizatsiya (sanoq) hujjatini ochish",
+             description="Filialdagi qoldig'i bor hamma partiyalar (yoki tanlangan materiallar) kutilgan qoldiq nusxasi bilan. Filialda bittadan ortiq "
+                         "ochiq hujjat bo'lmaydi (409). Sanoq kiritiladi, `submit` qilinadi, `warehouse:approve` egasi tasdiqlaydi.")
+def open_count(data: CountOpenIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:write"))):
+    count = wh.open_count(db, user, notes=data.notes, item_ids=data.item_ids)
+    audit.record(db, user, request, "create", "stock_count", count.id, {"number": count.number})
+    db.commit()
+    return wh.count_out(db, count)
+
+
+@router.get("/warehouse/counts", tags=[TAG], response_model=List[CountOut], summary="Inventarizatsiya hujjatlari (shu filial)")
+def list_counts(limit: int = Query(30, ge=1, le=100), db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    rows = db.scalars(select(StockCount).where(StockCount.branch_id == user.branch_id).order_by(StockCount.created_at.desc()).limit(limit))
+    return [wh.count_out(db, c) for c in rows]
+
+
+@router.get("/warehouse/counts/{count_id}", tags=[TAG], response_model=CountOut, summary="Bitta inventarizatsiya hujjati")
+def get_count(count_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:read"))):
+    return wh.count_out(db, _count(db, user, count_id))
+
+
+@router.put("/warehouse/counts/{count_id}/lines", tags=[TAG], response_model=CountOut, summary="Sanalgan miqdorlarni kiritish",
+            description="Faqat `Draft`. `counted`: qator bo'yicha sanalgan miqdor; `extras`: sanoqda topilgan, tizimda yo'q partiyalar.")
+def put_count_lines(count_id: uuid.UUID, data: CountLinesIn, request: Request, db: Session = Depends(get_db),
+                    user: CurrentUser = Depends(require("warehouse:write"))):
+    count = _count(db, user, count_id)
+    wh.set_counted(db, user, count, data.counted, data.extras)
+    db.commit()
+    return wh.count_out(db, count)
+
+
+@router.post("/warehouse/counts/{count_id}/submit", tags=[TAG], response_model=CountOut, summary="Tasdiqqa yuborish",
+             description="Hamma qator sanalgan bo'lishi shart. `warehouse:approve` egalariga bildirishnoma ketadi.")
+def submit_count(count_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:write"))):
+    count = _count(db, user, count_id)
+    wh.submit_count(db, user, count)
+    audit.record(db, user, request, "update", "stock_count", count.id, {"number": count.number, "status": "Submitted"})
+    db.commit()
+    return wh.count_out(db, count)
+
+
+@router.post("/warehouse/counts/{count_id}/approve", tags=[TAG], response_model=CountOut, summary="Farqni tasdiqlash (avtomatik kirim/chiqim)",
+             description="`warehouse:approve`. Kam chiqqan partiya qoldig'i kamayadi, ko'p chiqqan yoki topilgan partiya yangi partiya bo'lib kiradi; "
+                         "hammasi `Adjust` harakati sifatida jurnalga yoziladi. Sanoqdan keyin qoldiq o'zgargan bo'lsa 409.")
+def approve_count(count_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:approve"))):
+    count = _count(db, user, count_id)
+    res = wh.approve_count(db, user, count)
+    audit.record(db, user, request, "update", "stock_count", count.id, {"number": count.number, "status": "Approved", **res})
+    db.commit()
+    return wh.count_out(db, count)
+
+
+@router.post("/warehouse/counts/{count_id}/cancel", tags=[TAG], response_model=CountOut, summary="Inventarizatsiyani bekor qilish",
+             description="`Draft` yoki `Submitted`. Qoldiq o'zgarmaydi. Sabab majburiy.")
+def cancel_count(count_id: uuid.UUID, data: TransferCancelIn, request: Request, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(require("warehouse:write"))):
+    count = _count(db, user, count_id)
+    wh.cancel_count(db, user, count, data.reason)
+    audit.record(db, user, request, "update", "stock_count", count.id, {"number": count.number, "status": "Cancelled", "reason": data.reason})
+    db.commit()
+    return wh.count_out(db, count)
