@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """To'lovlar: summa taqsimlash, fiskal chek, tranzaksiya (daromad/xarajat), hisob-faktura holati, qaytarish."""
 import uuid
 from datetime import UTC, datetime
@@ -42,7 +43,7 @@ def has_payments(db: Session, invoice_id: uuid.UUID) -> bool:
 def available_balance(db: Session, inv: Invoice) -> Decimal:
     """To'lash mumkin bo'lgan qoldiq: total - (to'langan - qaytarilgan) - kutilayotgan (Click/Payme) summalar."""
     paid, refunded = invoice_paid_refunded(db, inv.id)
-    return q2(inv.total - (paid - refunded) - pending_amount(db, inv.id))
+    return q2(inv.total - inv.insurer_total - (paid - refunded) - pending_amount(db, inv.id))     # bemor ulushi (sug'urta ulushi kompaniyadan keladi)
 
 
 def recompute_status(db: Session, inv: Invoice) -> None:
@@ -50,7 +51,7 @@ def recompute_status(db: Session, inv: Invoice) -> None:
         return
     paid, refunded = invoice_paid_refunded(db, inv.id)
     net = paid - refunded
-    if net >= inv.total and inv.total > 0:
+    if net >= inv.total - inv.insurer_total and inv.total > 0:     # bemor ulushi to'langan
         inv.status = InvoiceStatus.paid
     else:
         inv.status = InvoiceStatus.partially_paid if net > 0 else InvoiceStatus.issued

@@ -163,7 +163,7 @@ def portal_invoices(patient_id: uuid.UUID, request: Request, phone: str = Depend
     for inv in rows:
         paid, refunded = payments.invoice_paid_refunded(db, inv.id)
         out.append({"id": str(inv.id), "number": inv.number, "date": inv.created_at.astimezone(CLINIC_TZ).strftime("%d.%m.%Y"), "status": inv.status.value,
-                    "total": float(inv.total), "paid": float(paid - refunded), "balance": float(inv.total - (paid - refunded)) if inv.status != InvoiceStatus.cancelled else 0.0})
+                    "total": float(inv.total), "paid": float(paid - refunded), "insurer_total": float(inv.insurer_total), "balance": float(inv.total - inv.insurer_total - (paid - refunded)) if inv.status != InvoiceStatus.cancelled else 0.0})
     audit.record(db, None, request, "read", "invoice", None, {"via": "portal", "patient_id": str(patient.id), "count": len(out)})
     db.commit()
     return out

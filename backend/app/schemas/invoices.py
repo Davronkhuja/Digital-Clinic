@@ -35,6 +35,8 @@ class InvoiceCreate(BaseModel):
     discount_percent: Optional[Percent] = Field(None, description="Hisob-faktura chegirmasi (qatorlarga proporsional taqsimlanadi)")
     discount_amount: Optional[Amount] = None
     discount_reason: Optional[str] = Field(None, max_length=300, description="Chegirma berilsa majburiy")
+    policy_id: Optional[uuid.UUID] = Field(None, description="Sug'urta polisi: summa bemor va sug'urta ulushiga bo'linadi")
+    guarantee_letter_id: Optional[uuid.UUID] = Field(None, description="Kafolat xati (shartnoma talab qilsa majburiy)")
     notes: Optional[str] = None
     issue: bool = Field(False, description="true: darhol `Issued` (qatorlar qotadi)")
 
@@ -53,6 +55,8 @@ class InvoiceUpdate(BaseModel):
     discount_percent: Optional[Percent] = None
     discount_amount: Optional[Amount] = None
     discount_reason: Optional[str] = Field(None, max_length=300)
+    policy_id: Optional[uuid.UUID] = None
+    guarantee_letter_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
 
     @model_validator(mode="after")
@@ -81,6 +85,7 @@ class InvoiceLineOut(BaseModel):
     invoice_discount_share: Money
     net_total: Money
     vat_amount: Money
+    insurer_amount: Money = 0
     performed_at: Optional[datetime] = Field(None, description="Xizmat bajarilgan vaqt (shunda sarf ombordan yoziladi)")
 
 
@@ -101,6 +106,13 @@ class InvoiceOut(BaseModel):
     discount_percent: Optional[Money] = None
     discount_reason: Optional[str] = None
     notes: Optional[str] = None
+    policy_id: Optional[str] = None
+    policy_number: Optional[str] = None
+    insurer: Optional[str] = None
+    guarantee_letter_id: Optional[str] = None
+    guarantee_letter_number: Optional[str] = None
+    insurer_total: Money = Field(Decimal("0"), description="Sug'urta ulushi (kompaniyadan keladi)")
+    patient_total: Money = Field(Decimal("0"), description="Bemor to'laydigan ulush (total - insurer_total)")
     paid_amount: Money = Decimal("0")
     refunded_amount: Money = Decimal("0")
     balance: Money = Decimal("0")

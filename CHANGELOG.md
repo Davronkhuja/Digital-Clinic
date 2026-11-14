@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.26] - 2026-11-14
+### Added
+- Hisob-faktura bemor va sug'urta ulushiga bo'linadi: `policy_id` (+ `guarantee_letter_id`) bilan yaratish/qoralamani o'zgartirish. Polis bemorniki va amal qilayotgan, kafolat xati shu polisniki va faol (Active) bo'lishi shart; shartnoma talab qilsa kafolat xati majburiy (422). Shartnoma chegirmasi hisob-faktura chegirmasi sifatida qo'llanadi (qo'lda chegirma sug'urtalangan hisob-fakturada taqiqlangan, 422).
+- Qator bo'yicha sug'urta ulushi (`insurer_amount`) va hisob-faktura `insurer_total`/`patient_total`: qoplash foizi (shartnomadagi xizmat foizi yoki `coverage_all` standart foizi), kafolat xati xizmatlar ro'yxati bilan cheklasa faqat shu xizmatlar. Limitlar: bitta hisob-faktura, bemor uchun kalendar yil (shu shartnoma bo'yicha oldingi bekor qilinmagan hisob-fakturalar), kafolat xati qoldig'i; ulushlar qatorlarga proporsional kamayadi. Qoralama chiqarilganda polis, kafolat xati va limitlar qayta tekshiriladi va ulush qayta hisoblanadi. Migratsiya 0048.
+- Kafolat xati `used_amount`/`remaining`/`state` (Exhausted) haqiqiy hisob-fakturalardan.
+### Changed
+- To'lov faqat bemor ulushiga (`balance`, holat `PartiallyPaid`/`Paid`, to'lov taqsimoti qatorlarga bemor ulushiga proporsional; fiskal chek va shifokor foizi bemor to'lovi bo'yicha); to'liq sug'urtalangan hisob-faktura chiqarilganda bemor bo'yicha `Paid` (sug'urta ulushi kompaniya qarzi bo'lib qoladi). Portal hisoblarida `insurer_total` va bemor qarzi.
+
 ## [1.9.25] - 2026-11-14
 ### Added
 - Bemor polisi (`patient_policies`): `POST/GET /patients/{id}/policies` (`valid_only`), `GET /insurance/policies` (raqam, kompaniya, bemor bo'yicha qidirish), `PUT /insurance/policies/{id}`. Shartnoma faol bo'lishi shart; raqam kompaniya ichida noyob; `valid_now`: polis ham, shartnoma ham faol va muddat ichida. `insurance:write` (administrator, qabulxona).

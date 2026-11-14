@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -20,6 +21,7 @@ class Invoice(BranchScoped, BaseModel):
     __table_args__ = (
         CheckConstraint("subtotal >= 0 AND discount_total >= 0 AND total >= 0 AND vat_total >= 0", name="amounts_non_negative"),
         CheckConstraint("total = subtotal - discount_total", name="total_consistent"),
+        CheckConstraint("insurer_total >= 0 AND insurer_total <= total", name="insurer_total_range"),
     )
 
     number: Mapped[str] = mapped_column(String(20), unique=True)  # INV-000123
@@ -38,6 +40,11 @@ class Invoice(BranchScoped, BaseModel):
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_reason: Mapped[str | None] = mapped_column(String(300))
+    # Sug'urta: polis bo'yicha hisob-faktura summasi bemor va sug'urta ulushiga bo'linadi (sug'urta ulushi kompaniyadan keladigan qarz)
+    policy_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("patient_policies.id", ondelete="RESTRICT"), index=True)
+    guarantee_letter_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("guarantee_letters.id", ondelete="RESTRICT"), index=True)
+    insurer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("insurers.id", ondelete="RESTRICT"), index=True)
+    insurer_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), server_default="0")
 
 
 class InvoiceLine(BaseModel):
@@ -49,6 +56,7 @@ class InvoiceLine(BaseModel):
         CheckConstraint("line_discount >= 0 AND invoice_discount_share >= 0 AND net_total >= 0 AND vat_amount >= 0",
                         name="amounts_non_negative"),
         CheckConstraint("net_total = quantity * unit_price - line_discount - invoice_discount_share", name="net_consistent"),
+        CheckConstraint("insurer_amount >= 0 AND insurer_amount <= net_total", name="insurer_amount_range"),
     )
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="RESTRICT"), index=True)
@@ -66,5 +74,6 @@ class InvoiceLine(BaseModel):
     net_total: Mapped[Decimal] = mapped_column(Numeric(14, 2))  # qator bo'yicha to'lanadigan (QQS bilan)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     # Xizmat bajarilgan vaqt: shunda sarf ombordan yoziladi (qabul `Completed` yoki qator qo'lda belgilanganda)
+    insurer_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"), server_default="0")  # qatorning sug'urta ulushi (net_total ichidan)
     performed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     performed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

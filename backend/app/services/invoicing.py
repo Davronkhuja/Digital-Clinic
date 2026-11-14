@@ -32,6 +32,7 @@ class ComputedLine:
     invoice_discount_share: Decimal
     net_total: Decimal
     vat_amount: Decimal
+    insurer_amount: Decimal = Decimal("0.00")      # sug'urta ulushi (net_total ichidan)
 
 
 @dataclass
@@ -117,13 +118,15 @@ def require_sellable(services: dict) -> None:
 
 
 def allocate(lines: list, amount: Decimal) -> list[tuple[InvoiceLine, Decimal]]:
-    """To'lov summasini qatorlarga net_total ga proporsional taqsimlash (qoldiq oxirgisiga); to'liq to'lovda aynan net_total."""
-    total = sum((ln.net_total for ln in lines), ZERO)
+    """Bemor to'lovini qatorlarga bemor ulushiga (net_total - sug'urta ulushi) proporsional taqsimlash (qoldiq oxirgisiga);
+    to'liq to'lovda aynan bemor ulushi."""
+    weight = lambda ln: ln.net_total - (ln.insurer_amount or ZERO)      # noqa: E731
+    total = sum((weight(ln) for ln in lines), ZERO)
     if amount == total:
-        return [(ln, ln.net_total) for ln in lines]
+        return [(ln, weight(ln)) for ln in lines]
     out, left = [], amount
     for i, ln in enumerate(lines):
-        share = left if i == len(lines) - 1 else q2(amount * ln.net_total / total) if total else ZERO
+        share = left if i == len(lines) - 1 else q2(amount * weight(ln) / total) if total else ZERO
         share = min(share, left)
         out.append((ln, share))
         left -= share
