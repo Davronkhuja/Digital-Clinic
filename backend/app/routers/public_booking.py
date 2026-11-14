@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.names import normalize_name
 from app.db.session import get_db
-from app.models import Appointment, AppointmentType, Branch, ClinicSettings, Patient, Staff
+from app.models import Appointment, AppointmentType, Branch, ClinicSettings, Patient, Staff, StaffBranch
 from app.routers.messaging import set_consent
 from app.schemas.enums import AppointmentStatus, Channel, GenderEnum, StaffRole, StatusEnum
 from app.services import audit, availability, links, messaging, otp
@@ -50,10 +50,27 @@ class BookingIn(BaseModel):
     language: str = Field("uz", pattern="^(uz|ru)$")
     consent_sms: bool = Field(False, description="SMS eslatmalarga rozilik (voz kechish mumkin)")
     website: str = ""
+    branch_id: Optional[str] = Field(None, description="Filial (bo'sh: asosiy filial)")
 
 
-def _branch(db: Session) -> Branch:
-    return db.scalar(select(Branch).where(Branch.is_default.is_(True))) or db.scalar(select(Branch))
+def _branch(db: Session, branch_id: str | None = None) -> Branch:
+    """Filial: ko'rsatilmasa asosiy; ko'rsatilsa faol bo'lishi shart."""
+    if not branch_id:
+        return db.scalar(select(Branch).where(Branch.is_default.is_(True))) or db.scalar(select(Branch))
+    import uuid
+    try:
+        branch = db.get(Branch, uuid.UUID(branch_id))
+    except ValueError:
+        branch = None
+    if not branch or not branch.is_active:
+        raise HTTPException(422, "Filial topilmadi")
+    return branch
+
+
+@router.get("/public/booking/branches", tags=[TAG], summary="Faol filiallar (yozilish uchun tanlash)")
+def booking_branches(db: Session = Depends(get_db)):
+    rows = db.scalars(select(Branch).where(Branch.is_active.is_(True)).order_by(Branch.is_default.desc(), Branch.name))
+    return [{"id": str(b.id), "name": b.name, "address": b.address, "phone": b.phone, "is_default": b.is_default} for b in rows]
 
 
 def _honeypot(value: str) -> None:
@@ -88,8 +105,10 @@ def booking_types(db: Session = Depends(get_db)):
 
 
 @router.get("/public/booking/doctors", tags=[TAG], summary="Faol shifokorlar")
-def booking_doctors(db: Session = Depends(get_db)):
-    rows = db.scalars(select(Staff).where(Staff.role == StaffRole.doctor, Staff.status == StatusEnum.active).order_by(Staff.full_name))
+def booking_doctors(branch_id: Optional[str] = Query(None, description="Filial (bo'sh: asosiy)"), db: Session = Depends(get_db)):
+    branch = _branch(db, branch_id)
+    rows = db.scalars(select(Staff).where(Staff.role == StaffRole.doctor, Staff.status == StatusEnum.active,
+                                          Staff.id.in_(select(StaffBranch.staff_id).where(StaffBranch.branch_id == branch.id))).order_by(Staff.full_name))
     return [{"id": str(d.id), "name": d.full_name, "department": d.department} for d in rows]
 
 
@@ -112,13 +131,15 @@ def _check_date(day: date) -> None:
 
 
 @router.get("/public/booking/slots", tags=[TAG], summary="Bo'sh vaqtlar (shifokor, sana, xizmat)")
-def booking_slots(doctor_id: str, date: date, type: str = Query(...), request: Request = None, db: Session = Depends(get_db)):
+def booking_slots(doctor_id: str, date: date, type: str = Query(...), branch_id: Optional[str] = Query(None), request: Request = None,
+                  db: Session = Depends(get_db)):
     otp.rate_check(db, otp.request_ip(request), "slots_ip", 120, timedelta(hours=1))
     db.commit()
     _check_date(date)
     doctor = _doctor(db, doctor_id)
     duration = resolve_duration(db, doctor, type)
-    slots = availability.free_slots(db, doctor, date, duration, 15, None, now=datetime.now(CLINIC_TZ))
+    branch = _branch(db, branch_id)
+    slots = availability.free_slots(db, doctor, date, duration, 15, None, now=datetime.now(CLINIC_TZ), branch_id=branch.id)
     return {"date": date.isoformat(), "duration_min": duration, "slots": [s.astimezone(CLINIC_TZ).strftime("%H:%M") for s, _ in slots]}
 
 
@@ -144,7 +165,7 @@ def book_online(data: BookingIn, request: Request, db: Session = Depends(get_db)
     _check_date(day)
     if not db.scalar(select(AppointmentType.id).where(func.lower(AppointmentType.name) == data.type.strip().lower(), AppointmentType.is_active.is_(True))):
         raise HTTPException(422, "Xizmat topilmadi")
-    branch = _branch(db)
+    branch = _branch(db, data.branch_id)
     patient = _find_patient(db, phone, data.name, data.birth_date)
     if patient is None:
         patient = Patient(full_name=data.name.strip(), phone=phone, birth_date=data.birth_date, gender=GenderEnum.other, source="onlayn",

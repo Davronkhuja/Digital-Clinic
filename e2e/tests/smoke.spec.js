@@ -233,6 +233,13 @@ test.describe('dashboard', () => {
   })
 })
 
+test('8. onlayn yozilish: bir nechta filialda avval filial tanlanadi', async ({ page }) => {
+  await page.goto('/p/book')
+  await expect(page.getByTestId('book-branches')).toBeVisible()
+  await page.getByTestId('book-branch').first().click()
+  await expect(page.getByText('Xizmatni tanlang')).toBeVisible()
+})
+
 test('9. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
@@ -290,6 +297,19 @@ test('9. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bek
   await page.getByTestId('portal-cancel-yes').click()
   await expect(appts.first()).toContainText('Bekor qilingan')
   await expect(page.getByTestId('portal-cancel')).toHaveCount(0)
+
+  // Yangi qabulga yozilish (filial tanlab): bo'sh vaqtdan birini band qilish
+  await page.getByTestId('tab-book').click()
+  await expect(page.getByTestId('portal-book')).toBeVisible()
+  await page.getByTestId('portal-book-branch').selectOption({ index: 0 })        // asosiy filial (bir nechta filial bor)
+  await page.getByTestId('portal-book-doctor').selectOption({ label: DOCTOR })
+  await page.getByTestId('portal-book-date').fill(nextWorkday())
+  await page.getByTestId('portal-slot').first().click()
+  await page.getByTestId('portal-book-save').click()
+  await expect(page.getByTestId('portal-book-done')).toContainText(DOCTOR)
+  await page.getByTestId('tab-appointments').click()
+  await expect(appts.filter({ hasText: 'Rejalashtirilgan' })).toHaveCount(1)
+  await expect(page.getByTestId('portal-branch').first()).toBeVisible()
 
   // Chiqish: seans tugaydi, kirish formasi qaytadi
   await page.getByTestId('portal-logout').click()

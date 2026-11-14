@@ -109,8 +109,7 @@ def public_offer(token: str, db: Session = Depends(get_db)):
     entry = db.get(WaitlistEntry, uuid.UUID(data["entry"]))
     starts = datetime.fromisoformat(data["starts"]).astimezone(CLINIC_TZ)
     doctor = db.get(Staff, uuid.UUID(data["doctor"]))
-    patient_branch = db.get(Patient, entry.patient_id).branch_id
-    return {"clinic": _clinic(db, patient_branch), "date": starts.strftime("%d.%m.%Y"), "time": starts.strftime("%H:%M"), "doctor": doctor.full_name,
+    return {"clinic": _clinic(db, entry.branch_id), "date": starts.strftime("%d.%m.%Y"), "time": starts.strftime("%H:%M"), "doctor": doctor.full_name,
             "available": entry.status == WaitlistStatus.waiting and starts > datetime.now(UTC)}
 
 
@@ -134,7 +133,7 @@ def public_book_offer(token: str, request: Request, db: Session = Depends(get_db
         raise HTTPException(410, "Vaqt o'tib ketgan")
     patient, doctor = db.get(Patient, entry.patient_id), db.get(Staff, entry.doctor_id)
     room_id = uuid.UUID(data["room"]) if data.get("room") else None
-    appt, violation = build_appointment(db, SystemActor(branch_id=patient.branch_id), patient, doctor, starts.date().isoformat(),
+    appt, violation = build_appointment(db, SystemActor(branch_id=entry.branch_id), patient, doctor, starts.date().isoformat(),
                                         starts.strftime("%H:%M"), entry.type, None, room_id, entry.notes, None)
     with booking_conflicts(db):
         db.flush()

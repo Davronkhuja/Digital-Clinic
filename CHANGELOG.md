@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.18] - 2026-11-14
+### Added
+- Onlayn yozilish va bemor portalida filial tanlash: `GET /public/booking/branches` (faol filiallar), `branch_id` parametri `doctors` (shu filialda ishlaydigan shifokorlar), `slots` (filial jadvali) va `POST /public/booking` (qabul va yangi bemor tanlangan filialga; bo'sh: asosiy filial; faolsiz/yo'q filial yoki shifokor ishlamaydigan filial 422).
+- Portal: `POST /portal/{patient_id}/appointments` (filial, xizmat, shifokor, sana, vaqt; faol qabullar limiti 3, soatiga 10 ta), qabullar ro'yxatida filial nomi. Frontend: onlayn yozilishda filial tanlash qadami (filial bittadan ko'p bo'lsa), portalda "Yozilish" bo'limi (uz/ru).
+### Fixed
+- Kutish ro'yxati taklifi faqat bo'shagan qabul filialidagi kutuvchilarga ketadi (taklif orqali yozilish ham o'sha filialga yoziladi).
+- E2E: portalda yozilish va onlayn yozilishda filial tanlash.
+
 ## [1.9.17] - 2026-11-14
 ### Added
 - Shifokor bir nechta filialda ishlaydi: `staff_branches` (asosiy filial avtomatik), `GET/PUT /staff/{id}/branches` (`branches:manage`; olib tashlangan filialda rejalashtirilgan qabul bo'lsa 409, o'sha filialdagi jadval va istisnolar o'chiriladi). Xodimlar ro'yxati filialda ishlaydiganlarni ko'rsatadi.

@@ -7,15 +7,17 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Appointment, ClinicSettings, Invoice, LabOrder, Patient, Staff
+from app.models import Appointment, AppointmentType, Branch, ClinicSettings, Invoice, LabOrder, Patient, Staff
 from app.routers.lab import order_out
 from app.routers.public import cancel_appointment
+from app.routers.public_booking import MAX_ACTIVE_PER_PHONE, _branch, _check_date, _doctor
 from app.schemas.enums import AppointmentStatus, InvoiceStatus, LabOrderStatus, StatusEnum
 from app.services import audit, links, otp, payments, pdf
+from app.services.booking import SystemActor, booking_conflicts, build_appointment
 from app.services.periods import CLINIC_TZ
 from app.services.phone import normalize_phone
 
@@ -81,11 +83,50 @@ def portal_appointments(patient_id: uuid.UUID, request: Request, phone: str = De
     for a in rows:
         local = a.starts_at.astimezone(CLINIC_TZ)
         out.append({"id": str(a.id), "date": local.strftime("%d.%m.%Y"), "time": local.strftime("%H:%M"), "doctor": db.get(Staff, a.doctor_id).full_name,
-                    "type": a.type, "status": a.status.value, "confirmed": a.confirmed_at is not None,
+                    "branch_id": str(a.branch_id), "branch": db.get(Branch, a.branch_id).name, "type": a.type, "status": a.status.value, "confirmed": a.confirmed_at is not None,
                     "can_act": a.status == AppointmentStatus.scheduled and a.starts_at > now})
     audit.record(db, None, request, "read", "appointment", None, {"via": "portal", "patient_id": str(patient.id), "count": len(out)})
     db.commit()
     return out
+
+
+class PortalBookingIn(BaseModel):
+    branch_id: Optional[str] = None
+    doctor_id: str
+    type: str
+    date: str
+    time: str
+
+
+@router.post("/portal/{patient_id}/appointments", tags=[TAG], status_code=201, summary="Yangi qabulga yozilish (filial tanlab)",
+             description="Bemor portalida: filial, xizmat, shifokor, sana va vaqt tanlanadi (bo'sh vaqtlar `/public/booking/slots?branch_id=`). "
+                         "Oddiy qoidalar: shifokor shu filialda ishlashi, ish vaqti, band vaqt (409); bir telefonda 3 tadan ortiq faol qabul bo'lmaydi.")
+def portal_book(patient_id: uuid.UUID, data: PortalBookingIn, request: Request, phone: str = Depends(session_phone), db: Session = Depends(get_db)):
+    patient = own_patient(db, phone, patient_id)
+    otp.rate_check(db, otp.request_ip(request), "portal_booking_ip", 10, timedelta(hours=1))
+    branch = _branch(db, data.branch_id)
+    doctor = _doctor(db, data.doctor_id)
+    try:
+        day = datetime.strptime(data.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(422, "Sana noto'g'ri")
+    _check_date(day)
+    if not db.scalar(select(AppointmentType.id).where(func.lower(AppointmentType.name) == data.type.strip().lower(), AppointmentType.is_active.is_(True))):
+        raise HTTPException(422, "Xizmat topilmadi")
+    active = db.scalar(select(func.count()).select_from(Appointment).where(
+        Appointment.patient_id == patient.id, Appointment.status == AppointmentStatus.scheduled, Appointment.starts_at > datetime.now(UTC)))
+    if active >= MAX_ACTIVE_PER_PHONE:
+        raise HTTPException(409, "Faol qabullar soni limitga yetgan. Klinikaga qo'ng'iroq qiling")
+    appt, violation = build_appointment(db, SystemActor(branch_id=branch.id), patient, doctor, data.date, data.time, data.type)
+    if violation:
+        raise HTTPException(422, violation)
+    with booking_conflicts(db):
+        db.flush()
+        audit.record(db, None, request, "create", "appointment", appt.id, {"via": "portal", "patient_id": str(patient.id), "branch_id": str(branch.id)})
+        db.commit()
+    local = appt.starts_at.astimezone(CLINIC_TZ)
+    return {"id": str(appt.id), "date": local.strftime("%d.%m.%Y"), "time": local.strftime("%H:%M"), "doctor": doctor.full_name, "branch": branch.name,
+            "type": data.type}
 
 
 def _act(db: Session, phone: str, patient_id: uuid.UUID, appt_id: uuid.UUID) -> Appointment:

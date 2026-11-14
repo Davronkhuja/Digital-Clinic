@@ -37,7 +37,7 @@
         </div>
         <p v-else class="text-sm text-slate-500" data-testid="portal-patient">{{ patients[0]?.name }}</p>
 
-        <nav class="grid grid-cols-3 gap-1 bg-slate-200 rounded-xl p-1" role="tablist">
+        <nav class="grid grid-cols-4 gap-1 bg-slate-200 rounded-xl p-1" role="tablist">
           <button v-for="k in tabs" :key="k" type="button" role="tab" :aria-selected="tab === k" :data-testid="`tab-${k}`" :class="['py-2 rounded-lg text-sm', tab === k ? 'bg-white shadow-sm font-medium' : 'text-slate-600']" @click="openTab(k)">{{ t(k) }}</button>
         </nav>
 
@@ -50,6 +50,7 @@
               <div>
                 <p class="font-semibold">{{ a.date }} · {{ a.time }}</p>
                 <p class="text-sm text-slate-500">{{ a.doctor }} · {{ a.type }}</p>
+                <p v-if="a.branch" class="text-xs text-slate-400" data-testid="portal-branch">{{ a.branch }}</p>
               </div>
               <span :class="['text-xs px-2 py-0.5 rounded-full', statusClass[a.status] || 'bg-slate-100 text-slate-600']">{{ t('st_' + a.status) }}</span>
             </div>
@@ -77,6 +78,21 @@
           </article>
         </section>
 
+        <section v-else-if="tab === 'book'" class="bg-white rounded-2xl shadow-sm p-4 space-y-3" data-testid="portal-book">
+          <p v-if="bookDone" class="rounded-xl bg-emerald-50 text-emerald-700 text-sm px-3 py-2" data-testid="portal-book-done">{{ t('book_done', bookDone) }}</p>
+          <div v-if="branches.length > 1"><label class="text-xs text-slate-500">{{ t('branch') }}</label>
+            <select v-model="bk.branch_id" class="w-full border border-slate-300 rounded-xl px-3 py-2.5" data-testid="portal-book-branch" @change="onBranch"><option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option></select></div>
+          <div><label class="text-xs text-slate-500">{{ t('service') }}</label>
+            <select v-model="bk.type" class="w-full border border-slate-300 rounded-xl px-3 py-2.5" data-testid="portal-book-type"><option v-for="x in types" :key="x.name" :value="x.name">{{ x.name }}</option></select></div>
+          <div><label class="text-xs text-slate-500">{{ t('doctor') }}</label>
+            <select v-model="bk.doctor_id" class="w-full border border-slate-300 rounded-xl px-3 py-2.5" data-testid="portal-book-doctor" @change="loadSlots"><option value="" disabled>—</option><option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option></select></div>
+          <div><label class="text-xs text-slate-500">{{ t('date') }}</label>
+            <input v-model="bk.date" type="date" :min="minDate" :max="maxDate" class="w-full border border-slate-300 rounded-xl px-3 py-2.5" data-testid="portal-book-date" @change="loadSlots" /></div>
+          <p v-if="bk.date && bk.doctor_id && !slots.length && !slotsLoading" class="text-sm text-amber-600">{{ t('no_slots') }}</p>
+          <div class="flex flex-wrap gap-2"><button v-for="sl in slots" :key="sl" type="button" :class="['px-3 py-1.5 rounded-lg border text-sm font-mono', bk.time === sl ? 'bg-cyan-600 text-white border-cyan-600' : 'border-slate-300']" data-testid="portal-slot" @click="bk.time = sl">{{ sl }}</button></div>
+          <button type="button" class="w-full py-3 rounded-xl bg-cyan-600 text-white font-medium disabled:opacity-50" :disabled="busy || !bk.time" data-testid="portal-book-save" @click="book">{{ t('book_btn') }}</button>
+        </section>
+
         <section v-else class="space-y-3" data-testid="portal-lab">
           <p v-if="!labs.length" class="text-center text-sm text-slate-400 py-6">{{ t('lab_empty') }}</p>
           <article v-for="o in labs" :key="o.id" class="bg-white rounded-2xl shadow-sm p-4 space-y-2">
@@ -98,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
 
 // Bemor seansi klinika xodimi tokenidan alohida: umumiy `api` (xodim tokeni, /login'ga yo'naltirish) ishlatilmaydi.
@@ -113,6 +129,8 @@ const T = {
     confirm: 'Tasdiqlayman', confirmed: 'Tasdiqlangan', cancel: 'Bekor qilish', cancel_ask: 'Qabulni bekor qilishni tasdiqlaysizmi? Vaqt boshqa bemorga beriladi.',
     yes_cancel: 'Ha, bekor qilish', no: "Yo'q", total: 'Jami', paid: "To'langan", balance: 'Qarz', settled: "To'langan",
     st_Scheduled: 'Rejalashtirilgan', st_Completed: 'Yakunlangan', st_Cancelled: 'Bekor qilingan', 'st_No Show': 'Kelmagan',
+    book: 'Yozilish', branch: 'Filial', service: 'Xizmat', doctor: 'Shifokor', date: 'Sana', no_slots: "Bu kuni bo'sh vaqt yo'q", book_btn: 'Qabulga yozilish',
+    book_done: 'Yozildingiz: {date} {time}, {doctor} ({branch})',
     cancelled_ok: 'Qabul bekor qilindi', confirmed_ok: 'Qabul tasdiqlandi', expired: 'Seans tugadi, qayta kiring', failed: "So'rovni bajarib bo'lmadi",
   },
   ru: {
@@ -122,6 +140,8 @@ const T = {
     confirm: 'Подтвердить', confirmed: 'Подтверждено', cancel: 'Отменить', cancel_ask: 'Отменить приём? Время будет предложено другому пациенту.',
     yes_cancel: 'Да, отменить', no: 'Нет', total: 'Итого', paid: 'Оплачено', balance: 'Долг', settled: 'Оплачено',
     st_Scheduled: 'Запланирован', st_Completed: 'Завершён', st_Cancelled: 'Отменён', 'st_No Show': 'Не явился',
+    book: 'Запись', branch: 'Филиал', service: 'Услуга', doctor: 'Врач', date: 'Дата', no_slots: 'На этот день нет свободного времени', book_btn: 'Записаться на приём',
+    book_done: 'Вы записаны: {date} {time}, {doctor} ({branch})',
     cancelled_ok: 'Приём отменён', confirmed_ok: 'Приём подтверждён', expired: 'Сеанс истёк, войдите снова', failed: 'Не удалось выполнить запрос',
   },
 }
@@ -130,13 +150,17 @@ const t = (k, vars = {}) => (T[lang.value][k] ?? k).replace(/\{(\w+)\}/g, (_, v)
 function setLang(l) { lang.value = l; try { localStorage.setItem('portal_lang', l) } catch { /* ixtiyoriy */ } }
 
 const statusClass = { Scheduled: 'bg-cyan-100 text-cyan-700', Completed: 'bg-emerald-100 text-emerald-700', Cancelled: 'bg-slate-100 text-slate-500', 'No Show': 'bg-red-100 text-red-700' }
-const tabs = ['appointments', 'invoices', 'lab']
+const tabs = ['appointments', 'invoices', 'lab', 'book']
 const money = v => `${new Intl.NumberFormat('ru-RU').format(v)} ${lang.value === 'ru' ? 'сум' : "so'm"}`
 
 const session = ref(sessionStorage.getItem(SS) || ''), patients = ref([]), patientId = ref(sessionStorage.getItem(PS) || '')
 const step = ref(0), phone = ref(''), code = ref(''), website = ref(''), busy = ref(false), loading = ref(false), error = ref('')
 const tab = ref('appointments'), cancelAsk = ref(null)
 const appointments = ref([]), invoices = ref([]), labs = ref([])
+const branches = ref([]), types = ref([]), doctors = ref([]), slots = ref([]), slotsLoading = ref(false), bookDone = ref(null)
+const bk = reactive({ branch_id: '', type: '', doctor_id: '', date: '', time: '' })
+const iso = d => d.toISOString().slice(0, 10)
+const minDate = iso(new Date()), maxDate = iso(new Date(Date.now() + 60 * 864e5))
 
 const auth = () => ({ headers: { Authorization: `Bearer ${session.value}` } })
 function fail(e) {
@@ -170,7 +194,9 @@ async function restore() {
 }
 function pickPatient(id) { patientId.value = id; try { sessionStorage.setItem(PS, id) } catch { /* ixtiyoriy */ } openTab(tab.value) }
 async function openTab(k) {
-  tab.value = k; error.value = ''; cancelAsk.value = null; loading.value = true
+  tab.value = k; error.value = ''; cancelAsk.value = null; bookDone.value = null
+  if (k === 'book') { await initBooking(); return }
+  loading.value = true
   const path = { appointments: 'appointments', invoices: 'invoices', lab: 'lab-results' }[k]
   try {
     const { data } = await http.get(`/portal/${patientId.value}/${path}`, auth())
@@ -178,6 +204,34 @@ async function openTab(k) {
     else if (k === 'invoices') invoices.value = data
     else labs.value = data
   } catch (e) { fail(e) } finally { loading.value = false }
+}
+async function initBooking() {
+  loading.value = true
+  try {
+    if (!branches.value.length) {
+      branches.value = (await http.get('/public/booking/branches')).data
+      types.value = (await http.get('/public/booking/types')).data
+      bk.branch_id = branches.value[0]?.id || ''; bk.type = types.value[0]?.name || ''
+    }
+    await onBranch()
+  } catch (e) { fail(e) } finally { loading.value = false }
+}
+async function onBranch() {
+  bk.doctor_id = ''; bk.time = ''; slots.value = []
+  doctors.value = (await http.get('/public/booking/doctors', { params: { branch_id: bk.branch_id || undefined } })).data
+}
+async function loadSlots() {
+  bk.time = ''; slots.value = []
+  if (!bk.doctor_id || !bk.date) return
+  slotsLoading.value = true; error.value = ''
+  try { slots.value = (await http.get('/public/booking/slots', { params: { doctor_id: bk.doctor_id, date: bk.date, type: bk.type, branch_id: bk.branch_id || undefined } })).data.slots } catch (e) { fail(e) } finally { slotsLoading.value = false }
+}
+async function book() {
+  busy.value = true; error.value = ''
+  try {
+    const { data } = await http.post(`/portal/${patientId.value}/appointments`, { branch_id: bk.branch_id || null, doctor_id: bk.doctor_id, type: bk.type, date: bk.date, time: bk.time }, auth())
+    bookDone.value = data; bk.time = ''; await loadSlots()
+  } catch (e) { fail(e) } finally { busy.value = false }
 }
 async function act(a, what) {
   busy.value = true; error.value = ''

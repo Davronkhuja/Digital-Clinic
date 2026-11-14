@@ -68,7 +68,7 @@ def test_appointments_confirm_cancel_and_waitlist_offer(client, auth):
     h = _auth_header(_login(client))
     rows = client.get(f"/portal/{pid}/appointments", headers=h).json()
     assert rows[0]["doctor"] == DOC and rows[0]["time"] == "10:00" and rows[0]["can_act"] is True and rows[0]["confirmed"] is False
-    assert set(rows[0]) == {"id", "date", "time", "doctor", "type", "status", "confirmed", "can_act"}      # tibbiy ma'lumot yo'q
+    assert set(rows[0]) == {"id", "date", "time", "doctor", "branch_id", "branch", "type", "status", "confirmed", "can_act"}      # tibbiy ma'lumot yo'q
     assert client.post(f"/portal/{pid}/appointments/{appt['id']}/confirm", headers=h).json() == {"confirmed": True}
     assert client.get(f"/portal/{pid}/appointments", headers=h).json()[0]["confirmed"] is True
     assert client.post(f"/portal/{pid}/appointments/{appt['id']}/cancel", headers=h).json() == {"status": "Cancelled"}

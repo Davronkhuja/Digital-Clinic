@@ -7,7 +7,13 @@
       </ol>
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
 
-      <div v-if="step === 0" class="space-y-2">
+      <div v-if="!branchChosen" class="space-y-2" data-testid="book-branches">
+        <p class="text-sm text-slate-500">Filialni tanlang</p>
+        <button v-for="b in branches" :key="b.id" class="w-full text-left px-4 py-3 rounded-xl border hover:border-cyan-500 text-sm" data-testid="book-branch" @click="pickBranch(b)">{{ b.name }}<span v-if="b.address" class="block text-xs text-slate-400">{{ b.address }}</span></button>
+      </div>
+
+      <div v-else-if="step === 0" class="space-y-2">
+        <p v-if="branches.length > 1" class="text-xs text-slate-400">Filial: <b>{{ branchName }}</b> · <button class="underline" @click="branchChosen = false">o'zgartirish</button></p>
         <p class="text-sm text-slate-500">Xizmatni tanlang</p>
         <button v-for="t in types" :key="t.name" class="w-full text-left px-4 py-3 rounded-xl border hover:border-cyan-500 text-sm" @click="pickType(t)">{{ t.name }} <span class="text-slate-400">· {{ t.duration_min }} daq</span></button>
       </div>
@@ -54,12 +60,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/composables/useApi'
 
 const steps = ['Xizmat', 'Shifokor', 'Vaqt', 'Telefon', 'Kod', 'Tayyor']
 const step = ref(0), error = ref(''), busy = ref(false), loadingSlots = ref(false)
 const types = ref([]), doctors = ref([]), slots = ref([]), result = ref(null)
+const branches = ref([]), branchId = ref(''), branchChosen = ref(true)
+const branchName = computed(() => branches.value.find(b => b.id === branchId.value)?.name || '')
 const type = ref(null), doctor = ref(null), date = ref(''), time = ref(''), code = ref('')
 const form = reactive({ name: '', phone: '', birth_date: '', language: 'uz', consent_sms: false, website: '' })
 const iso = d => d.toISOString().slice(0, 10)
@@ -67,13 +75,19 @@ const minDate = iso(new Date()), maxDate = iso(new Date(Date.now() + 60 * 864e5)
 const fail = e => { error.value = e?.response?.data?.detail || "So'rovni bajarib bo'lmadi" }
 
 onMounted(async () => {
-  try { types.value = (await api.get('/public/booking/types')).data } catch (e) { fail(e) }
+  try {
+    types.value = (await api.get('/public/booking/types')).data
+    branches.value = (await api.get('/public/booking/branches')).data
+    if (branches.value.length === 1) branchId.value = branches.value[0].id
+    else branchChosen.value = false             // bir nechta filial: avval tanlanadi
+  } catch (e) { fail(e) }
 })
-async function pickType(t) { type.value = t; error.value = ''; try { doctors.value = (await api.get('/public/booking/doctors')).data; step.value = 1 } catch (e) { fail(e) } }
+function pickBranch(b) { branchId.value = b.id; branchChosen.value = true; step.value = 0; error.value = '' }
+async function pickType(t) { type.value = t; error.value = ''; try { doctors.value = (await api.get('/public/booking/doctors', { params: { branch_id: branchId.value || undefined } })).data; step.value = 1 } catch (e) { fail(e) } }
 function pickDoctor(d) { doctor.value = d; step.value = 2; slots.value = []; date.value = ''; time.value = '' }
 async function loadSlots() {
   time.value = ''; error.value = ''; loadingSlots.value = true
-  try { slots.value = (await api.get('/public/booking/slots', { params: { doctor_id: doctor.value.id, date: date.value, type: type.value.name } })).data.slots } catch (e) { slots.value = []; fail(e) } finally { loadingSlots.value = false }
+  try { slots.value = (await api.get('/public/booking/slots', { params: { doctor_id: doctor.value.id, date: date.value, type: type.value.name, branch_id: branchId.value || undefined } })).data.slots } catch (e) { slots.value = []; fail(e) } finally { loadingSlots.value = false }
 }
 async function sendCode() {
   busy.value = true; error.value = ''
@@ -84,7 +98,7 @@ async function verifyAndBook() {
   try {
     const { data } = await api.post('/public/otp/verify', { phone: form.phone, purpose: 'booking', code: code.value })
     result.value = (await api.post('/public/booking', { token: data.token, name: form.name, birth_date: form.birth_date || null, doctor_id: doctor.value.id, type: type.value.name,
-      date: date.value, time: time.value, language: form.language, consent_sms: form.consent_sms, website: form.website })).data
+      date: date.value, time: time.value, language: form.language, consent_sms: form.consent_sms, website: form.website, branch_id: branchId.value || null })).data
     step.value = 5
   } catch (e) { fail(e) } finally { busy.value = false }
 }

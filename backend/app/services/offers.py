@@ -30,7 +30,7 @@ def offer_freed_slot(db: Session, appt: Appointment, now: datetime | None = None
         return None
     day = appt.starts_at.astimezone(CLINIC_TZ).date()
     entries = db.scalars(select(WaitlistEntry).where(
-        WaitlistEntry.doctor_id == appt.doctor_id, WaitlistEntry.status == WaitlistStatus.waiting, WaitlistEntry.patient_id != appt.patient_id,
+        WaitlistEntry.doctor_id == appt.doctor_id, WaitlistEntry.branch_id == appt.branch_id, WaitlistEntry.status == WaitlistStatus.waiting, WaitlistEntry.patient_id != appt.patient_id,
         WaitlistEntry.date_from <= day, (WaitlistEntry.date_to.is_(None)) | (WaitlistEntry.date_to >= day)).order_by(WaitlistEntry.created_at)).all()
     doctor = db.get(Staff, appt.doctor_id)
     row = db.scalar(select(ClinicSettings).where(ClinicSettings.branch_id == appt.branch_id))
