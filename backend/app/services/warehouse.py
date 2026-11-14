@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.models.warehouse import stock_transfer_number_seq
 from app.schemas.enums import InvoiceStatus, StockMovementKind, TransferStatus
+from app.services import notifications
 from app.services.money import q2
 from app.services.periods import clinic_today
 
@@ -163,6 +164,8 @@ def issue(db: Session, user, *, item_id: uuid.UUID, qty: Decimal, reason: str, k
         a.batch.qty_remaining -= a.qty
         db.add(StockMovement(item_id=item_id, batch_id=a.batch.id, kind=kind, qty=-a.qty, unit_cost=a.batch.unit_cost, reason=reason[:300],
                              ref_type=ref_type, ref_id=ref_id, branch_id=branch, created_by=getattr(user, "id", None)))
+    db.flush()
+    notifications.check_low_stock(db, branch, [item_id])
     return allocations
 
 
@@ -239,6 +242,7 @@ def perform_line(db: Session, inv: Invoice, line: InvoiceLine, user_id: uuid.UUI
     if line.performed_at is not None:
         return {"consumed": 0, "shortages": 0}
     shortages = consumed = 0
+    touched: list[uuid.UUID] = []
     for norm in db.scalars(select(ServiceMaterial).where(ServiceMaterial.service_id == line.service_id).order_by(ServiceMaterial.item_id)):
         need = norm.qty * line.quantity
         allocs = fefo_allocate(db, inv.branch_id, norm.item_id, need, partial=True)
@@ -250,10 +254,17 @@ def perform_line(db: Session, inv: Invoice, line: InvoiceLine, user_id: uuid.UUI
         got = sum((a.qty for a in allocs), Decimal(0))
         consumed += 1 if got else 0
         if need - got > 0:
-            db.add(StockShortage(invoice_id=inv.id, invoice_line_id=line.id, item_id=norm.item_id, qty_missing=need - got, branch_id=inv.branch_id,
-                                 created_by=user_id))
+            sh = StockShortage(invoice_id=inv.id, invoice_line_id=line.id, item_id=norm.item_id, qty_missing=need - got, branch_id=inv.branch_id,
+                               created_by=user_id)
+            db.add(sh)
+            db.flush()
+            notifications.notify_shortage(db, branch_id=inv.branch_id, shortage_id=sh.id, item=db.get(StockItem, norm.item_id), qty=need - got,
+                                          invoice_number=inv.number)
             shortages += 1
+        touched.append(norm.item_id)
     line.performed_at, line.performed_by = datetime.now(UTC), user_id
+    db.flush()
+    notifications.check_low_stock(db, inv.branch_id, touched)          # sarfdan keyin minimaldan kam bo'lsa ombor mas'uliga xabar
     return {"consumed": consumed, "shortages": shortages}
 
 

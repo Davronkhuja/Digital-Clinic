@@ -161,7 +161,7 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
 - Filial: foydalanuvchi bitta filialda (`users.branch_id`, `staff.branch_id`); `X-Branch-Id` faqat `branches:all` (admin); bemor bazasi umumiy, bemor tarixi (`patient_id` bilan uchrashuv/EMR/lab) filialdan qat'i nazar ko'rinadi;
   faolsizlantirish: asosiy filial, faol xodimi, ombor qoldig'i yoki hozirgi faol filial bo'lsa 409. Hisobotlar `all_branches=true` (faqat `branches:all`).
 - Ruxsatlar: `warehouse:read/write/transfer`, `branches:manage/all` (data migratsiya admin/hamshiraga beradi).
-- **Qarorlar (foydalanuvchi, 2026-11-14), 6-bosqichdan oldin bajariladi:** (1) sarf xizmat bajarilganda [v1.9.15 TAYYOR]; (2) yetishmovchilik: ombor mas'uliga ogohlantirish (bildirishnoma); (3) shifokor bir nechta filialda
+- **Qarorlar (foydalanuvchi, 2026-11-14), 6-bosqichdan oldin bajariladi:** (1) sarf xizmat bajarilganda [v1.9.15 TAYYOR]; (2) yetishmovchilik: ombor mas'uliga ogohlantirish (bildirishnoma, `notifications`, qo'ng'iroqcha) [v1.9.16 TAYYOR]; (3) shifokor bir nechta filialda
   ishlaydi: jadval shablonlari va istisnolar filial bo'yicha, bir vaqtda ikki filialda jadval taqiqlanadi; (4) onlayn yozilish va bemor portalida filial tanlash; (5) inventarizatsiya (sanoq hujjati, farq bo'yicha
   avtomatik kirim/chiqim, ruxsat bilan tasdiq), ko'chirishda qisman qabul, filial bo'yicha narx (asosiy narxdan farqli bo'lishi mumkin).
 - **6-bosqich qarorlari:** versiyalar v1.9.x davom etadi, `v2.0.0` bosqich oxirida. 1C: rasmiy format hujjati yo'q, universal eksport (sotuvlar xizmat bo'yicha, to'lovlar usul bo'yicha, kassa smenalari, ombor harakatlari,

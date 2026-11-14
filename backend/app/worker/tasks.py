@@ -25,3 +25,12 @@ def schedule_recalls() -> dict:
 
     with SessionLocal() as db:
         return recalls.schedule_recalls(db)
+
+
+@celery_app.task(name="app.worker.tasks.warehouse_daily_scan")
+def warehouse_daily_scan() -> dict:
+    """Kunlik: minimal qoldiq, muddati yaqin va o'tgan partiyalar bo'yicha ombor mas'uliga bildirishnoma."""
+    from app.services import notifications
+
+    with SessionLocal() as db:
+        return notifications.scan_all(db)

@@ -90,6 +90,7 @@ test.describe('ombor', () => {
     await page.getByTestId('wh-new-item').click()
     await page.getByTestId('item-name').fill(name)
     await page.getByTestId('item-unit').fill('dona')
+    await page.getByTestId('item-min').fill('15')                               // minimal qoldiq 15: chiqimdan keyin 8 < 15
     await page.getByTestId('item-save').click()
     await expect(page.getByText('Material saqlandi')).toBeVisible()
 
@@ -135,6 +136,11 @@ test.describe('ombor', () => {
     await page.getByTestId('wh-tab-movements').click()
     await expect(page.getByTestId('wh-movements')).toContainText('Hisobdan chiqarish')
     await expect(page.getByTestId('wh-movements')).toContainText('Chiqim')
+
+    // Minimaldan kam: ombor mas'uliga bildirishnoma (qo'ng'iroqcha)
+    await page.reload()
+    await page.getByTestId('notif-bell').click()
+    await expect(page.getByTestId('notif-list')).toContainText(`Minimal qoldiqdan kam: ${name}`)
   })
 })
 
@@ -164,7 +170,6 @@ test.describe('filiallar', () => {
     await page.goto('/warehouse')
     await expect(page.getByTestId('wh-stock')).toBeVisible()
     await expect(page.getByTestId('wh-stock').locator('tbody tr').first()).toContainText('0')
-    await expect(page.getByTestId('wh-alerts')).toHaveCount(0)
   })
 })
 

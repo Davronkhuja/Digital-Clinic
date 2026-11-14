@@ -148,7 +148,7 @@
           <div><label class="lbl">Turi</label><select v-model="itemForm.kind" class="input"><option value="Supply">Sarf materiali</option><option value="Medicine">Dori</option></select></div>
           <div><label class="lbl">Birlik *</label><input v-model="itemForm.unit" class="input" placeholder="dona, ml, g" data-testid="item-unit" /></div>
           <div><label class="lbl">SKU</label><input v-model="itemForm.sku" class="input" /></div>
-          <div><label class="lbl">Minimal qoldiq</label><input v-model.number="itemForm.min_qty" type="number" min="0" step="0.001" class="input" /></div>
+          <div><label class="lbl">Minimal qoldiq</label><input v-model.number="itemForm.min_qty" type="number" min="0" step="0.001" class="input" data-testid="item-min" /></div>
           <label v-if="itemForm.id" class="flex items-center gap-2 text-sm col-span-2"><input v-model="itemForm.is_active" type="checkbox" /> Faol</label>
         </div>
         <div class="flex justify-end gap-2"><button class="btn-secondary" @click="modal = ''">Bekor</button><button class="btn-primary" :disabled="busy" data-testid="item-save" @click="saveItem">Saqlash</button></div>

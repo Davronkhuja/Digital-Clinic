@@ -195,7 +195,7 @@
 
           <!-- Notifications -->
           <div class="relative" ref="notifRef">
-            <button @click="closeAll('notif')" :class="['relative p-2 rounded-xl transition-colors', isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-500 hover:bg-slate-100']">
+            <button data-testid="notif-bell" @click="closeAll('notif')" :class="['relative p-2 rounded-xl transition-colors', isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-500 hover:bg-slate-100']">
               <Bell class="w-5 h-5" />
               <span v-if="unreadNotifs" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">{{ unreadNotifs }}</span>
             </button>
@@ -205,13 +205,15 @@
                   <span :class="['font-semibold text-sm', isDark ? 'text-white' : 'text-slate-900']">Bildirishnomalar</span>
                   <button @click="markAllRead" class="text-xs font-medium" :style="`color:rgb(var(--c-primary))`">Barchasini o'qi</button>
                 </div>
-                <div class="max-h-72 overflow-y-auto">
+                <div class="max-h-72 overflow-y-auto" data-testid="notif-list">
+                  <p v-if="!notifications.length" :class="['px-4 py-6 text-center text-sm', isDark ? 'text-slate-500' : 'text-slate-400']">Bildirishnoma yo'q</p>
                   <div v-for="n in notifications" :key="n.id"
                     :class="['flex gap-3 px-4 py-3 cursor-pointer border-b last:border-b-0 transition-colors', !n.read ? isDark ? 'bg-white/3' : 'bg-slate-50/80' : '', isDark ? 'border-slate-700/50 hover:bg-slate-700/40' : 'border-slate-50 hover:bg-slate-50']"
-                    @click="n.read = true">
+                    :data-testid="'notif-' + n.kind" @click="openNotif(n)">
                     <div :class="['w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0', n.bg]">{{ n.icon }}</div>
                     <div class="flex-1 min-w-0">
-                      <p :class="['text-sm', isDark ? 'text-slate-200' : 'text-slate-800', !n.read ? 'font-medium' : '']">{{ n.text }}</p>
+                      <p :class="['text-sm', isDark ? 'text-slate-200' : 'text-slate-800', !n.read ? 'font-medium' : '']">{{ n.title }}</p>
+                      <p v-if="n.body" :class="['text-xs mt-0.5', isDark ? 'text-slate-400' : 'text-slate-500']">{{ n.body }}</p>
                       <p :class="['text-xs mt-0.5', isDark ? 'text-slate-500' : 'text-slate-400']">{{ n.time }}</p>
                     </div>
                     <div v-if="!n.read" class="w-2 h-2 rounded-full flex-shrink-0 mt-2" :style="`background:rgb(var(--c-primary))`"></div>
@@ -318,6 +320,7 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
 import BranchSwitcher from '@/components/layout/BranchSwitcher.vue'
+import api from '@/composables/useApi'
 import { useLanguageStore } from '@/stores/language'
 import { useThemeStore }    from '@/stores/theme'
 import {
@@ -374,14 +377,32 @@ function selectTheme(id) {
 }
 function selectLang(code) { lang.setLanguage(code); langOpen.value = false }
 
-// Notifications
-const notifications = ref([
-  { id: 1, icon: '👤', bg: 'bg-blue-100',    text: "Yangi bemor qo'shildi",    time: '5 daqiqa oldin',  read: false },
-  { id: 2, icon: '📅', bg: 'bg-purple-100',  text: 'Yangi qabul yaratildi',    time: '20 daqiqa oldin', read: false },
-  { id: 3, icon: '💰', bg: 'bg-emerald-100', text: "To'lov qabul qilindi",     time: '1 soat oldin',    read: true  },
-])
-const unreadNotifs = computed(() => notifications.value.filter(n => !n.read).length)
-function markAllRead() { notifications.value.forEach(n => n.read = true) }
+// Notifications: haqiqiy bildirishnomalar (ombor ogohlantirishlari va h.k.), har daqiqada yangilanadi
+const notifications = ref([])
+const unreadNotifs = ref(0)
+const notifIcons = { stock_shortage: ['📦', 'bg-rose-100'], stock_low: ['⚠️', 'bg-amber-100'], stock_expiring: ['⏳', 'bg-orange-100'], stock_expired: ['⛔', 'bg-red-100'] }
+function ago(iso) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+  return m < 1 ? 'hozir' : m < 60 ? `${m} daqiqa oldin` : m < 1440 ? `${Math.round(m / 60)} soat oldin` : `${Math.round(m / 1440)} kun oldin`
+}
+async function loadNotifs() {
+  if (!auth.isAuthenticated) return
+  try {
+    const [list, count] = await Promise.all([api.get('/notifications', { params: { limit: 20 } }), api.get('/notifications/unread-count')])
+    notifications.value = list.data.map(n => ({ ...n, icon: (notifIcons[n.kind] || ['🔔', 'bg-slate-100'])[0], bg: (notifIcons[n.kind] || ['🔔', 'bg-slate-100'])[1], time: ago(n.created_at) }))
+    unreadNotifs.value = count.data.unread
+  } catch { /* bildirishnoma yuklanmasa ilova ishlayveradi */ }
+}
+async function openNotif(n) {
+  notifOpen.value = false
+  if (!n.read) { try { await api.post(`/notifications/${n.id}/read`) } catch { /* e'tiborsiz */ } }
+  if (n.link) router.push(n.link)
+  await loadNotifs()
+}
+async function markAllRead() { try { await api.post('/notifications/read-all') } catch { /* e'tiborsiz */ } await loadNotifs() }
+let notifTimer = null
+onMounted(() => { loadNotifs(); notifTimer = setInterval(loadNotifs, 60000) })
+onUnmounted(() => clearInterval(notifTimer))
 
 // User
 const userAvatar   = ref(localStorage.getItem('userAvatar') || '')

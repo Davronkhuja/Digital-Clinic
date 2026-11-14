@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.16] - 2026-11-14
+### Added
+- Ichki bildirishnomalar (`notifications`, `notification_reads`): filial va ruxsat bo'yicha ko'rinadi, o'qilganlik foydalanuvchi bo'yicha, `dedupe_key` bilan takrorlanmaydi. `GET /notifications`, `/notifications/unread-count`, `POST /notifications/{id}/read`, `/notifications/read-all`. Migratsiya 0040.
+- Ombor mas'uliga (`warehouse:write`) ogohlantirishlar: sarf paytida omborda yetmasa (yetishmovchilik), chiqim/sarfdan keyin yaroqli qoldiq minimaldan kam bo'lsa (kuniga bir marta har material), kunlik Celery tekshiruvi (07:00 Toshkent): muddati 30 kunda tugaydigan (haftada bir) va muddati o'tgan (kuniga bir) partiyalar.
+### Changed
+- Frontend: qo'ng'iroqcha qattiq yozilgan demo ro'yxat o'rniga haqiqiy bildirishnomalarni ko'rsatadi (har daqiqada yangilanadi, bosilsa Omborga o'tadi, "Barchasini o'qi"). E2E: minimaldan kam bildirishnomasi.
+
 ## [1.9.15] - 2026-11-14
 ### Changed
 - Avtomatik sarf endi to'lovda emas, xizmat BAJARILGANDA yoziladi: qabul `Completed` bo'lganda bog'langan (chiqarilgan) hisob-faktura qatorlari, yoki qator qo'lda `POST /invoices/{id}/lines/{line_id}/perform` (`appointments:write`). Qabul avval yakunlangan bo'lsa hisob-faktura chiqarilganda. `invoice_lines.performed_at/performed_by`; `invoices.stock_consumed_at` olib tashlandi (avval yozilgan sarf qatorlarga ko'chirildi). Bir marta, FEFO.

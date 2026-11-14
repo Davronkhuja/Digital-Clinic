@@ -9,6 +9,7 @@ from app.models.icd10 import Icd10Code
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.lab import LabCorrection, LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
 from app.models.messaging import Message, MessageTemplate, OtpCode, PatientConsent, RateEvent, TelegramLink
+from app.models.notification import Notification, NotificationRead
 from app.models.patient import Patient
 from app.models.payment import Payment, PaymentRefund
 from app.models.rbac import Permission, Role, role_permissions
@@ -37,7 +38,7 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "ServiceMaterial", "StockBatch", "StockItem", "StockMovement", "StockReceipt",
+    "LabCorrection", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch", "StockItem", "StockMovement", "StockReceipt",
     "StockShortage", "StockTransfer", "StockTransferLine",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",
     "User", "Transaction",
