@@ -136,7 +136,10 @@ class StockTransferLine(BaseModel):
     """Ko'chirish qatori: manba partiyadan olingan miqdor (partiya raqami, muddat, narx nusxalangan)."""
 
     __tablename__ = "stock_transfer_lines"
-    __table_args__ = (CheckConstraint("qty > 0", name="qty_positive"),)
+    __table_args__ = (
+        CheckConstraint("qty > 0", name="qty_positive"),
+        CheckConstraint("received_qty IS NULL OR (received_qty >= 0 AND received_qty <= qty)", name="received_range"),
+    )
 
     transfer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_transfers.id", ondelete="RESTRICT"), index=True)
     item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
@@ -146,6 +149,11 @@ class StockTransferLine(BaseModel):
     expires_on: Mapped[date | None] = mapped_column(Date)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     qty: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    # Qabul paytida haqiqatda kelgan miqdor (null: hali qabul qilinmagan); farq (tafovut) yuboruvchi tomonidan hal qilinadi
+    received_qty: Mapped[Decimal | None] = mapped_column(Numeric(14, 3))
+    resolution: Mapped[str | None] = mapped_column(String(10))       # Returned (omborga qaytdi) yoki WrittenOff (yo'qotish)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 stock_count_number_seq = Sequence("stock_count_number_seq")

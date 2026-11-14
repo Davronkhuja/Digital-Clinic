@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -276,7 +277,29 @@ class TransferCancelIn(BaseModel):
         return v
 
 
+class ReceivedIn(BaseModel):
+    line_id: uuid.UUID
+    received_qty: Qty
+
+
+class TransferReceiveIn(BaseModel):
+    lines: List[ReceivedIn] = Field(default_factory=list, description="Qator bo'yicha haqiqatda kelgan miqdor; ko'rsatilmagan qator to'liq kelgan hisoblanadi")
+
+
+class ResolveActionIn(BaseModel):
+    line_id: uuid.UUID
+    action: str = Field(..., pattern="^(Returned|WrittenOff)$", description="Returned: kam kelgani manba omborga qaytadi; WrittenOff: yo'qotish")
+
+
+class TransferResolveIn(BaseModel):
+    actions: List[ResolveActionIn] = Field(..., min_length=1)
+
+
 class TransferLineOut(BaseModel):
+    id: str
+    received_qty: Optional[Money] = None
+    shortfall: Optional[Money] = Field(None, description="Kam kelgan miqdor (yuborilgan - qabul qilingan)")
+    resolution: Optional[str] = None
     item_id: str
     item: str
     unit: str
@@ -301,6 +324,9 @@ class TransferOut(BaseModel):
     cancelled_at: Optional[str] = None
     cancel_reason: Optional[str] = None
     total: Money
+    has_discrepancy: bool = False
+    discrepancy_open: bool = Field(False, description="Hal qilinmagan tafovut bor")
+    shortfall_value: Money = 0
     lines: List[TransferLineOut]
 
 

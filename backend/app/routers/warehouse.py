@@ -32,6 +32,8 @@ from app.schemas import (
     TransferCancelIn,
     TransferIn,
     TransferOut,
+    TransferReceiveIn,
+    TransferResolveIn,
     WriteoffIn,
 )
 from app.schemas.enums import StockKind, StockMovementKind
@@ -302,10 +304,24 @@ def get_transfer(transfer_id: uuid.UUID, db: Session = Depends(get_db), user: Cu
 
 
 @router.post("/warehouse/transfers/{transfer_id}/receive", tags=[TAG], response_model=TransferOut, summary="Qabul qilish (qabul qiluvchi filial)",
-             description="Qabul qiluvchi filialda partiyalar ochiladi (`TransferIn`). Faqat `Sent` hujjat; faqat qabul qiluvchi filial (403).")
-def receive_transfer(transfer_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("warehouse:transfer"))):
-    t = wh.receive_transfer(db, user, transfer_id)
-    audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "status": "Received"})
+             description="Qabul qiluvchi filialda partiyalar ochiladi (`TransferIn`). Tana bo'sh: hammasi to'liq kelgan; `lines`: qator bo'yicha haqiqatda "
+                         "kelgan miqdor (qisman qabul). Kam kelgan bo'lsa yuboruvchiga bildirishnoma ketadi. Faqat `Sent`; faqat qabul qiluvchi filial (403).")
+def receive_transfer(transfer_id: uuid.UUID, request: Request, data: TransferReceiveIn | None = None, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("warehouse:transfer"))):
+    received = {ln.line_id: ln.received_qty for ln in data.lines} if data else None
+    t = wh.receive_transfer(db, user, transfer_id, received)
+    audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "status": "Received", "partial": bool(received)})
+    db.commit()
+    return wh.transfer_out(db, t)
+
+
+@router.post("/warehouse/transfers/{transfer_id}/resolve", tags=[TAG], response_model=TransferOut, summary="Tafovutni hal qilish (yuboruvchi filial)",
+             description="Kam kelgan qatorlar: `Returned` (miqdor manba partiyaga qaytadi, `TransferIn`) yoki `WrittenOff` (yo'qotish deb belgilanadi). "
+                         "Faqat yuboruvchi filial (403); hal qilingan qator qayta o'zgarmaydi (409).")
+def resolve_transfer(transfer_id: uuid.UUID, data: TransferResolveIn, request: Request, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("warehouse:transfer"))):
+    t = wh.resolve_discrepancy(db, user, transfer_id, {a.line_id: a.action for a in data.actions})
+    audit.record(db, user, request, "update", "stock_transfer", t.id, {"number": t.number, "resolve": {str(a.line_id): a.action for a in data.actions}})
     db.commit()
     return wh.transfer_out(db, t)
 

@@ -115,3 +115,50 @@ def test_ledger_integrity_and_audit_after_transfers(client, world):
         assert total == 60                                                                 # ko'chirishda moddiy qiymat yo'qolmaydi
         acts = {(r.action, r.details.get("status")) for r in db.scalars(select(AuditLog).where(AuditLog.entity_type == "stock_transfer"))}
         assert acts == {("create", None), ("update", "Received"), ("update", "Cancelled")}
+
+
+def test_partial_receive_creates_discrepancy_resolved_by_sender(client, world):
+    admin, nurse, recv, bid, item = world
+    t = _send(client, nurse, bid, item, 35).json()                                                            # SOON 10, MID 20, LATE 5
+    by = {ln["batch_no"]: ln for ln in t["lines"]}
+    over = client.post(f"/warehouse/transfers/{t['id']}/receive", headers=recv, json={"lines": [{"line_id": by["SOON"]["id"], "received_qty": 11}]})
+    assert over.status_code == 422                                                                            # yuborilgandan ko'p
+    assert client.post(f"/warehouse/transfers/{t['id']}/receive", headers=recv, json={"lines": [{"line_id": ZERO, "received_qty": 1}]}).status_code == 422
+    assert client.post(f"/warehouse/transfers/{t['id']}/receive", headers=recv, json={"lines": [{"line_id": by["SOON"]["id"], "received_qty": -1}]}).status_code == 422
+    assert _qty(client, recv) == 0                                                                            # xato bo'lsa hech narsa yozilmadi
+    res = client.post(f"/warehouse/transfers/{t['id']}/receive", headers=recv, json={"lines": [
+        {"line_id": by["SOON"]["id"], "received_qty": 7}, {"line_id": by["LATE"]["id"], "received_qty": 0}]})
+    assert res.status_code == 200, res.text
+    r = res.json()
+    assert r["status"] == "Received" and r["has_discrepancy"] is True and r["discrepancy_open"] is True and r["shortfall_value"] == 3 * 100 + 5 * 120
+    rl = {ln["batch_no"]: ln for ln in r["lines"]}
+    assert (rl["SOON"]["received_qty"], rl["SOON"]["shortfall"]) == (7, 3) and (rl["MID"]["received_qty"], rl["MID"]["shortfall"]) == (20, 0)
+    assert (rl["LATE"]["received_qty"], rl["LATE"]["shortfall"]) == (0, 5)
+    assert {b["batch_no"]: b["qty_remaining"] for b in client.get("/warehouse/batches", headers=recv).json()} == {"SOON": 7, "MID": 20}   # 0 kelgan partiya ochilmadi
+    assert _qty(client, recv) == 27 and _qty(client, nurse) == 25
+    notes = client.get("/notifications", headers=nurse).json()
+    assert any(n["kind"] == "transfer_discrepancy" and t["number"] in n["title"] for n in notes)                         # yuboruvchiga bildirishnoma
+    assert client.get("/warehouse/transfers", headers=recv).json()[0]["discrepancy_open"] is True
+    # hal qilish: faqat yuboruvchi
+    act = {"actions": [{"line_id": rl["SOON"]["id"], "action": "Returned"}, {"line_id": rl["LATE"]["id"], "action": "WrittenOff"}]}
+    assert client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=recv, json=act).status_code == 403
+    assert client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=nurse, json={"actions": [{"line_id": rl["MID"]["id"], "action": "Returned"}]}).status_code == 409   # tafovut yo'q
+    assert client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=nurse, json={"actions": [{"line_id": rl["SOON"]["id"], "action": "Lost"}]}).status_code == 422
+    done = client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=nurse, json=act)
+    assert done.status_code == 200 and done.json()["discrepancy_open"] is False and done.json()["has_discrepancy"] is True
+    assert {ln["batch_no"]: ln["resolution"] for ln in done.json()["lines"]} == {"SOON": "Returned", "MID": None, "LATE": "WrittenOff"}
+    assert _qty(client, nurse) == 28 and _qty(client, recv) == 27                                                         # 25 + 3 qaytdi; 5 yo'qotildi (60 - 5 = 55)
+    assert client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=nurse, json=act).status_code == 409           # qayta hal qilinmaydi
+    with SessionLocal() as db:                                                                                          # jurnal yaxlitligi
+        for b in db.scalars(select(StockBatch)):
+            assert db.scalar(select(func.coalesce(func.sum(StockMovement.qty), 0)).where(StockMovement.batch_id == b.id)) == b.qty_remaining
+        assert db.scalar(select(func.sum(StockBatch.qty_remaining))) == 55
+
+
+def test_full_receive_without_body_has_no_discrepancy(client, world):
+    admin, nurse, recv, bid, item = world
+    t = _send(client, nurse, bid, item, 12).json()
+    done = client.post(f"/warehouse/transfers/{t['id']}/receive", headers=recv).json()
+    assert done["has_discrepancy"] is False and done["discrepancy_open"] is False and done["shortfall_value"] == 0
+    assert all(ln["received_qty"] == ln["qty"] and ln["shortfall"] == 0 for ln in done["lines"])
+    assert client.post(f"/warehouse/transfers/{t['id']}/resolve", headers=nurse, json={"actions": [{"line_id": done["lines"][0]["id"], "action": "Returned"}]}).status_code == 409

@@ -118,11 +118,16 @@
             <div class="flex justify-between gap-2 flex-wrap items-center">
               <p class="font-semibold">{{ t.number }} · {{ t.from_branch }} → {{ t.to_branch }} <span :class="statusClass[t.status]">{{ statusLabel[t.status] }}</span></p>
               <span class="flex gap-3">
-                <button v-if="t.status === 'Sent' && t.to_branch_id === currentBranch && auth.can('warehouse:transfer')" class="btn-primary text-sm" data-testid="wh-receive" @click="receiveTransfer(t)">Qabul qilish</button>
+                <button v-if="t.status === 'Sent' && t.to_branch_id === currentBranch && auth.can('warehouse:transfer')" class="btn-primary text-sm" data-testid="wh-receive" @click="openReceive(t)">Qabul qilish</button>
                 <button v-if="t.status === 'Sent' && t.from_branch_id === currentBranch && auth.can('warehouse:transfer')" class="text-sm text-red-500 hover:underline" @click="cancelTransfer(t)">Bekor qilish</button>
               </span>
             </div>
-            <p v-for="(l, i) in t.lines" :key="i" class="text-xs text-slate-500">{{ l.item }}: {{ q(l.qty) }} {{ l.unit }} · partiya {{ l.batch_no }} · {{ l.expires_on || 'muddatsiz' }}</p>
+            <p v-for="(l, i) in t.lines" :key="i" class="text-xs text-slate-500">{{ l.item }}: {{ q(l.qty) }} {{ l.unit }} · partiya {{ l.batch_no }} · {{ l.expires_on || 'muddatsiz' }}
+              <template v-if="l.shortfall > 0"><span class="badge-red ml-1">kam kelgan {{ q(l.shortfall) }} (qabul {{ q(l.received_qty) }})</span>
+                <span v-if="l.resolution" class="badge-slate ml-1">{{ l.resolution === 'Returned' ? 'qaytarilgan' : "yo'qotish" }}</span>
+                <template v-else-if="t.from_branch_id === currentBranch && auth.can('warehouse:transfer')">
+                  <button class="text-cyan-600 hover:underline ml-2" data-testid="wh-return" @click="resolveLine(t, l, 'Returned')">Omborga qaytarish</button>
+                  <button class="text-red-500 hover:underline ml-2" data-testid="wh-writeoff-line" @click="resolveLine(t, l, 'WrittenOff')">Yo'qotish</button></template></template></p>
             <p v-if="t.cancel_reason" class="text-xs text-slate-400">Bekor qilish sababi: {{ t.cancel_reason }}</p>
           </div>
         </div>
@@ -153,6 +158,20 @@
             <tbody><tr v-for="s in alerts.shortages" :key="s.id"><td class="font-mono">{{ s.invoice_number }}</td><td>{{ s.item }}</td><td class="text-right font-mono">{{ q(s.qty_missing) }} {{ s.unit }}</td>
               <td><button v-if="auth.can('warehouse:write')" class="text-xs text-cyan-600 hover:underline" @click="resolveShortage(s)">Ombordan yozish</button></td></tr></tbody></table>
         </div>
+      </div>
+    </div>
+
+    <!-- Qabul qilish (qisman qabul mumkin) -->
+    <div v-if="rcv" class="modal-overlay" @click.self="rcv = null">
+      <div :class="boxClass('max-w-xl')" data-testid="receive-modal">
+        <h3 :class="titleClass">{{ rcv.number }}: qabul qilish</h3>
+        <p class="text-xs text-slate-400">Haqiqatda kelgan miqdorni kiriting. Kam kelgan bo'lsa yuboruvchi filialga tafovut bo'yicha xabar ketadi.</p>
+        <div v-for="l in rcv.lines" :key="l.id" class="grid grid-cols-12 gap-2 items-center text-sm">
+          <span class="col-span-7">{{ l.item }} <span class="text-xs text-slate-400">partiya {{ l.batch_no }}</span></span>
+          <span class="col-span-2 text-right font-mono text-slate-500">{{ q(l.qty) }}</span>
+          <input v-model.number="rcvQty[l.id]" type="number" min="0" :max="l.qty" step="0.001" class="input col-span-3 py-1 text-right" data-testid="receive-qty" />
+        </div>
+        <div class="flex justify-end gap-2"><button class="btn-secondary" @click="rcv = null">Bekor</button><button class="btn-primary" :disabled="busy" data-testid="receive-save" @click="receiveTransfer">Qabul qilish</button></div>
       </div>
     </div>
 
@@ -394,9 +413,18 @@ async function saveTransfer() {
     toast.success('Hujjat yuborildi'); modal.value = ''; tab.value = 'transfers'; await refresh()
   } catch (e) { toast.error(e, "Ko'chirib bo'lmadi") } finally { busy.value = false }
 }
-async function receiveTransfer(t) {
+const rcv = ref(null), rcvQty = reactive({})
+function openReceive(t) { rcv.value = t; Object.keys(rcvQty).forEach(k => delete rcvQty[k]); t.lines.forEach(l => { rcvQty[l.id] = l.qty }) }
+async function receiveTransfer() {
   busy.value = true
-  try { await api.post(`/warehouse/transfers/${t.id}/receive`); toast.success('Qabul qilindi'); await refresh() } catch (e) { toast.error(e, "Qabul qilib bo'lmadi") } finally { busy.value = false }
+  try {
+    const lines = rcv.value.lines.filter(l => Number(rcvQty[l.id]) !== Number(l.qty)).map(l => ({ line_id: l.id, received_qty: rcvQty[l.id] ?? 0 }))
+    await api.post(`/warehouse/transfers/${rcv.value.id}/receive`, lines.length ? { lines } : undefined)
+    toast.success(lines.length ? 'Qisman qabul qilindi: tafovut yuboruvchiga xabar qilindi' : 'Qabul qilindi'); rcv.value = null; await refresh()
+  } catch (e) { toast.error(e, "Qabul qilib bo'lmadi") } finally { busy.value = false }
+}
+async function resolveLine(t, l, action) {
+  try { await api.post(`/warehouse/transfers/${t.id}/resolve`, { actions: [{ line_id: l.id, action }] }); toast.success(action === 'Returned' ? 'Omborga qaytarildi' : "Yo'qotish deb belgilandi"); await refresh() } catch (e) { toast.error(e, "Tafovutni hal qilib bo'lmadi") }
 }
 async function cancelTransfer(t) {
   const reason = window.prompt('Bekor qilish sababi:')

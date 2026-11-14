@@ -273,7 +273,51 @@ test.describe('inventarizatsiya', () => {
   })
 })
 
-test('10. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('ko\'chirish', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('10. ko\'chirish: yuborish, ikkinchi filialda qisman qabul, yuboruvchi tafovutni qaytaradi', async ({ page, request }) => {
+    const stamp = Date.now()
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const item = await (await request.post('/api/warehouse/items', { headers, data: { name: `E2E Ko'chirish ${stamp}`, unit: 'dona' } })).json()
+    const exp = new Date(Date.now() + 200 * 864e5).toISOString().slice(0, 10)
+    await request.post('/api/warehouse/receipts', { headers, data: { lines: [{ item_id: item.id, batch_no: 'X-1', qty: 10, unit_cost: 300, expires_on: exp }] } })
+    const branch = await (await request.post('/api/branches', { headers, data: { name: `E2E Qabul ${stamp}` } })).json()
+
+    // Yuborish (asosiy filial)
+    await page.goto('/warehouse')
+    await page.getByTestId('wh-new-transfer').click()
+    const modal = page.locator('.modal-overlay').last()
+    await modal.getByTestId('trf-to').selectOption({ label: branch.name })
+    await modal.getByTestId('trf-item').selectOption({ label: `${item.name} (dona)` })
+    await modal.getByTestId('trf-qty').fill('6')
+    await modal.getByTestId('trf-save').click()
+    await expect(page.getByText('Hujjat yuborildi')).toBeVisible()
+
+    // Qabul qiluvchi filialga o'tib, 4 tasini qabul qilish (2 ta kam)
+    await page.evaluate(id => localStorage.setItem('branch_id', id), branch.id)
+    await page.goto('/warehouse')
+    await page.getByTestId('wh-tab-transfers').click()
+    await page.getByTestId('wh-receive').first().click()
+    await page.getByTestId('receive-qty').first().fill('4')
+    await page.getByTestId('receive-save').click()
+    await expect(page.getByText('Qisman qabul qilindi')).toBeVisible()
+    await expect(page.getByTestId('wh-transfers')).toContainText('kam kelgan 2')
+
+    // Yuboruvchi filial tafovutni omborga qaytaradi
+    await page.evaluate(() => localStorage.removeItem('branch_id'))
+    await page.goto('/warehouse')
+    await page.getByTestId('wh-tab-transfers').click()
+    await page.getByTestId('wh-return').first().click()
+    await expect(page.getByText('Omborga qaytarildi')).toBeVisible()
+    await expect(page.getByTestId('wh-transfers')).toContainText('qaytarilgan')
+    const batches = await (await request.get('/api/warehouse/batches', { headers, params: { item_id: item.id } })).json()
+    expect(batches[0].qty_remaining).toBe(6)                              // 10 - 6 yuborilgan + 2 qaytgan = 6 (4 ta qabul qiluvchida)
+  })
+})
+
+test('11. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

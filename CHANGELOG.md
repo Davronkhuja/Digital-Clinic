@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.20] - 2026-11-14
+### Added
+- Ko'chirishda qisman qabul: `POST /warehouse/transfers/{id}/receive` endi tanada qator bo'yicha haqiqatda kelgan miqdorni (`lines`) qabul qiladi (bo'sh: hammasi to'liq). Yuborilgandan ko'p yoki manfiy 422. Qabul qiluvchida faqat kelgan miqdor partiya bo'ladi; kam kelgan bo'lsa yuboruvchi filialga bildirishnoma ketadi. Hujjatda `received_qty`, `shortfall`, `has_discrepancy`, `discrepancy_open`, `shortfall_value`.
+- `POST /warehouse/transfers/{id}/resolve` (faqat yuboruvchi filial): kam kelgan qator `Returned` (manba partiyaga qaytadi, `TransferIn`) yoki `WrittenOff` (yo'qotish); qayta o'zgarmaydi (409); tafovutsiz qator 409. Jurnal yaxlitligi saqlanadi. Migratsiya 0043.
+- Frontend: qabul oynasi (kelgan miqdor), "kam kelgan" belgisi, yuboruvchi uchun "Omborga qaytarish" / "Yo'qotish". E2E: qisman qabul va qaytarish.
+
 ## [1.9.19] - 2026-11-14
 ### Added
 - Inventarizatsiya (sanoq hujjati): `POST /warehouse/counts` (filialdagi qoldig'i bor hamma partiyalar yoki tanlangan materiallar, kutilgan qoldiq nusxasi; filialda bittadan ortiq ochiq hujjat bo'lmaydi), `PUT .../lines` (sanalgan miqdorlar; sanoqda topilgan, tizimda yo'q partiyalar `extras`), `POST .../submit` (hamma qator sanalgan bo'lishi shart; `warehouse:approve` egalariga bildirishnoma), `POST .../approve` (`warehouse:approve`, administrator): farq bo'yicha avtomatik harakatlar (`Adjust`: kam chiqqan partiya kamayadi, ko'p chiqqan yoki topilgan yangi partiya bo'lib kiradi), sanoqdan keyin qoldiq o'zgargan bo'lsa 409; `POST .../cancel` (sabab majburiy); `GET /warehouse/counts[/{id}]`. Farq qiymati (ortiqcha, kamomad, sof) hisoblanadi; audit. Raqam SK-000001. Migratsiya 0042.

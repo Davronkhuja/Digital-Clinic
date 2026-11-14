@@ -369,21 +369,68 @@ def _locked_transfer(db: Session, user, transfer_id: uuid.UUID) -> StockTransfer
     return t
 
 
-def receive_transfer(db: Session, user, transfer_id: uuid.UUID) -> StockTransfer:
-    """Qabul qiluvchi filial qabul qiladi: shu filialda xuddi shu partiya raqami, muddati va narxi bilan partiya ochiladi (`TransferIn`)."""
+def receive_transfer(db: Session, user, transfer_id: uuid.UUID, received: dict[uuid.UUID, Decimal] | None = None) -> StockTransfer:
+    """Qabul qiluvchi filial qabul qiladi: shu filialda xuddi shu partiya raqami, muddati va narxi bilan partiya ochiladi (`TransferIn`).
+    `received`: qator bo'yicha haqiqatda kelgan miqdor (ko'rsatilmasa to'liq). Kam kelgan bo'lsa tafovut yuboruvchiga bildiriladi va u hal qiladi."""
     t = _locked_transfer(db, user, transfer_id)
     if user.branch_id != t.to_branch_id:
         raise HTTPException(403, "Faqat qabul qiluvchi filial qabul qila oladi")
+    lines = list(db.scalars(select(StockTransferLine).where(StockTransferLine.transfer_id == t.id).order_by(StockTransferLine.created_at, StockTransferLine.id)))
+    known = {ln.id for ln in lines}
+    for lid, qty in (received or {}).items():
+        if lid not in known:
+            raise HTTPException(422, f"Qator bu hujjatda yo'q: {lid}")
+        if qty < 0:
+            raise HTTPException(422, "Qabul qilingan miqdor manfiy bo'lmaydi")
     today = clinic_today()
-    for line in db.scalars(select(StockTransferLine).where(StockTransferLine.transfer_id == t.id).order_by(StockTransferLine.created_at, StockTransferLine.id)):
-        batch = StockBatch(item_id=line.item_id, receipt_id=None, batch_no=line.batch_no, expires_on=line.expires_on, received_on=today,
-                           unit_cost=line.unit_cost, qty_received=line.qty, qty_remaining=line.qty, branch_id=t.to_branch_id, created_by=user.id)
-        db.add(batch)
-        db.flush()
-        line.dest_batch_id = batch.id
-        db.add(StockMovement(item_id=line.item_id, batch_id=batch.id, kind=StockMovementKind.transfer_in, qty=line.qty, unit_cost=line.unit_cost,
-                             reason=t.number, ref_type="transfer", ref_id=t.id, branch_id=t.to_branch_id, created_by=user.id))
+    short = 0
+    for line in lines:
+        got = (received or {}).get(line.id, line.qty)
+        if got > line.qty:
+            raise HTTPException(422, f"{line.batch_no}: qabul qilingan miqdor yuborilgandan ({line.qty.normalize():f}) ko'p bo'lishi mumkin emas")
+        line.received_qty = got
+        short += 1 if got < line.qty else 0
+        if got > 0:
+            batch = StockBatch(item_id=line.item_id, receipt_id=None, batch_no=line.batch_no, expires_on=line.expires_on, received_on=today,
+                               unit_cost=line.unit_cost, qty_received=got, qty_remaining=got, branch_id=t.to_branch_id, created_by=user.id)
+            db.add(batch)
+            db.flush()
+            line.dest_batch_id = batch.id
+            db.add(StockMovement(item_id=line.item_id, batch_id=batch.id, kind=StockMovementKind.transfer_in, qty=got, unit_cost=line.unit_cost,
+                                 reason=t.number, ref_type="transfer", ref_id=t.id, branch_id=t.to_branch_id, created_by=user.id))
     t.status, t.received_at, t.received_by = TransferStatus.received, datetime.now(UTC), user.id
+    if short:
+        notifications.notify(db, branch_id=t.from_branch_id, permission="warehouse:transfer", kind="transfer_discrepancy", link="/warehouse",
+                             title=f"Ko'chirishda tafovut: {t.number}", body=f"{short} ta qatorda kam kelgan. Qaytarish yoki yo'qotish deb hal qiling.",
+                             dedupe_key=f"transfer-diff:{t.id}")
+    return t
+
+
+def resolve_discrepancy(db: Session, user, transfer_id: uuid.UUID, actions: dict[uuid.UUID, str]) -> StockTransfer:
+    """Yuboruvchi filial tafovutni hal qiladi: `Returned` (kam kelgan miqdor manba partiyaga qaytadi, `TransferIn`) yoki `WrittenOff` (yo'qotish)."""
+    t = db.scalar(select(StockTransfer).where(StockTransfer.id == transfer_id).with_for_update())
+    if not t or user.branch_id not in (t.from_branch_id, t.to_branch_id):
+        raise HTTPException(404, "Ko'chirish hujjati topilmadi")
+    if user.branch_id != t.from_branch_id:
+        raise HTTPException(403, "Tafovutni faqat yuboruvchi filial hal qiladi")
+    if t.status != TransferStatus.received:
+        raise HTTPException(409, "Faqat qabul qilingan hujjatdagi tafovut hal qilinadi")
+    lines = {ln.id: ln for ln in db.scalars(select(StockTransferLine).where(StockTransferLine.transfer_id == t.id))}
+    for lid, action in actions.items():
+        ln = lines.get(lid)
+        if not ln:
+            raise HTTPException(422, f"Qator bu hujjatda yo'q: {lid}")
+        if ln.received_qty is None or ln.received_qty >= ln.qty:
+            raise HTTPException(409, f"{ln.batch_no}: tafovut yo'q")
+        if ln.resolution:
+            raise HTTPException(409, f"{ln.batch_no}: tafovut allaqachon hal qilingan")
+        shortfall = ln.qty - ln.received_qty
+        if action == "Returned":
+            batch = db.scalar(select(StockBatch).where(StockBatch.id == ln.source_batch_id).with_for_update())
+            batch.qty_remaining += shortfall
+            db.add(StockMovement(item_id=ln.item_id, batch_id=batch.id, kind=StockMovementKind.transfer_in, qty=shortfall, unit_cost=batch.unit_cost,
+                                 reason=f"{t.number}: kam kelgani qaytdi", ref_type="transfer", ref_id=t.id, branch_id=t.from_branch_id, created_by=user.id))
+        ln.resolution, ln.resolved_at, ln.resolved_by = action, datetime.now(UTC), user.id
     return t
 
 
@@ -406,13 +453,17 @@ def transfer_out(db: Session, t: StockTransfer) -> dict:
     rows = db.execute(select(StockTransferLine, StockItem).join(StockItem, StockTransferLine.item_id == StockItem.id)
                       .where(StockTransferLine.transfer_id == t.id).order_by(StockItem.name, StockTransferLine.expires_on.asc().nulls_last(),
                                                                               StockTransferLine.batch_no)).all()
-    lines = [{"item_id": str(i.id), "item": i.name, "unit": i.unit, "batch_no": ln.batch_no, "expires_on": ln.expires_on, "qty": ln.qty,
-              "unit_cost": ln.unit_cost, "amount": q2(ln.qty * ln.unit_cost)} for ln, i in rows]
+    lines = [{"id": str(ln.id), "item_id": str(i.id), "item": i.name, "unit": i.unit, "batch_no": ln.batch_no, "expires_on": ln.expires_on, "qty": ln.qty,
+              "unit_cost": ln.unit_cost, "amount": q2(ln.qty * ln.unit_cost), "received_qty": ln.received_qty,
+              "shortfall": (ln.qty - ln.received_qty) if ln.received_qty is not None else None, "resolution": ln.resolution} for ln, i in rows]
+    open_diff = [ln for ln in lines if ln["shortfall"] and not ln["resolution"]]
     iso = lambda d: d.isoformat() if d else None          # noqa: E731
     return {"id": str(t.id), "number": t.number, "status": t.status, "from_branch_id": str(t.from_branch_id), "from_branch": names[t.from_branch_id],
             "to_branch_id": str(t.to_branch_id), "to_branch": names[t.to_branch_id], "notes": t.notes, "sent_at": iso(t.sent_at),
             "received_at": iso(t.received_at), "cancelled_at": iso(t.cancelled_at), "cancel_reason": t.cancel_reason,
-            "total": sum((ln["amount"] for ln in lines), q2(0)), "lines": lines}
+            "total": sum((ln["amount"] for ln in lines), q2(0)), "lines": lines,
+            "has_discrepancy": any(ln["shortfall"] for ln in lines), "discrepancy_open": bool(open_diff),
+            "shortfall_value": sum((q2(ln["shortfall"] * ln["unit_cost"]) for ln in lines if ln["shortfall"]), q2(0))}
 
 
 # ---------- Inventarizatsiya (sanoq) ----------
