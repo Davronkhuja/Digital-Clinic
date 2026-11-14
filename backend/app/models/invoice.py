@@ -38,8 +38,6 @@ class Invoice(BranchScoped, BaseModel):
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_reason: Mapped[str | None] = mapped_column(String(300))
-    # To'liq to'langanda xizmat sarflari ombordan yozilgan vaqt (bir marta; keyingi qaytarish/to'lov qayta yozmaydi)
-    stock_consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class InvoiceLine(BaseModel):
@@ -67,3 +65,6 @@ class InvoiceLine(BaseModel):
     invoice_discount_share: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     net_total: Mapped[Decimal] = mapped_column(Numeric(14, 2))  # qator bo'yicha to'lanadigan (QQS bilan)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    # Xizmat bajarilgan vaqt: shunda sarf ombordan yoziladi (qabul `Completed` yoki qator qo'lda belgilanganda)
+    performed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    performed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

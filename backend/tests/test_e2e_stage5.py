@@ -46,11 +46,13 @@ def test_service_cost_follows_stock_consumption_and_branches(client, auth):
     alerts = client.get("/warehouse/alerts", headers=admin).json()
     assert alerts["low_stock"] == [] and [b["batch_no"] for b in alerts["expiring"]] == ["S-SOON"] and alerts["expired"] == []
 
-    # 4. to'liq to'lov: 10 ta inyeksiya = 20 shprits (FEFO: hammasi S-SOON), 0.5 litr gel
+    # 4. to'lov va xizmat bajarilishi: 10 ta inyeksiya = 20 shprits (FEFO: hammasi S-SOON), 0.5 litr gel
     pid = client.post("/patients", json={**NEW, "name": "Shart Bemor"}, headers=admin).json()["id"]
     inv = client.post("/invoices", headers=cashier, json={"patient_id": pid, "issue": True, "lines": [{"service_id": svc, "quantity": 10}]}).json()
     pay = client.post(f"/invoices/{inv['id']}/payments", headers=cashier, json={"method": "Cash"})
     assert pay.status_code == 201 and pay.json()["receipt_status"] == "Issued"
+    assert client.get("/warehouse/stock", headers=admin).json()[0]["qty"] > 0 and client.get("/warehouse/movements", params={"kind": "Consumption"}, headers=admin).json() == []
+    assert client.post(f"/invoices/{inv['id']}/lines/{inv['lines'][0]['id']}/perform", headers=auth("doctor")).status_code == 200      # xizmat bajarildi
     stock = {r["name"]: r for r in client.get("/warehouse/stock", headers=admin).json()}
     assert stock["Shprits 5 ml"]["qty"] == 30 and stock["Gel"]["qty"] == 9.5
     batches = {b["batch_no"]: b["qty_remaining"] for b in client.get("/warehouse/batches", headers=admin).json()}

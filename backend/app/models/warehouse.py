@@ -103,6 +103,7 @@ class StockShortage(BranchScoped, BaseModel):
     __table_args__ = (CheckConstraint("qty_missing > 0", name="qty_missing_positive"),)
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="RESTRICT"), index=True)
+    invoice_line_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("invoice_lines.id", ondelete="RESTRICT"))
     item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_items.id", ondelete="RESTRICT"))
     qty_missing: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

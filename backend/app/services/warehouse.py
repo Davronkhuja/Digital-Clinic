@@ -23,7 +23,7 @@ from app.models import (
     StockTransferLine,
 )
 from app.models.warehouse import stock_transfer_number_seq
-from app.schemas.enums import StockMovementKind, TransferStatus
+from app.schemas.enums import InvoiceStatus, StockMovementKind, TransferStatus
 from app.services.money import q2
 from app.services.periods import clinic_today
 
@@ -233,33 +233,60 @@ def service_cost(db: Session, branch_id: uuid.UUID, service: Service) -> dict:
             "complete": not missing and bool(lines), "missing": missing, "materials": lines}
 
 
-def _consume(db: Session, branch_id: uuid.UUID, item_id: uuid.UUID, qty: Decimal, inv: Invoice, created_by: uuid.UUID | None) -> Decimal:
-    """FEFO bo'yicha `Consumption` yozadi; yozilgan miqdorni qaytaradi (omborda yetmasa qismini)."""
-    allocs = fefo_allocate(db, branch_id, item_id, qty, partial=True)
-    for a in allocs:
-        a.batch.qty_remaining -= a.qty
-        db.add(StockMovement(item_id=item_id, batch_id=a.batch.id, kind=StockMovementKind.consumption, qty=-a.qty, unit_cost=a.batch.unit_cost,
-                             reason=f"Hisob-faktura {inv.number}", ref_type="invoice", ref_id=inv.id, branch_id=branch_id, created_by=created_by))
-    return sum((a.qty for a in allocs), Decimal(0))
-
-
-def consume_for_invoice(db: Session, inv: Invoice, created_by: uuid.UUID | None) -> dict:
-    """Hisob-faktura to'liq to'langanda xizmatlarning sarf normasi (norma x qator miqdori) FEFO bo'yicha yoziladi. Bir marta (`stock_consumed_at`):
-    keyingi qaytarish yoki qayta to'lov qayta yozmaydi (material ishlatilgan). Ombor yetmasa to'lov to'xtamaydi: yetmagani `stock_shortages`ga."""
-    if inv.stock_consumed_at is not None:
+def perform_line(db: Session, inv: Invoice, line: InvoiceLine, user_id: uuid.UUID | None) -> dict:
+    """Xizmat qatori bajarildi: norma x miqdor FEFO bo'yicha ombordan yoziladi (`Consumption`, havola: qator). Bir marta.
+    Qoldiq manfiyga tushmaydi: yetmagan miqdor `stock_shortages` ga yoziladi (ombor mas'uliga ogohlantirish)."""
+    if line.performed_at is not None:
         return {"consumed": 0, "shortages": 0}
-    need: dict[uuid.UUID, Decimal] = {}
-    for line in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id)):
-        for norm in db.scalars(select(ServiceMaterial).where(ServiceMaterial.service_id == line.service_id)):
-            need[norm.item_id] = need.get(norm.item_id, Decimal(0)) + norm.qty * line.quantity
-    shortages = 0
-    for item_id, qty in sorted(need.items(), key=lambda kv: str(kv[0])):          # qulflash tartibi barqaror (deadlock'siz)
-        missing = qty - _consume(db, inv.branch_id, item_id, qty, inv, created_by)
-        if missing > 0:
-            db.add(StockShortage(invoice_id=inv.id, item_id=item_id, qty_missing=missing, branch_id=inv.branch_id, created_by=created_by))
+    shortages = consumed = 0
+    for norm in db.scalars(select(ServiceMaterial).where(ServiceMaterial.service_id == line.service_id).order_by(ServiceMaterial.item_id)):
+        need = norm.qty * line.quantity
+        allocs = fefo_allocate(db, inv.branch_id, norm.item_id, need, partial=True)
+        for a in allocs:
+            a.batch.qty_remaining -= a.qty
+            db.add(StockMovement(item_id=norm.item_id, batch_id=a.batch.id, kind=StockMovementKind.consumption, qty=-a.qty, unit_cost=a.batch.unit_cost,
+                                 reason=f"Hisob-faktura {inv.number}", ref_type="invoice_line", ref_id=line.id, branch_id=inv.branch_id,
+                                 created_by=user_id))
+        got = sum((a.qty for a in allocs), Decimal(0))
+        consumed += 1 if got else 0
+        if need - got > 0:
+            db.add(StockShortage(invoice_id=inv.id, invoice_line_id=line.id, item_id=norm.item_id, qty_missing=need - got, branch_id=inv.branch_id,
+                                 created_by=user_id))
             shortages += 1
-    inv.stock_consumed_at = datetime.now(UTC)
-    return {"consumed": len(need) - shortages, "shortages": shortages}
+    line.performed_at, line.performed_by = datetime.now(UTC), user_id
+    return {"consumed": consumed, "shortages": shortages}
+
+
+def unperform_line(db: Session, inv: Invoice, line: InvoiceLine, user_id: uuid.UUID | None) -> None:
+    """Bajarildi belgisini qaytarish (xato belgilangan): yozilgan sarf o'z partiyalariga qaytadi (`Return`), ochiq yetishmovchilik yopiladi."""
+    moves = db.scalars(select(StockMovement).where(StockMovement.ref_type == "invoice_line", StockMovement.ref_id == line.id,
+                                                   StockMovement.kind == StockMovementKind.consumption))
+    for m in moves:
+        batch = db.scalar(select(StockBatch).where(StockBatch.id == m.batch_id).with_for_update())
+        batch.qty_remaining += -m.qty
+        db.add(StockMovement(item_id=m.item_id, batch_id=batch.id, kind=StockMovementKind.return_, qty=-m.qty, unit_cost=batch.unit_cost,
+                             reason=f"Hisob-faktura {inv.number}: bajarilmagan deb qaytarildi", ref_type="invoice_line", ref_id=line.id,
+                             branch_id=m.branch_id, created_by=user_id))
+    for sh in db.scalars(select(StockShortage).where(StockShortage.invoice_line_id == line.id, StockShortage.resolved_at.is_(None))):
+        sh.resolved_at = datetime.now(UTC)
+    line.performed_at = line.performed_by = None
+
+
+def perform_invoice(db: Session, inv: Invoice, user_id: uuid.UUID | None) -> int:
+    """Hisob-fakturaning hamma bajarilmagan qatorini bajarilgan deb belgilaydi (qabul `Completed` bo'lganda)."""
+    n = 0
+    for line in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id, InvoiceLine.performed_at.is_(None)).order_by(InvoiceLine.position)):
+        perform_line(db, inv, line, user_id)
+        n += 1
+    return n
+
+
+def perform_for_appointment(db: Session, appointment_id: uuid.UUID, user_id: uuid.UUID | None) -> int:
+    """Qabul yakunlanganda unga bog'langan (chiqarilgan, bekor qilinmagan) hisob-fakturalar xizmatlari bajarilgan hisoblanadi."""
+    total = 0
+    for inv in db.scalars(select(Invoice).where(Invoice.appointment_id == appointment_id, Invoice.status.notin_([InvoiceStatus.draft, InvoiceStatus.cancelled]))):
+        total += perform_invoice(db, inv, user_id)
+    return total
 
 
 def open_shortages(db: Session, branch_id: uuid.UUID) -> list[dict]:
@@ -282,7 +309,8 @@ def resolve_shortage(db: Session, user, shortage_id: uuid.UUID) -> StockShortage
     for a in allocs:
         a.batch.qty_remaining -= a.qty
         db.add(StockMovement(item_id=sh.item_id, batch_id=a.batch.id, kind=StockMovementKind.consumption, qty=-a.qty, unit_cost=a.batch.unit_cost,
-                             reason=f"Hisob-faktura {inv.number} (kechiktirilgan)", ref_type="invoice", ref_id=inv.id, branch_id=sh.branch_id,
+                             reason=f"Hisob-faktura {inv.number} (kechiktirilgan)", ref_type="invoice_line" if sh.invoice_line_id else "invoice",
+                             ref_id=sh.invoice_line_id or inv.id, branch_id=sh.branch_id,
                              created_by=user.id))
     sh.resolved_at = datetime.now(UTC)
     return sh

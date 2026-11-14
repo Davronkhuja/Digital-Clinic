@@ -1,7 +1,7 @@
 {
   "name": "digital-clinic-e2e",
   "private": true,
-  "version": "1.9.14",
+  "version": "1.9.15",
   "scripts": {
     "test": "playwright test"
   },

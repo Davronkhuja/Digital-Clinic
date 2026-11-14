@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -11,9 +12,9 @@ from app.core.deps import CurrentUser, require
 from app.db.session import get_db
 from app.models import Appointment, Encounter, Invoice, InvoiceLine, Patient, Service, Staff
 from app.models.invoice import invoice_number_seq
-from app.schemas.enums import InvoiceStatus, StaffRole
+from app.schemas.enums import AppointmentStatus, InvoiceStatus, StaffRole
 from app.schemas.invoices import CancelIn, InvoiceCreate, InvoiceLineIn, InvoiceOut, InvoiceUpdate
-from app.services import app_settings, audit, invoicing, payments
+from app.services import app_settings, audit, invoicing, payments, warehouse
 from app.services.lookup import get_patient_or_404
 from app.services.money import q2
 from app.services.periods import CLINIC_TZ
@@ -43,9 +44,19 @@ def invoice_out(db: Session, inv: Invoice) -> dict:
         "lines": [{"id": str(ln.id), "service_id": str(ln.service_id), "name": ln.name, "mxik": ln.mxik, "package_code": ln.package_code,
                    "vat_percent": ln.vat_percent, "unit_price": ln.unit_price, "quantity": ln.quantity,
                    "doctor_id": str(ln.doctor_id) if ln.doctor_id else None, "doctor": name, "line_discount": ln.line_discount,
-                   "invoice_discount_share": ln.invoice_discount_share, "net_total": ln.net_total, "vat_amount": ln.vat_amount}
+                   "invoice_discount_share": ln.invoice_discount_share, "net_total": ln.net_total, "vat_amount": ln.vat_amount,
+                   "performed_at": ln.performed_at}
                   for ln, name in rows],
     }
+
+
+def _perform_if_completed(db: Session, inv: Invoice, user: CurrentUser) -> None:
+    """Qabul allaqachon yakunlangan bo'lsa, hisob-faktura chiqarilishi bilan xizmatlar bajarilgan hisoblanadi."""
+    if inv.appointment_id:
+        appt = db.get(Appointment, inv.appointment_id)
+        if appt and appt.status == AppointmentStatus.completed:
+            db.flush()
+            warehouse.perform_invoice(db, inv, user.id)
 
 
 def _doctor(db: Session, doctor_id: uuid.UUID | None) -> Staff | None:
@@ -133,6 +144,8 @@ def create_invoice(data: InvoiceCreate, request: Request, db: Session = Depends(
     db.add(inv)
     db.flush()
     _write_lines(db, inv, computed, user)
+    if data.issue:
+        _perform_if_completed(db, inv, user)
     audit.record(db, user, request, "create", "invoice", inv.id,
                  {"number": number, "patient_id": str(patient.id), "total": str(inv.total), "discount": str(inv.discount_total),
                   "status": inv.status.value})
@@ -193,6 +206,7 @@ def issue_invoice(invoice_id: uuid.UUID, request: Request, db: Session = Depends
     if inv.status != InvoiceStatus.draft:
         raise HTTPException(409, "Faqat qoralamani chiqarish mumkin")
     inv.status, inv.issued_at = InvoiceStatus.issued, datetime.now(UTC)
+    _perform_if_completed(db, inv, user)
     audit.record(db, user, request, "update", "invoice", inv.id, {"number": inv.number, "status": "Issued", "total": str(inv.total)})
     db.commit()
     return invoice_out(db, inv)
@@ -209,5 +223,46 @@ def cancel_invoice(invoice_id: uuid.UUID, data: CancelIn, request: Request, db: 
         raise HTTPException(409, "To'lovi bor hisob-fakturani bekor qilib bo'lmaydi (qaytarishdan foydalaning)")
     inv.status, inv.cancelled_at, inv.cancel_reason = InvoiceStatus.cancelled, datetime.now(UTC), data.reason.strip()
     audit.record(db, user, request, "update", "invoice", inv.id, {"number": inv.number, "status": "Cancelled", "reason": inv.cancel_reason})
+    db.commit()
+    return invoice_out(db, inv)
+
+
+def _line(db: Session, invoice_id: uuid.UUID, line_id: uuid.UUID) -> tuple[Invoice, InvoiceLine]:
+    inv = _get(db, invoice_id)
+    line = db.get(InvoiceLine, line_id)
+    if not line or line.invoice_id != inv.id:
+        raise HTTPException(404, "Qator topilmadi")
+    return inv, line
+
+
+@router.post("/invoices/{invoice_id}/lines/{line_id}/perform", tags=[TAG], response_model=InvoiceOut, summary="Xizmat bajarildi (sarf ombordan yoziladi)",
+             description="Qatorning sarf normasi x miqdori FEFO bo'yicha ombordan yoziladi. Chiqarilgan hisob-faktura kerak; to'liq qaytarilgan hisob-fakturada "
+                         "bajarib bo'lmaydi. Qabul `Completed` bo'lganda bog'langan hisob-faktura qatorlari avtomatik bajarilgan bo'ladi. "
+                         "Ombor yetmasa belgi qo'yiladi, qoldiq manfiyga tushmaydi, yetmagani yetishmovchilik ro'yxatiga tushadi.")
+def perform_line(invoice_id: uuid.UUID, line_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(require("appointments:write"))):
+    inv, line = _line(db, invoice_id, line_id)
+    if inv.status in (InvoiceStatus.draft, InvoiceStatus.cancelled):
+        raise HTTPException(409, "Faqat chiqarilgan hisob-faktura xizmati bajarilgan bo'ladi")
+    paid, refunded = payments.invoice_paid_refunded(db, inv.id)
+    if refunded > 0 and paid - refunded <= 0:
+        raise HTTPException(409, "To'liq qaytarilgan hisob-fakturada xizmat bajarilmaydi")
+    if line.performed_at is not None:
+        raise HTTPException(409, "Xizmat allaqachon bajarilgan")
+    res = warehouse.perform_line(db, inv, line, user.id)
+    audit.record(db, user, request, "update", "invoice", inv.id, {"number": inv.number, "perform_line": str(line.id), **res})
+    db.commit()
+    return invoice_out(db, inv)
+
+
+@router.delete("/invoices/{invoice_id}/lines/{line_id}/perform", tags=[TAG], response_model=InvoiceOut, summary="Bajarildi belgisini qaytarish",
+               description="Xato belgilangan xizmat: yozilgan sarf o'z partiyalariga qaytadi, ochiq yetishmovchilik yopiladi. Bajarilgan xizmat qaytarilsa (pul) material qaytmaydi.")
+def unperform_line(invoice_id: uuid.UUID, line_id: uuid.UUID, request: Request, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(require("appointments:write"))):
+    inv, line = _line(db, invoice_id, line_id)
+    if line.performed_at is None:
+        raise HTTPException(409, "Xizmat bajarilgan deb belgilanmagan")
+    warehouse.unperform_line(db, inv, line, user.id)
+    audit.record(db, user, request, "update", "invoice", inv.id, {"number": inv.number, "unperform_line": str(line.id)})
     db.commit()
     return invoice_out(db, inv)

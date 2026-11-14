@@ -154,14 +154,20 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
 - Qarorlar: katalog hamma filialga umumiy, qoldiq filial bo'yicha partiyalarda; miqdor `numeric(14,3)`, narx `numeric(14,2)`; harakatlar jurnali yig'indisi = partiya qoldig'i (testda tekshiriladi);
   FEFO: muddati bo'yicha, muddatsiz oxirida, muddati o'tgan ishlatilmaydi, yetmasa 409 (qisman emas); kirimda muddati o'tgan tovar va kelajak sanasi rad etiladi.
 - Tannarx = norma x material narxi: ombordagi yaroqli qoldiqning o'rtacha tortilgan narxi, qoldiq yo'q bo'lsa oxirgi kirim narxi, kirim yo'q bo'lsa noma'lum (`complete=false`). Foyda QQS'siz narxdan.
-- Avtomatik sarf: hisob-faktura TO'LIQ to'langanda (`invoices.stock_consumed_at`, bir marta); qaytarish materialni qaytarmaydi. Ombor yetmasa to'lov to'xtamaydi: `stock_shortages`, kirimdan keyin `resolve`.
+- Avtomatik sarf: xizmat BAJARILGANDA (v1.9.15; to'lovda emas): qabul `Completed` bo'lganda bog'langan hisob-faktura qatorlari, yoki qator qo'lda `POST /invoices/{id}/lines/{line}/perform` (`appointments:write`);
+  `invoice_lines.performed_at`, bir marta. Xato belgilangan bo'lsa `DELETE .../perform`: sarf o'z partiyalariga qaytadi (`Return`); bajarilgan xizmat pulini qaytarish materialni qaytarmaydi.
+  Ombor yetmasa to'lov va bajarish to'xtamaydi, qoldiq manfiyga tushmaydi: `stock_shortages`, kirimdan keyin `resolve`.
 - Ko'chirish: yuborilganda manba FEFO bo'yicha kamayadi (`Sent`), qabul qiluvchi filial `receive` qilsa o'z partiyasi (xuddi shu raqam, muddat, narx) ochiladi; qabulgacha yuboruvchi bekor qila oladi.
 - Filial: foydalanuvchi bitta filialda (`users.branch_id`, `staff.branch_id`); `X-Branch-Id` faqat `branches:all` (admin); bemor bazasi umumiy, bemor tarixi (`patient_id` bilan uchrashuv/EMR/lab) filialdan qat'i nazar ko'rinadi;
   faolsizlantirish: asosiy filial, faol xodimi, ombor qoldig'i yoki hozirgi faol filial bo'lsa 409. Hisobotlar `all_branches=true` (faqat `branches:all`).
 - Ruxsatlar: `warehouse:read/write/transfer`, `branches:manage/all` (data migratsiya admin/hamshiraga beradi).
-- Ochiq / taxmin (tasdiqlash kerak): sarf to'liq to'lovda yoziladi (qisman to'lovda emas); qaytarilgan xizmat sarfi omborga qaytmaydi; ko'chirishda qisman qabul va tafovut yo'q (farq hisobdan chiqarish bilan);
-  shifokor bitta filialga tegishli (bir necha filialda ishlash uchun jadval kerak bo'ladi); onlayn yozilish va portal hali asosiy filialga bog'langan (filial tanlash yo'q);
-  inventarizatsiya (sanoq) va `Adjust` harakati yozilmagan; narxnomada filial bo'yicha alohida narx yo'q.
+- **Qarorlar (foydalanuvchi, 2026-11-14), 6-bosqichdan oldin bajariladi:** (1) sarf xizmat bajarilganda [v1.9.15 TAYYOR]; (2) yetishmovchilik: ombor mas'uliga ogohlantirish (bildirishnoma); (3) shifokor bir nechta filialda
+  ishlaydi: jadval shablonlari va istisnolar filial bo'yicha, bir vaqtda ikki filialda jadval taqiqlanadi; (4) onlayn yozilish va bemor portalida filial tanlash; (5) inventarizatsiya (sanoq hujjati, farq bo'yicha
+  avtomatik kirim/chiqim, ruxsat bilan tasdiq), ko'chirishda qisman qabul, filial bo'yicha narx (asosiy narxdan farqli bo'lishi mumkin).
+- **6-bosqich qarorlari:** versiyalar v1.9.x davom etadi, `v2.0.0` bosqich oxirida. 1C: rasmiy format hujjati yo'q, universal eksport (sotuvlar xizmat bo'yicha, to'lovlar usul bo'yicha, kassa smenalari, ombor harakatlari,
+  shifokor foizlari), Excel va CSV, davr va filial filtri, ustun xaritasi Sozlamalarda tahrirlanadi (keyin buxgalter bilan 1C ga moslanadi). Sug'urta: faqat ixtiyoriy tibbiy sug'urta (DMS), davlat jamg'armasi yo'q;
+  sug'urta kompaniyasi -> shartnoma (muddat, chegirma, qoplanadigan xizmatlar, limitlar) -> bemor polisi (raqam, muddat, kompaniya) -> kafolat xati (raqam, sana, summa limiti, xizmatlar, fayl ilovasi);
+  hisob-fakturada summa bemor va sug'urta ulushiga bo'linadi; oyiga kompaniya bo'yicha reyestr (Excel) va qarzdorlik hisobi. AI: `AI_ENABLED` orqali lokal LLM (OpenAI-mos), qayd xulosasi, shifokor tasdiqlamaguncha saqlanmaydi. Ochiq REST API hujjati.
 
 ### 6-bosqich: Analitika va AI (v2.0.0)
 - Hisobotlar: daromad, bemor oqimi, shifokor yuklamasi, kelmay qolish; PDF/Excel va 1C eksporti.

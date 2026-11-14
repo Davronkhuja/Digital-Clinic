@@ -81,6 +81,7 @@ class InvoiceLineOut(BaseModel):
     invoice_discount_share: Money
     net_total: Money
     vat_amount: Money
+    performed_at: Optional[datetime] = Field(None, description="Xizmat bajarilgan vaqt (shunda sarf ombordan yoziladi)")
 
 
 class InvoiceOut(BaseModel):

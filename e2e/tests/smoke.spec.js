@@ -74,6 +74,9 @@ test.describe('kirgan xodim', () => {
     await page.getByRole('button', { name: 'Ochish', exact: true }).first().click()
     await page.getByRole('button', { name: "To'lov qabul qilish" }).click()    // usul: Cash
     await expect(page.getByText(/chek \S+/).first()).toBeVisible()               // fiskal chek ID (mock)
+    await page.getByTestId('perform-line').click()                                 // xizmat bajarildi (sarf ombordan yoziladi)
+    await expect(page.getByText('Xizmat bajarildi, sarf ombordan yozildi')).toBeVisible()
+    await expect(page.locator('.badge-green', { hasText: 'Bajarildi' })).toBeVisible()
   })
 })
 

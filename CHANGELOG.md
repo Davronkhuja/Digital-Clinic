@@ -2,6 +2,16 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.15] - 2026-11-14
+### Changed
+- Avtomatik sarf endi to'lovda emas, xizmat BAJARILGANDA yoziladi: qabul `Completed` bo'lganda bog'langan (chiqarilgan) hisob-faktura qatorlari, yoki qator qo'lda `POST /invoices/{id}/lines/{line_id}/perform` (`appointments:write`). Qabul avval yakunlangan bo'lsa hisob-faktura chiqarilganda. `invoice_lines.performed_at/performed_by`; `invoices.stock_consumed_at` olib tashlandi (avval yozilgan sarf qatorlarga ko'chirildi). Bir marta, FEFO.
+- Yetmasa to'lov va bajarish to'xtamaydi, qoldiq manfiyga tushmaydi, yetmagani yetishmovchilikka (qator bo'yicha).
+### Added
+- `DELETE /invoices/{id}/lines/{line_id}/perform`: xato belgilangan xizmat, yozilgan sarf o'z partiyalariga qaytadi (`Return` harakati), ochiq yetishmovchilik yopiladi. Bajarilgan xizmat pulini qaytarish materialni qaytarmaydi; to'liq qaytarilgan hisob-fakturada bajarib bo'lmaydi.
+- Hisob-faktura qatorida `performed_at`. Migratsiya 0039.
+- Kassa: hisob-faktura qatorida "Bajarildi deb belgilash" / "Qaytarish" (`appointments:write`) va "Bajarildi" belgisi; E2E kassa testida.
+- CLAUDE.md: 2026-11-14 qarorlari (reja) va 6-bosqich qarorlari.
+
 ## [1.9.14] - 2026-11-14
 ### Added
 - 5-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage5.py`): kirim (ikki partiya) -> sarf normasi -> tannarx avtomatik (o'rtacha tortilgan narx) -> to'liq to'lov FEFO bo'yicha sarf yozadi -> qoldiq va tannarx o'zgaradi (yangi kirim narxi ham) -> 30 kunlik ogohlantirish -> filialga ko'chirish (partiya, muddat, narx saqlanadi) -> ikkinchi filialda tannarx o'z ombor narxidan -> jurnal yaxlitligi.

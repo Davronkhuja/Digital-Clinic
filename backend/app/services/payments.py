@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import CurrentUser
 from app.models import Invoice, InvoiceLine, Payment, PaymentRefund, Transaction
 from app.schemas.enums import InvoiceStatus, PaymentMethod, PaymentStatus, ReceiptStatus, TransactionType
-from app.services import commissions, fiscal, warehouse
+from app.services import commissions, fiscal
 from app.services.invoicing import allocate
 from app.services.money import q2, to_tiyin
 from app.services.periods import clinic_today
@@ -104,8 +104,6 @@ def mark_paid(db: Session, payment: Payment, inv: Invoice, user_id: uuid.UUID | 
     db.flush()
     commissions.accrue(db, payment, inv)
     recompute_status(db, inv)
-    if inv.status == InvoiceStatus.paid:
-        warehouse.consume_for_invoice(db, inv, user_id)    # xizmat sarfi ombordan (FEFO); yetmasa to'lov to'xtamaydi
 
 
 def refundable(db: Session, payment: Payment) -> Decimal:

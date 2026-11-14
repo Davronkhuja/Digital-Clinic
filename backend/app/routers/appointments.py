@@ -19,7 +19,7 @@ from app.schemas import (
     AppointmentTypeUpdate,
     AppointmentUpdate,
 )
-from app.services import offers, queries
+from app.services import offers, queries, warehouse
 from app.services.booking import apply_working_rule, build_appointment, commit_booking, resolve_room, save_booking
 from app.services.lookup import get_patient_or_404, resolve_doctor
 from app.services.periods import CLINIC_TZ
@@ -68,6 +68,9 @@ def update_appointment_status(appt_id: uuid.UUID, status: AppointmentStatus, db:
     if status == AppointmentStatus.cancelled and was_active:       # vaqt bo'shadi: kutish ro'yxatidagi bemorga taklif
         appt.cancelled_at, appt.cancel_source = datetime.now(UTC), "staff"
         offers.offer_freed_slot(db, appt)
+    if status == AppointmentStatus.completed:                      # xizmat bajarildi: bog'langan hisob-faktura sarfi ombordan yoziladi
+        db.flush()
+        warehouse.perform_for_appointment(db, appt.id, user.id)
     commit_booking(db)  # bekor qilingan qabulni qayta faollashtirish band vaqtga to'qnashishi mumkin
     return queries.list_appointments(db, appt_id=appt_id)[0]
 

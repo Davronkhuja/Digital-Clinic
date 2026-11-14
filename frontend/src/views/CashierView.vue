@@ -144,12 +144,17 @@
           <button class="text-slate-400" @click="detail = null"><X class="w-5 h-5" /></button>
         </div>
         <table class="w-full text-sm">
-          <thead><tr class="text-left text-xs text-slate-400"><th class="py-1">Xizmat</th><th>Soni</th><th class="text-right">Narx</th><th class="text-right">Chegirma</th><th class="text-right">Summa</th></tr></thead>
+          <thead><tr class="text-left text-xs text-slate-400"><th class="py-1">Xizmat</th><th>Soni</th><th class="text-right">Narx</th><th class="text-right">Chegirma</th><th class="text-right">Summa</th><th>Bajarildi</th></tr></thead>
           <tbody>
             <tr v-for="l in detail.lines" :key="l.id" class="border-t" :class="dark ? 'border-slate-800' : 'border-slate-100'">
               <td class="py-1.5">{{ l.name }}<span class="block text-[10px] text-slate-400 font-mono">MXIK {{ l.mxik }} · QQS {{ l.vat_percent }}%</span></td>
               <td>{{ l.quantity }}</td><td class="text-right font-mono">{{ fmt(l.unit_price) }}</td>
               <td class="text-right font-mono">{{ fmt(l.line_discount + l.invoice_discount_share) }}</td><td class="text-right font-mono">{{ fmt(l.net_total) }}</td>
+              <td class="whitespace-nowrap">
+                <span v-if="l.performed_at" class="badge-green" :title="'Sarf ombordan yozilgan: ' + l.performed_at.slice(0, 16).replace('T', ' ')">Bajarildi</span>
+                <button v-else-if="canPerform" class="text-xs text-cyan-600 hover:underline" data-testid="perform-line" title="Xizmat bajarildi: sarf ombordan yoziladi" @click="perform(l, true)">Bajarildi deb belgilash</button>
+                <button v-if="l.performed_at && canPerform" class="text-xs text-slate-400 hover:underline ml-1" title="Xato belgilangan: sarf omborga qaytadi" @click="perform(l, false)">Qaytarish</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -300,6 +305,13 @@ async function openDetail(i) {
     payments.value.forEach(p => { refund[p.id] = refund[p.id] || { amount: '', reason: '', method: 'Cash' } })
     Object.assign(pay, { method: 'Cash', amount: '' })
   } catch (e) { toast.error(e, "Hisob-fakturani yuklab bo'lmadi") }
+}
+const canPerform = computed(() => auth.can('appointments:write') && detail.value && !['Draft', 'Cancelled'].includes(detail.value.status))
+async function perform(l, on) {
+  try {
+    await (on ? api.post(`/invoices/${detail.value.id}/lines/${l.id}/perform`) : api.delete(`/invoices/${detail.value.id}/lines/${l.id}/perform`))
+    toast.success(on ? 'Xizmat bajarildi, sarf ombordan yozildi' : 'Belgi qaytarildi, sarf omborga qaytdi'); await refreshDetail()
+  } catch (e) { toast.error(e, "Belgini o'zgartirib bo'lmadi") }
 }
 async function refreshDetail() { if (detail.value) await openDetail(detail.value); await Promise.all([loadInvoices(), loadShift()]) }
 async function doPay() {
