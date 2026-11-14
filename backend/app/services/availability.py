@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Shifokorning ish oynalari: haftalik shablon + istisnolar; bo'sh vaqtlar va qabul ish vaqtiga tushishini tekshirish."""
 import uuid
 from datetime import date, datetime, time, timedelta
@@ -6,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.models import Appointment, DoctorSchedule, ScheduleException, Staff
+from app.models import Appointment, DoctorSchedule, ScheduleException, Staff, StaffBranch
 from app.models.appointment import BUSY_STATUSES
 from app.schemas.enums import ExceptionKind
 from app.services.periods import CLINIC_TZ
@@ -24,12 +25,22 @@ def _split(day: date, start: time, end: time, b_start: time | None, b_end: time 
     return [(_at(day, start), _at(day, end))]
 
 
-def day_windows(db: Session, staff_id: uuid.UUID, day: date) -> list[Window]:
-    """Klinika kunidagi ish oynalari (tanaffus ayirilgan). Ustuvorlik: ExtraWork > ta'til/kasallik/dam olish > shablon.
-    Shablon umuman belgilanmagan shifokor butun kun ishlaydi (cheklovsiz); istisnolar baribir amal qiladi."""
+def works_in_branch(db: Session, staff_id: uuid.UUID, branch_id: uuid.UUID) -> bool:
+    return bool(db.scalar(select(exists().where(StaffBranch.staff_id == staff_id, StaffBranch.branch_id == branch_id))))
+
+
+def day_windows(db: Session, staff_id: uuid.UUID, day: date, branch_id: uuid.UUID | None = None) -> list[Window]:
+    """Filialdagi (standart: asosiy filial) kunlik ish oynalari (tanaffus ayirilgan). Ustuvorlik: ExtraWork > ta'til/kasallik/dam olish > shablon.
+    Shifokorning hech bir filialda shabloni bo'lmasa, u ishlaydigan filiallarda butun kun ishlaydi (cheklovsiz); shabloni boshqa
+    filialda bor-u, bu filialda yo'q bo'lsa bu filialda ishlamaydi. Istisnolar filial bo'yicha."""
+    if branch_id is None:
+        branch_id = db.scalar(select(Staff.branch_id).where(Staff.id == staff_id))
+    if not works_in_branch(db, staff_id, branch_id):
+        return []
     exceptions = db.scalars(
         select(ScheduleException).where(
-            ScheduleException.staff_id == staff_id, ScheduleException.date_from <= day, ScheduleException.date_to >= day
+            ScheduleException.staff_id == staff_id, ScheduleException.branch_id == branch_id,
+            ScheduleException.date_from <= day, ScheduleException.date_to >= day
         )
     ).all()
     extra = [e for e in exceptions if e.kind == ExceptionKind.extra_work]
@@ -37,34 +48,36 @@ def day_windows(db: Session, staff_id: uuid.UUID, day: date) -> list[Window]:
         return sorted(w for e in extra for w in _split(day, e.start_time, e.end_time, e.break_start, e.break_end))
     if exceptions:
         return []
-    row = db.scalar(select(DoctorSchedule).where(DoctorSchedule.staff_id == staff_id, DoctorSchedule.weekday == day.weekday()))
+    row = db.scalar(select(DoctorSchedule).where(DoctorSchedule.staff_id == staff_id, DoctorSchedule.branch_id == branch_id,
+                                                 DoctorSchedule.weekday == day.weekday()))
     if row:
         return _split(day, row.start_time, row.end_time, row.break_start, row.break_end)
     if db.scalar(select(exists().where(DoctorSchedule.staff_id == staff_id))):
-        return []  # shablon bor, bu kun unda yo'q: dam olish kuni
+        return []  # shablon bor (shu yoki boshqa filialda), bu kunda bu filialda yo'q: ishlamaydi
     return [(_at(day, time.min), _at(day, time.min) + timedelta(days=1))]
 
 
 VIOLATION = "Shifokor bu vaqtda ishlamaydi (ish soatlari, tanaffus, ta'til yoki dam olish kuni)"
 
 
-def working_violation(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime) -> str | None:
+def working_violation(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime, branch_id: uuid.UUID | None = None) -> str | None:
     """Qabul to'liq bitta ish oynasi ichida bo'lishi kerak; aks holda buzilish matni (yoki None)."""
     start, end = starts_at.astimezone(CLINIC_TZ), ends_at.astimezone(CLINIC_TZ)
-    if any(w_start <= start and end <= w_end for w_start, w_end in day_windows(db, doctor.id, start.date())):
+    if any(w_start <= start and end <= w_end for w_start, w_end in day_windows(db, doctor.id, start.date(), branch_id)):
         return None
     return VIOLATION
 
 
-def ensure_working(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime) -> None:
-    violation = working_violation(db, doctor, starts_at, ends_at)
+def ensure_working(db: Session, doctor: Staff, starts_at: datetime, ends_at: datetime, branch_id: uuid.UUID | None = None) -> None:
+    violation = working_violation(db, doctor, starts_at, ends_at, branch_id)
     if violation:
         raise HTTPException(422, violation)
 
 
 def free_slots(db: Session, doctor: Staff, day: date, duration_min: int, step_min: int = 15,
-               room_id: uuid.UUID | None = None, now: datetime | None = None) -> list[tuple[datetime, datetime]]:
-    windows = day_windows(db, doctor.id, day)
+               room_id: uuid.UUID | None = None, now: datetime | None = None,
+               branch_id: uuid.UUID | None = None) -> list[tuple[datetime, datetime]]:
+    windows = day_windows(db, doctor.id, day, branch_id)
     if not windows:
         return []
     lo, hi = windows[0][0], windows[-1][1]

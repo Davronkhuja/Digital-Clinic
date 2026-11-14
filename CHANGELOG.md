@@ -2,6 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.17] - 2026-11-14
+### Added
+- Shifokor bir nechta filialda ishlaydi: `staff_branches` (asosiy filial avtomatik), `GET/PUT /staff/{id}/branches` (`branches:manage`; olib tashlangan filialda rejalashtirilgan qabul bo'lsa 409, o'sha filialdagi jadval va istisnolar o'chiriladi). Xodimlar ro'yxati filialda ishlaydiganlarni ko'rsatadi.
+- Haftalik shablon va istisnolar filial bo'yicha (`doctor_schedules.branch_id`, `schedule_exceptions.branch_id`): faol filial jadvali (`X-Branch-Id`), boshqa filial jadvallari o'zgarmaydi. Bir vaqtda ikki filialda jadval taqiqlangan: bir hafta kunida filial oynalari (shablon) va bir kunda qo'shimcha ish kuni kesishmasligi ilova tekshiruvida (409, qaysi filial va qachon ekani aytiladi) va bazadagi exclusion cheklovlarda (`no_cross_branch_schedule`, `no_cross_branch_extra_work`); chegaradosh (17:00 tugab 17:00 boshlanish) mumkin.
+- `all_branches=true` (ta'til/kasallik/dam olish): istisno shifokor ishlaydigan hamma filialga. Qo'shimcha ish kuni bitta filial uchun.
+- Qabul va bo'sh vaqtlar filial jadvaliga qarab: shifokor ishlamaydigan filialda majburan ham yozib bo'lmaydi (422, `appointments:override` bilan ham); jadvali boshqa filialda bor-u, bu filialda yo'q bo'lsa bu filialda ishlamaydi; hech bir filialda shabloni bo'lmagan shifokor ishlaydigan filiallarida cheklovsiz. Kabinet qabul filialiga tegishli bo'lishi kerak.
+- Foydalanuvchi asosiy filialini almashtirish: yangi filialda ishlaydi, eskisidan jadvali/qabuli bo'lmasa chiqariladi. Migratsiya 0041.
+- Frontend: shifokor jadvali oynasida faol filial, ishlaydigan filiallar (administrator belgilaydi) va "hamma filialga" istisno.
+
 ## [1.9.16] - 2026-11-14
 ### Added
 - Ichki bildirishnomalar (`notifications`, `notification_reads`): filial va ruxsat bo'yicha ko'rinadi, o'qilganlik foydalanuvchi bo'yicha, `dedupe_key` bilan takrorlanmaydi. `GET /notifications`, `/notifications/unread-count`, `POST /notifications/{id}/read`, `/notifications/read-all`. Migratsiya 0040.

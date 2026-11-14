@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Ro'yxat so'rovlari: routerlar va hisobotlar uchun umumiy (join orqali nomlar)."""
 import re
 import uuid
@@ -7,7 +8,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.names import normalize_name
-from app.models import Appointment, Encounter, Patient, Prescription, Room, Staff, Transaction
+from app.models import Appointment, Encounter, Patient, Prescription, Room, Staff, StaffBranch, Transaction
 from app.schemas.enums import AppointmentStatus, StaffRole, StatusEnum, TransactionType
 from app.services import serializers as ser
 
@@ -187,7 +188,7 @@ def list_staff(
     if staff_id:
         stmt = stmt.where(Staff.id == staff_id)
     if branch_id and not staff_id:
-        stmt = stmt.where(Staff.branch_id == branch_id)
+        stmt = stmt.where(Staff.id.in_(select(StaffBranch.staff_id).where(StaffBranch.branch_id == branch_id)))   # shu filialda ishlaydiganlar
     return [ser.staff_out(s, n) for s, n in db.execute(stmt).all()]
 
 

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from datetime import date, time
 from typing import List, Optional
 
@@ -52,9 +53,12 @@ class ExceptionIn(BaseModel):
     break_start: Optional[time] = None
     break_end: Optional[time] = None
     note: Optional[str] = Field(None, max_length=200)
+    all_branches: bool = Field(False, description="Ta'til/kasallik/dam olish: shifokor ishlaydigan HAMMA filialga qo'yiladi (ExtraWork uchun mumkin emas)")
 
     @model_validator(mode="after")
     def _valid(self):
+        if self.all_branches and self.kind == ExceptionKind.extra_work:
+            raise ValueError("Qo'shimcha ish kuni bitta filial uchun")
         end = self.date_to or self.date_from
         if end < self.date_from:
             raise ValueError("date_to date_from dan oldin bo'lishi mumkin emas")
@@ -82,10 +86,22 @@ class ExceptionOut(BaseModel):
     affected_appointments: List[str] = Field(default_factory=list, description="Shu davrga tushgan rejalashtirilgan qabullar (ID)")
 
 
+class BranchRef(BaseModel):
+    id: str
+    name: str
+    home: bool = Field(False, description="Xodimning asosiy filiali")
+
+
 class ScheduleOut(BaseModel):
     staff_id: str
+    branch_id: str = Field(..., description="Jadval shu (faol) filial uchun")
     days: List[ScheduleDay]
     exceptions: List[ExceptionOut]
+    branches: List[BranchRef] = Field(default_factory=list, description="Shifokor ishlaydigan filiallar")
+
+
+class StaffBranchesIn(BaseModel):
+    branch_ids: List[str] = Field(..., min_length=1, description="Ishlaydigan filiallar (asosiy filial avtomatik kiradi)")
 
 
 class Slot(BaseModel):

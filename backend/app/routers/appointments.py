@@ -94,10 +94,10 @@ def update_appointment(appt_id: uuid.UUID, data: AppointmentUpdate, request: Req
     if "notes" in fields:
         appt.notes = fields["notes"]
     if "room_id" in fields:  # null: kabinetsiz; qiymat: aniq kabinet
-        room = resolve_room(db, fields["room_id"], doctor) if fields["room_id"] else None
+        room = resolve_room(db, fields["room_id"], doctor, appt.branch_id) if fields["room_id"] else None
         appt.room_id = room.id if room else None
     elif fields.get("doctor_id") or fields.get("doctor"):  # shifokor almashdi: yangi shifokorning standart kabineti
-        room = resolve_room(db, None, doctor)
+        room = resolve_room(db, None, doctor, appt.branch_id)
         appt.room_id = room.id if room else None
     if {"date", "time", "duration_min", "type"} & fields.keys():
         local = appt.starts_at.astimezone(CLINIC_TZ)

@@ -166,7 +166,7 @@ def seed_demo(db: Session, branch: Branch) -> None:
     for doc, weekdays, start, end in ((rustamov, range(0, 5), time(9), time(17)), (karimova, range(0, 4), time(10), time(18)),
                                       (yusupov, range(1, 6), time(10), time(18))):
         for wd in weekdays:
-            db.add(DoctorSchedule(staff_id=doc.id, weekday=wd, start_time=start, end_time=end,
+            db.add(DoctorSchedule(staff_id=doc.id, branch_id=doc.branch_id, weekday=wd, start_time=start, end_time=end,
                                   break_start=time(13), break_end=time(14)))
 
     def appt(p, doc, day, hh, mm, kind, st):

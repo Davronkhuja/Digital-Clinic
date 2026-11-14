@@ -86,6 +86,29 @@ def _target_branch(db: Session, user: CurrentUser, branch_id: str | None) -> Bra
     return branch
 
 
+def _move_staff_home(db: Session, staff: Staff, new_branch_id: uuid.UUID, actor: uuid.UUID) -> None:
+    """Xodimning asosiy filialini almashtiradi: yangisida ishlaydi; eskisidan jadvali va kelajak qabuli bo'lmasa chiqariladi."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import delete
+
+    from app.models import Appointment, DoctorSchedule, ScheduleException, StaffBranch
+    from app.schemas.enums import AppointmentStatus
+    old = staff.branch_id
+    staff.branch_id = new_branch_id
+    if not db.scalar(select(StaffBranch.id).where(StaffBranch.staff_id == staff.id, StaffBranch.branch_id == new_branch_id)):
+        db.add(StaffBranch(staff_id=staff.id, branch_id=new_branch_id, created_by=actor))
+    if old != new_branch_id:
+        busy = (db.scalar(select(DoctorSchedule.id).where(DoctorSchedule.staff_id == staff.id, DoctorSchedule.branch_id == old).limit(1))
+                or db.scalar(select(ScheduleException.id)
+                             .where(ScheduleException.staff_id == staff.id, ScheduleException.branch_id == old).limit(1))
+                or db.scalar(select(Appointment.id).where(Appointment.doctor_id == staff.id, Appointment.branch_id == old,
+                                                          Appointment.status == AppointmentStatus.scheduled,
+                                                          Appointment.starts_at > datetime.now(UTC)).limit(1)))
+        if not busy:
+            db.execute(delete(StaffBranch).where(StaffBranch.staff_id == staff.id, StaffBranch.branch_id == old))
+
+
 STAFF_ROLE_FOR = {"admin": StaffRole.admin, "doctor": StaffRole.doctor, "nurse": StaffRole.nurse,
                   "receptionist": StaffRole.receptionist, "senior_receptionist": StaffRole.receptionist,
                   "cashier": StaffRole.cashier}
@@ -136,7 +159,7 @@ def update_user(user_id: uuid.UUID, data: UserUpdate, request: Request, db: Sess
     if data.branch_id is not None:
         branch = _target_branch(db, user, data.branch_id)
         target.branch_id = branch.id
-        db.get(Staff, target.staff_id).branch_id = branch.id        # xodim va uning logini bir filialda
+        _move_staff_home(db, db.get(Staff, target.staff_id), branch.id, user.id)   # xodim va uning logini bir filialda
     if data.is_active is False or data.role:
         revoke_all(db, target.id)  # eski huquq bilan yaratilgan sessiyalar tugasin
     audit.record(db, user, request, "update", "user", target.id, data.model_dump(exclude_unset=True))

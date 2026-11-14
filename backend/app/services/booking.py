@@ -19,18 +19,18 @@ BUSY_MESSAGES = {
 }
 
 
-def resolve_room(db: Session, room_id: uuid.UUID | None, doctor: Staff) -> Room | None:
+def resolve_room(db: Session, room_id: uuid.UUID | None, doctor: Staff, branch_id: uuid.UUID | None = None) -> Room | None:
     """Aniq ko'rsatilgan kabinet (faol, shifokor filialida bo'lishi shart), bo'lmasa shifokorning standart kabineti."""
     if room_id:
         room = db.get(Room, room_id)
         if not room or not room.is_active:
             raise HTTPException(422, "Kabinet topilmadi yoki faol emas")
-        if room.branch_id != doctor.branch_id:
-            raise HTTPException(422, "Kabinet shifokor filialiga tegishli emas")
+        if room.branch_id != (branch_id or doctor.branch_id):
+            raise HTTPException(422, "Kabinet qabul filialiga tegishli emas")
         return room
     if doctor.default_room_id:
         room = db.get(Room, doctor.default_room_id)
-        return room if room and room.is_active else None
+        return room if room and room.is_active and room.branch_id == (branch_id or doctor.branch_id) else None
     return None
 
 
@@ -69,7 +69,9 @@ def apply_working_rule(db: Session, user: CurrentUser, doctor: Staff, appt: Appo
     """Ish vaqti qoidasi. Buzilsa: sabab bilan va `appointments:override` ruxsati bilan majburan yoziladi (qaytaradi buzilish
     matnini, audit uchun), aks holda 422/403. Buzilmasa eski override izi tozalanadi. Band vaqt (shifokor/kabinet) bu yerda
     emas: u baribir bazada taqiqlangan."""
-    violation = availability.working_violation(db, doctor, appt.starts_at, appt.ends_at)
+    if not availability.works_in_branch(db, doctor.id, appt.branch_id):        # filial a'zoligi: majburan yozib bo'lmaydi
+        raise HTTPException(422, "Shifokor bu filialda ishlamaydi")
+    violation = availability.working_violation(db, doctor, appt.starts_at, appt.ends_at, appt.branch_id)
     if not violation:
         appt.override_reason = appt.override_by = None
         return None
@@ -108,7 +110,7 @@ def build_appointment(db: Session, user: CurrentUser, patient: Patient, doctor: 
         starts_at, ends_at = appointment_window(day, at, duration)
     except ValueError:
         raise HTTPException(422, "Sana yoki vaqt noto'g'ri")
-    room = resolve_room(db, room_id, doctor)
+    room = resolve_room(db, room_id, doctor, user.branch_id)
     appt = Appointment(
         patient_id=patient.id, doctor_id=doctor.id, room_id=room.id if room else None, starts_at=starts_at,
         ends_at=ends_at, type=type_name, notes=notes, branch_id=user.branch_id, created_by=user.id,

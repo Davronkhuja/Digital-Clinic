@@ -12,6 +12,16 @@
       <div v-if="loading" class="p-12 text-center text-sm text-slate-400">Yuklanmoqda...</div>
       <div v-else-if="loadError" class="p-6"><EmptyState title="Jadvalni yuklab bo'lmadi" action-label="Qayta urinish" @action="load" /></div>
       <div v-else class="overflow-y-auto p-6 space-y-8">
+        <section class="space-y-2" data-testid="sched-branches">
+          <h4 :class="['text-sm font-semibold', dark ? 'text-slate-200' : 'text-slate-800']">Filial: {{ currentBranchName }}</h4>
+          <p class="text-xs text-slate-400">Jadval va istisnolar faol filial uchun. Shifokor boshqa filialda ishlasa, o'sha filialga o'tib alohida jadval qo'yiladi; bir vaqtda ikki filialda jadval bo'lishi mumkin emas.</p>
+          <div v-if="auth.can('branches:manage')" class="flex flex-wrap gap-3 items-center">
+            <label v-for="b in branchList" :key="b.id" class="flex items-center gap-1.5 text-sm"><input v-model="worksIn" type="checkbox" :value="b.id" :disabled="b.id === homeId" /> {{ b.name }}<span v-if="b.id === homeId" class="text-xs text-slate-400">(asosiy)</span></label>
+            <button class="btn-secondary text-xs" :disabled="saving" data-testid="sched-save-branches" @click="saveBranches">Ishlaydigan filiallarni saqlash</button>
+          </div>
+          <p v-else class="text-xs text-slate-500">Ishlaydigan filiallar: {{ doctorBranches.map(b => b.name).join(', ') }}</p>
+        </section>
+
         <section class="space-y-3">
           <h4 :class="['text-sm font-semibold', dark ? 'text-slate-200' : 'text-slate-800']">Haftalik shablon</h4>
           <div class="overflow-x-auto">
@@ -57,7 +67,8 @@
               <div><label class="text-xs text-slate-400 block mb-1">Soat dan</label><input v-model="ex.start_time" type="time" class="input" required /></div>
               <div><label class="text-xs text-slate-400 block mb-1">gacha</label><input v-model="ex.end_time" type="time" class="input" required /></div>
             </template>
-            <div class="col-span-2 sm:col-span-4"><input v-model="ex.note" class="input" placeholder="Izoh (ixtiyoriy)" maxlength="200" /></div>
+            <div class="col-span-2 sm:col-span-4 space-y-1"><input v-model="ex.note" class="input" placeholder="Izoh (ixtiyoriy)" maxlength="200" />
+              <label v-if="ex.kind !== 'ExtraWork' && doctorBranches.length > 1" class="flex items-center gap-1.5 text-xs text-slate-500"><input v-model="ex.all_branches" type="checkbox" /> Shifokor ishlaydigan hamma filialga</label></div>
             <button class="btn-primary text-sm" :disabled="saving"><Plus class="w-4 h-4" /> Qo'shish</button>
           </form>
           <p v-if="affected" class="text-sm text-amber-600">Diqqat: bu davrda ish vaqtidan tashqarida qolgan {{ affected }} ta rejalashtirilgan qabul bor. Ularni Uchrashuvlar bo'limida ko'chiring.</p>
@@ -83,12 +94,14 @@ import { X, Check, Plus, Trash2 } from 'lucide-vue-next'
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import { useThemeStore } from '@/stores/theme'
+import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 const props = defineProps({ staff: { type: Object, required: true } })
 const emit = defineEmits(['close', 'saved'])
 const toast = useToast()
 const theme = useThemeStore()
+const auth = useAuthStore()
 const dark = computed(() => theme.isDark)
 
 const dayNames = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
@@ -102,7 +115,10 @@ const rooms = ref([])
 const slot = ref(props.staff.slot_minutes || 30)
 const roomId = ref(props.staff.default_room_id || '')
 const affected = ref(0)
-const emptyEx = () => ({ kind: 'Vacation', date_from: '', date_to: '', start_time: '', end_time: '', note: '' })
+const emptyEx = () => ({ kind: 'Vacation', date_from: '', date_to: '', start_time: '', end_time: '', note: '', all_branches: false })
+const doctorBranches = ref([]), branchList = ref([]), worksIn = ref([]), currentBranch = ref('')
+const homeId = computed(() => doctorBranches.value.find(b => b.home)?.id)
+const currentBranchName = computed(() => (branchList.value.find(b => b.id === currentBranch.value) || doctorBranches.value.find(b => b.id === currentBranch.value))?.name || '')
 const ex = reactive(emptyEx())
 
 async function load() {
@@ -116,6 +132,10 @@ async function load() {
       Object.assign(week[d.weekday], { on: true, start: hhmm(d.start_time), end: hhmm(d.end_time), bs: hhmm(d.break_start), be: hhmm(d.break_end) })
     }
     exceptions.value = data.exceptions
+    doctorBranches.value = data.branches
+    currentBranch.value = data.branch_id
+    worksIn.value = data.branches.map(b => b.id)
+    try { branchList.value = (await api.get('/branches')).data } catch { branchList.value = [] }
   } catch (e) {
     loadError.value = true
     toast.error(e, "Jadvalni yuklab bo'lmadi")
@@ -149,12 +169,20 @@ async function saveDefaults() {
   } catch (e) { toast.error(e, "Saqlab bo'lmadi") } finally { saving.value = false }
 }
 
+async function saveBranches() {
+  saving.value = true
+  try {
+    await api.put(`/staff/${props.staff.id}/branches`, { branch_ids: worksIn.value })
+    toast.success('Ishlaydigan filiallar saqlandi'); await load()
+  } catch (e) { toast.error(e, "Filiallarni saqlab bo'lmadi") } finally { saving.value = false }
+}
+
 async function addException() {
   saving.value = true
   affected.value = 0
   const body = { kind: ex.kind, date_from: ex.date_from, note: ex.note || null }
   if (ex.kind === 'ExtraWork') Object.assign(body, { start_time: ex.start_time, end_time: ex.end_time })
-  else body.date_to = ex.date_to || ex.date_from
+  else { body.date_to = ex.date_to || ex.date_from; if (ex.all_branches) body.all_branches = true }
   try {
     const { data } = await api.post(`/staff/${props.staff.id}/schedule/exceptions`, body)
     affected.value = data.affected_appointments.length

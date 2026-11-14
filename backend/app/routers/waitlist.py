@@ -125,12 +125,12 @@ def waitlist_suggestions(entry_id: uuid.UUID, limit: int = Query(10, ge=1, le=50
     first = max(entry.date_from, clinic_today())
     last = entry.date_to or first + timedelta(days=SUGGEST_HORIZON_DAYS)
     duration = resolve_duration(db, doctor, entry.type)
-    room = resolve_room(db, None, doctor)
+    room = resolve_room(db, None, doctor, user.branch_id)
     now = datetime.now(CLINIC_TZ)
     out: list[dict] = []
     day = first
     while day <= last and len(out) < limit:
-        for start, end in availability.free_slots(db, doctor, day, duration, 15, room.id if room else None, now)[:3]:
+        for start, end in availability.free_slots(db, doctor, day, duration, 15, room.id if room else None, now, user.branch_id)[:3]:
             out.append({"date": day.isoformat(), "time": start.astimezone(CLINIC_TZ).strftime("%H:%M"),
                         "end_time": end.astimezone(CLINIC_TZ).strftime("%H:%M")})
         day += timedelta(days=1)
