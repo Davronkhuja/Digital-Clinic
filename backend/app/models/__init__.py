@@ -13,6 +13,7 @@ from app.models.insurance import (
     InsuranceContract,
     InsuranceContractService,
     Insurer,
+    InsurerPayment,
     PatientPolicy,
 )
 from app.models.invoice import Invoice, InvoiceLine
@@ -49,7 +50,7 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceBranchPrice", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "GuaranteeLetter", "GuaranteeLetterService", "PatientPolicy",
+    "LabCorrection", "GuaranteeLetter", "GuaranteeLetterService", "PatientPolicy", "InsurerPayment",
     "InsuranceContract", "InsuranceContractService", "Insurer", "ExportColumn", "ExportFormat",
     "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
     "StockCount", "StockCountLine", "StockItem", "StockMovement", "StockReceipt",

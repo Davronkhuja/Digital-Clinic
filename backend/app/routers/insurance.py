@@ -1,11 +1,12 @@
 # ruff: noqa: E501
+import json
 import uuid
 from decimal import Decimal
 from typing import List, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,6 +20,7 @@ from app.models import (
     InsuranceContract,
     InsuranceContractService,
     Insurer,
+    InsurerPayment,
     Patient,
     PatientPolicy,
     Service,
@@ -27,8 +29,11 @@ from app.schemas import (
     ContractIn,
     ContractOut,
     ContractUpdate,
+    DebtOut,
     InsurerIn,
     InsurerOut,
+    InsurerPaymentIn,
+    InsurerPaymentOut,
     InsurerUpdate,
     LetterCancelIn,
     LetterIn,
@@ -37,11 +42,13 @@ from app.schemas import (
     PolicyIn,
     PolicyOut,
     PolicyUpdate,
+    ReverseIn,
 )
 from app.services import attachments as att
 from app.services import audit
 from app.services import insurance as ins
 from app.services.lookup import get_patient_or_404
+from app.services.periods import clinic_today
 from app.services.storage import get_storage
 
 router = APIRouter()
@@ -447,3 +454,100 @@ def download_letter_file(letter_id: uuid.UUID, request: Request, db: Session = D
     return StreamingResponse(storage.open(g.file_key), media_type=g.file_type, headers={
         "Content-Disposition": f"attachment; filename*=UTF-8''{quote(g.file_name)}", "Content-Length": str(g.file_size), "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, no-store"})
+
+
+# ---------- Kompaniya to'lovlari, qarzdorlik, reyestr ----------
+
+def payment_out(db: Session, p: InsurerPayment) -> dict:
+    return {"id": str(p.id), "insurer_id": str(p.insurer_id), "insurer": db.get(Insurer, p.insurer_id).name, "amount": p.amount, "paid_on": p.paid_on, "reference": p.reference,
+            "notes": p.notes, "reversed": p.reversed_at is not None, "reverse_reason": p.reverse_reason, "created_at": p.created_at.isoformat()}
+
+
+@router.post("/insurance/payments", tags=[TAG], response_model=InsurerPaymentOut, status_code=201, summary="Kompaniyadan kelgan to'lovni yozish",
+             description="Bank o'tkazmasi: eng eski sug'urta ulushlariga (FIFO) taqsimlanib qarz kamayadi. O'zgarmaydi va o'chirilmaydi: xato bo'lsa `reverse`. `insurance:manage`.")
+def create_insurer_payment(data: InsurerPaymentIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:manage"))):
+    insurer = db.get(Insurer, _uuid(data.insurer_id, "insurer_id"))
+    if not insurer:
+        raise HTTPException(422, "Kompaniya topilmadi")
+    paid_on = data.paid_on or clinic_today()
+    if paid_on > clinic_today():
+        raise HTTPException(422, "To'lov sanasi kelajakda bo'lishi mumkin emas")
+    p = InsurerPayment(insurer_id=insurer.id, amount=data.amount, paid_on=paid_on, reference=(data.reference or "").strip() or None, notes=data.notes,
+                       branch_id=user.branch_id, created_by=user.id)
+    db.add(p)
+    db.flush()
+    audit.record(db, user, request, "create", "insurer_payment", p.id, {"insurer": insurer.name, "amount": str(p.amount), "reference": p.reference})
+    db.commit()
+    return payment_out(db, p)
+
+
+@router.get("/insurance/payments", tags=[TAG], response_model=List[InsurerPaymentOut], summary="Kompaniya to'lovlari")
+def list_insurer_payments(insurer_id: Optional[uuid.UUID] = None, limit: int = Query(100, ge=1, le=500), db: Session = Depends(get_db),
+                          user: CurrentUser = Depends(require("insurance:read"))):
+    stmt = select(InsurerPayment).order_by(InsurerPayment.paid_on.desc(), InsurerPayment.created_at.desc()).limit(limit)
+    if insurer_id:
+        stmt = stmt.where(InsurerPayment.insurer_id == insurer_id)
+    return [payment_out(db, p) for p in db.scalars(stmt)]
+
+
+@router.post("/insurance/payments/{payment_id}/reverse", tags=[TAG], response_model=InsurerPaymentOut, summary="To'lovni bekor qilish (xato kiritilgan)",
+             description="Sabab majburiy; qarz qayta oshadi. To'lov o'chirilmaydi.")
+def reverse_insurer_payment(payment_id: uuid.UUID, data: ReverseIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:manage"))):
+    p = db.get(InsurerPayment, payment_id)
+    if not p:
+        raise HTTPException(404, "To'lov topilmadi")
+    if p.reversed_at is not None:
+        raise HTTPException(409, "To'lov allaqachon bekor qilingan")
+    from datetime import UTC, datetime
+    p.reversed_at, p.reverse_reason = datetime.now(UTC), data.reason.strip()
+    audit.record(db, user, request, "update", "insurer_payment", p.id, {"reversed": True, "reason": p.reverse_reason, "amount": str(p.amount)})
+    db.commit()
+    return payment_out(db, p)
+
+
+@router.get("/insurance/debts", tags=[TAG], response_model=List[DebtOut], summary="Kompaniyalar bo'yicha qarzdorlik (muddat kesimida)",
+            description="Sug'urta ulushi (hamma filial) minus kompaniya to'lovlari (FIFO). Muddat: hisob-faktura oyi oxiri + kompaniyaning to'lov kunlari; "
+                        "kesim: muddati o'tmagan, 1-30, 31-60, 61-90, 90+ kun. Faqat qarzi yoki to'lovi bor kompaniyalar (`include_zero=true`: hammasi).")
+def debts(include_zero: bool = False, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:read"))):
+    out = [ins.receivables(db, i.id) for i in db.scalars(select(Insurer).order_by(Insurer.name))]
+    return out if include_zero else [d for d in out if d["charged"] > 0 or d["paid"] > 0]
+
+
+@router.get("/insurance/debts/{insurer_id}", tags=[TAG], response_model=DebtOut, summary="Bitta kompaniya qarzi (ochiq hisob-fakturalar bilan)")
+def debt_detail(insurer_id: uuid.UUID, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:read"))):
+    if not db.get(Insurer, insurer_id):
+        raise HTTPException(404, "Kompaniya topilmadi")
+    return ins.receivables(db, insurer_id)
+
+
+@router.get("/insurance/registry", tags=[TAG], summary="Oylik reyestr (kompaniya bo'yicha): JSON yoki Excel", response_class=Response,
+            description="Tanlangan oyda chiqarilgan hisob-fakturalarning sug'urta ulushi bor qatorlari: sana, hisob-faktura, bemor, polis, kafolat xati, xizmat, "
+                        "summa, sug'urta va bemor ulushi; jami va xizmatlar bo'yicha varaq. `month=YYYY-MM`. Faol filial; `all_branches=true` (`branches:all`): hamma filial. "
+                        "Yuklash auditda. `insurance:manage`.")
+def registry(request: Request, insurer_id: uuid.UUID, month: str = Query(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
+             file_format: str = Query("json", alias="format", pattern="^(json|xlsx)$"), all_branches: bool = False, db: Session = Depends(get_db),
+             user: CurrentUser = Depends(require("insurance:manage"))):
+    insurer = db.get(Insurer, insurer_id)
+    if not insurer:
+        raise HTTPException(404, "Kompaniya topilmadi")
+    if all_branches and "branches:all" not in user.permissions:
+        raise HTTPException(403, "Hamma filial reyestri uchun ruxsat yo'q: branches:all")
+    year, mon = int(month[:4]), int(month[5:])
+    rows = ins.registry_rows(db, insurer_id, year, mon, None if all_branches else user.branch_id)
+    total = sum((r["insurer_amount"] for r in rows), Decimal(0))
+    number = f"REE-{month.replace('-', '')}-{str(insurer.id)[:4].upper()}"
+    summary: dict[str, list] = {}
+    for r in rows:
+        a = summary.setdefault(r["service"], [0, Decimal(0), Decimal(0)])
+        a[0] += r["qty"]
+        a[1] += r["line_total"]
+        a[2] += r["insurer_amount"]
+    head = {"number": number, "insurer": insurer.name, "tin": insurer.tin, "month": month, "invoices": len({r["invoice"] for r in rows}), "lines": len(rows),
+            "insurer_total": total, "patient_total": sum((r["patient_amount"] for r in rows), Decimal(0)), "payment_days": insurer.payment_days}
+    if file_format == "json":
+        from fastapi.encoders import jsonable_encoder
+        return Response(json.dumps(jsonable_encoder({"header": head, "rows": rows}, custom_encoder={Decimal: float}), ensure_ascii=False), media_type="application/json")
+    audit.record_read(db, user, request, "insurance_registry", insurer.id, {"month": month, "rows": len(rows), "total": str(total), "all_branches": all_branches})
+    from app.services.exports import XLSX
+    return Response(ins.registry_xlsx(db, head, rows, summary, user.branch_id if not all_branches else None), media_type=XLSX,
+                    headers={"Content-Disposition": f'attachment; filename="{number}.xlsx"'})

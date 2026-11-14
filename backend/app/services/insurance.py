@@ -2,16 +2,16 @@
 """Sug'urta mantiqi: polis/shartnoma amal qilishi, kafolat xati holati va ishlatilgan summa."""
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import GuaranteeLetter, InsuranceContract, PatientPolicy
+from app.models import GuaranteeLetter, InsuranceContract, Insurer, InsurerPayment, PatientPolicy
 from app.services.money import q2
-from app.services.periods import clinic_today
+from app.services.periods import CLINIC_TZ, clinic_today
 
 ZERO = Decimal("0.00")
 
@@ -154,3 +154,123 @@ def resplit_invoice(db: Session, inv) -> None:
     inv.insurer_total = split(db, ctx, proxy, exclude_invoice_id=inv.id)
     for ln, p in zip(lines, proxy.lines, strict=True):
         ln.insurer_amount = p.insurer_amount
+
+
+# ---------- Qarzdorlik va reyestr ----------
+
+def _month_end(d: date) -> date:
+    nxt = date(d.year + (d.month == 12), d.month % 12 + 1, 1)
+    return nxt - timedelta(days=1)
+
+
+def receivables(db: Session, insurer_id: uuid.UUID, today: date | None = None) -> dict:
+    """Kompaniya qarzi: bekor qilinmagan, chiqarilgan hisob-fakturalardagi sug'urta ulushi (hamma filial) minus kompaniya to'lovlari.
+    To'lovlar eng eski hisob-fakturalarga (FIFO) taqsimlanadi. To'lov muddati = hisob-faktura oyi oxiri + kompaniyaning to'lov kunlari."""
+    from sqlalchemy import func
+
+    from app.models import Invoice, Patient
+    from app.schemas.enums import InvoiceStatus
+    today = today or clinic_today()
+    insurer = db.get(Insurer, insurer_id)
+    invoices = db.execute(select(Invoice, Patient.full_name, PatientPolicy.number).join(Patient, Invoice.patient_id == Patient.id)
+                          .outerjoin(PatientPolicy, Invoice.policy_id == PatientPolicy.id)
+                          .where(Invoice.insurer_id == insurer_id, Invoice.insurer_total > 0,
+                                 Invoice.status.in_([InvoiceStatus.issued, InvoiceStatus.partially_paid, InvoiceStatus.paid]))
+                          .order_by(Invoice.issued_at, Invoice.number)).all()
+    paid_total = Decimal(db.scalar(select(func.coalesce(func.sum(InsurerPayment.amount), 0)).where(
+        InsurerPayment.insurer_id == insurer_id, InsurerPayment.reversed_at.is_(None))))
+    left, open_rows, charged = paid_total, [], ZERO
+    buckets = {"current": ZERO, "d1_30": ZERO, "d31_60": ZERO, "d61_90": ZERO, "d90_plus": ZERO}
+    for inv, patient, policy_no in invoices:
+        charged += inv.insurer_total
+        allocated = min(left, inv.insurer_total)
+        left -= allocated
+        outstanding = inv.insurer_total - allocated
+        if outstanding <= 0:
+            continue
+        issued = inv.issued_at.astimezone(CLINIC_TZ).date()
+        due = _month_end(issued) + timedelta(days=insurer.payment_days)
+        late = (today - due).days
+        key = "current" if late <= 0 else "d1_30" if late <= 30 else "d31_60" if late <= 60 else "d61_90" if late <= 90 else "d90_plus"
+        buckets[key] += outstanding
+        open_rows.append({"invoice_id": str(inv.id), "number": inv.number, "date": issued, "patient": patient, "policy": policy_no, "amount": inv.insurer_total,
+                          "paid": allocated, "outstanding": outstanding, "due_date": due, "days_overdue": max(late, 0)})
+    return {"insurer_id": str(insurer_id), "insurer": insurer.name, "payment_days": insurer.payment_days, "charged": charged, "paid": paid_total,
+            "balance": charged - paid_total, "overpaid": max(paid_total - charged, ZERO), "overdue": sum((v for k, v in buckets.items() if k != "current"), ZERO),
+            "aging": buckets, "open_invoices": open_rows}
+
+
+def registry_rows(db: Session, insurer_id: uuid.UUID, year: int, month: int, branch_id: uuid.UUID | None) -> list[dict]:
+    """Oylik reyestr qatorlari: shu oyda chiqarilgan hisob-fakturalarning sug'urta ulushi bor qatorlari."""
+    from sqlalchemy import Date, cast, func
+
+    from app.models import Branch, Invoice, InvoiceLine, Patient
+    from app.schemas.enums import InvoiceStatus
+    day = cast(func.timezone(str(CLINIC_TZ), Invoice.issued_at), Date)
+    stmt = (select(InvoiceLine, Invoice, day, Patient.full_name, PatientPolicy.number, GuaranteeLetter.number, InsuranceContract.number, Branch.name)
+            .join(Invoice, InvoiceLine.invoice_id == Invoice.id).join(Patient, Invoice.patient_id == Patient.id)
+            .outerjoin(PatientPolicy, Invoice.policy_id == PatientPolicy.id).outerjoin(InsuranceContract, PatientPolicy.contract_id == InsuranceContract.id)
+            .outerjoin(GuaranteeLetter, Invoice.guarantee_letter_id == GuaranteeLetter.id).join(Branch, Invoice.branch_id == Branch.id)
+            .where(Invoice.insurer_id == insurer_id, InvoiceLine.insurer_amount > 0,
+                   Invoice.status.in_([InvoiceStatus.issued, InvoiceStatus.partially_paid, InvoiceStatus.paid]),
+                   func.extract("year", day) == year, func.extract("month", day) == month)
+            .order_by(Invoice.issued_at, Invoice.number, InvoiceLine.position))
+    if branch_id:
+        stmt = stmt.where(Invoice.branch_id == branch_id)
+    return [{"date": d, "invoice": inv.number, "patient": patient, "policy": policy, "letter": letter, "contract": contract, "service": ln.name, "qty": ln.quantity,
+             "line_total": ln.net_total, "insurer_amount": ln.insurer_amount, "patient_amount": ln.net_total - ln.insurer_amount, "branch": branch}
+            for ln, inv, d, patient, policy, letter, contract, branch in db.execute(stmt).all()]
+
+
+def registry_xlsx(db: Session, head: dict, rows: list[dict], summary: dict, branch_id: uuid.UUID | None) -> bytes:
+    """Reyestr Excel fayli: sarlavha (kompaniya, oy, raqam), qatorlar, jami, imzo joyi; ikkinchi varaq: xizmatlar bo'yicha jami."""
+    import io
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    from app.models import ClinicSettings
+    clinic = db.scalar(select(ClinicSettings).where(ClinicSettings.branch_id == branch_id)) if branch_id else db.scalar(select(ClinicSettings).limit(1))
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Reyestr"
+    ws.append([f"Xizmatlar reyestri № {head['number']}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([f"Klinika: {clinic.clinic_name if clinic else ''}"])
+    ws.append([f"Sug'urta kompaniyasi: {head['insurer']}" + (f" (STIR {head['tin']})" if head["tin"] else "")])
+    ws.append([f"Davr: {head['month']} · hisob-fakturalar: {head['invoices']} · to'lov muddati: oy oxiridan {head['payment_days']} kun"])
+    ws.append([])
+    cols = ["Sana", "Hisob-faktura", "Bemor", "Polis", "Kafolat xati", "Shartnoma", "Xizmat", "Soni", "Summa", "Sug'urta ulushi", "Bemor ulushi", "Filial"]
+    ws.append(cols)
+    for c in ws[6]:
+        c.font = Font(bold=True)
+    for r in rows:
+        ws.append([r["date"], r["invoice"], r["patient"], r["policy"], r["letter"], r["contract"], r["service"], r["qty"], float(r["line_total"]), float(r["insurer_amount"]),
+                   float(r["patient_amount"]), r["branch"]])
+    ws.append(["Jami", None, None, None, None, None, None, sum(r["qty"] for r in rows), float(sum((r["line_total"] for r in rows), Decimal(0))),
+               float(head["insurer_total"]), float(head["patient_total"])])
+    for c in ws[ws.max_row]:
+        c.font = Font(bold=True)
+    ws.append([])
+    ws.append(["Kompaniyaga to'lash: ", float(head["insurer_total"]), "UZS"])
+    ws.append(["Klinika vakili: ________________", None, None, None, "Kompaniya vakili: ________________"])
+    for i in range(7, ws.max_row):
+        ws.cell(row=i, column=1).number_format = "DD.MM.YYYY"
+    for col in (9, 10, 11):
+        for i in range(7, ws.max_row + 1):
+            ws.cell(row=i, column=col).number_format = "#,##0.00"
+    for i, w in enumerate([12, 14, 26, 14, 14, 14, 30, 7, 14, 16, 14, 18], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.freeze_panes = "A7"
+    s2 = wb.create_sheet("Xizmatlar bo'yicha")
+    s2.append(["Xizmat", "Soni", "Summa", "Sug'urta ulushi"])
+    for c in s2[1]:
+        c.font = Font(bold=True)
+    for name, (n, total, share) in sorted(summary.items()):
+        s2.append([name, n, float(total), float(share)])
+    for i, w in enumerate([34, 8, 16, 18], 1):
+        s2.column_dimensions[get_column_letter(i)].width = w
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()

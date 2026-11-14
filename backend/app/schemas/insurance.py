@@ -221,3 +221,62 @@ class LetterOut(BaseModel):
     has_file: bool
     file_name: Optional[str] = None
     file_size: Optional[int] = None
+
+
+class InsurerPaymentIn(BaseModel):
+    insurer_id: str
+    amount: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]
+    paid_on: Optional[date] = Field(None, description="To'lov sanasi (standart: bugun; kelajak sanasi mumkin emas)")
+    reference: Optional[str] = Field(None, max_length=100, description="To'lov topshiriqnomasi raqami")
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class InsurerPaymentOut(BaseModel):
+    id: str
+    insurer_id: str
+    insurer: str
+    amount: Money
+    paid_on: date
+    reference: Optional[str] = None
+    notes: Optional[str] = None
+    reversed: bool
+    reverse_reason: Optional[str] = None
+    created_at: str
+
+
+class ReverseIn(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=300)
+
+
+class OpenInvoiceOut(BaseModel):
+    invoice_id: str
+    number: str
+    date: date
+    patient: str
+    policy: Optional[str] = None
+    amount: Money = Field(..., description="Sug'urta ulushi")
+    paid: Money = Field(..., description="Kompaniya to'lovlaridan (FIFO) shu hisob-fakturaga taqsimlangan")
+    outstanding: Money
+    due_date: date = Field(..., description="Hisob-faktura oyi oxiri + kompaniyaning to'lov kunlari")
+    days_overdue: int
+
+
+class AgingOut(BaseModel):
+    current: Money
+    d1_30: Money
+    d31_60: Money
+    d61_90: Money
+    d90_plus: Money
+
+
+class DebtOut(BaseModel):
+    insurer_id: str
+    insurer: str
+    payment_days: int
+    charged: Money = Field(..., description="Jami sug'urta ulushi (chiqarilgan, bekor qilinmagan hisob-fakturalar)")
+    paid: Money = Field(..., description="Kompaniya to'lovlari (bekor qilinmaganlari)")
+    balance: Money = Field(..., description="Qarz = hisoblangan - to'langan (manfiy: ortiqcha to'lov)")
+    overpaid: Money
+    overdue: Money = Field(..., description="Muddati o'tgan qarz")
+    aging: AgingOut
+    open_invoices: List[OpenInvoiceOut]

@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.27] - 2026-11-14
+### Added
+- Kompaniyadan kelgan to'lovlar (`insurer_payments`): `POST/GET /insurance/payments` (summa > 0, sana kelajakda emas, topshiriqnoma raqami; `insurance:manage`), `POST .../{id}/reverse` (sabab majburiy; o'chirilmaydi). Audit. Migratsiya 0049.
+- Qarzdorlik: `GET /insurance/debts[/{insurer_id}]` (`insurance:read`): hisoblangan sug'urta ulushi (chiqarilgan, bekor qilinmagan hisob-fakturalar, hamma filial) minus kompaniya to'lovlari; to'lovlar eng eski hisob-fakturalarga (FIFO) taqsimlanadi, ochiq hisob-fakturalar (to'langan, qoldiq, muddat, kechikish kunlari), muddat kesimi (muddati o'tmagan, 1-30, 31-60, 61-90, 90+ kun; muddat = hisob-faktura oyi oxiri + kompaniyaning to'lov kunlari), ortiqcha to'lov.
+- Oylik reyestr: `GET /insurance/registry?insurer_id&month=YYYY-MM&format=json|xlsx` (`insurance:manage`): sug'urta ulushi bor qatorlar (sana, hisob-faktura, bemor, polis, kafolat xati, shartnoma, xizmat, summa, sug'urta va bemor ulushi), jami, imzo joyi, "Xizmatlar bo'yicha" varag'i; raqam REE-YYYYMM-XXXX; faol filial yoki `all_branches=true` (`branches:all`); Excel yuklash auditda.
+
 ## [1.9.26] - 2026-11-14
 ### Added
 - Hisob-faktura bemor va sug'urta ulushiga bo'linadi: `policy_id` (+ `guarantee_letter_id`) bilan yaratish/qoralamani o'zgartirish. Polis bemorniki va amal qilayotgan, kafolat xati shu polisniki va faol (Active) bo'lishi shart; shartnoma talab qilsa kafolat xati majburiy (422). Shartnoma chegirmasi hisob-faktura chegirmasi sifatida qo'llanadi (qo'lda chegirma sug'urtalangan hisob-fakturada taqiqlangan, 422).

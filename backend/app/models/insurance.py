@@ -1,13 +1,27 @@
 # ruff: noqa: E501
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BaseModel
+from app.db.base import BaseModel, BranchScoped
 
 
 class Insurer(BaseModel):
@@ -123,3 +137,19 @@ class GuaranteeLetterService(BaseModel):
 
     letter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("guarantee_letters.id", ondelete="CASCADE"), index=True)
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"))
+
+
+class InsurerPayment(BranchScoped, BaseModel):
+    """Sug'urta kompaniyasidan kelgan to'lov (bank o'tkazmasi). Eng eski sug'urta ulushlariga (FIFO) taqsimlanib qarz kamayadi.
+    O'zgarmaydi va o'chirilmaydi: xato bo'lsa sabab bilan bekor qilinadi (`reversed_at`)."""
+
+    __tablename__ = "insurer_payments"
+    __table_args__ = (CheckConstraint("amount > 0", name="amount_positive"),)
+
+    insurer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurers.id", ondelete="RESTRICT"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    paid_on: Mapped[date] = mapped_column(Date)
+    reference: Mapped[str | None] = mapped_column(String(100))      # to'lov topshiriqnomasi raqami
+    notes: Mapped[str | None] = mapped_column(Text)
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reverse_reason: Mapped[str | None] = mapped_column(String(300))
