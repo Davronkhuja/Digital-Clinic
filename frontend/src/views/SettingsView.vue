@@ -66,6 +66,7 @@
     <MessagingSettings v-if="activeTab === 'messaging' && canResources" />
     <FinanceSettings v-if="activeTab === 'finance' && canResources" />
     <ServiceCatalog v-if="activeTab === 'services' && auth.can('services:read')" />
+    <ExportSettings v-if="activeTab === 'exports' && canResources" />
     <BranchesSettings v-if="activeTab === 'branches' && auth.can('branches:manage')" />
     <LabCatalog v-if="activeTab === 'lab' && canResources" />
     <ExamTemplates v-if="activeTab === 'templates' && auth.can('emr:write')" />
@@ -241,6 +242,7 @@ import ExamTemplates from '@/components/ExamTemplates.vue'
 import LabCatalog from '@/components/LabCatalog.vue'
 import ServiceCatalog from '@/components/ServiceCatalog.vue'
 import BranchesSettings from '@/components/BranchesSettings.vue'
+import ExportSettings from '@/components/ExportSettings.vue'
 import FinanceSettings from '@/components/FinanceSettings.vue'
 import MessagingSettings from '@/components/MessagingSettings.vue'
 
@@ -261,6 +263,7 @@ const tabs = computed(() => [
   ...(canResources.value ? [{ key: 'messaging', label: 'Xabarlar', icon: MessageCircle }] : []),
   ...(canResources.value ? [{ key: 'finance', label: 'Moliya', icon: Tag }] : []),
   ...(auth.can('services:read') ? [{ key: 'services', label: 'Narxnoma', icon: Tag }] : []),
+  ...(canResources.value ? [{ key: 'exports', label: 'Eksport', icon: FileText }] : []),
   ...(auth.can('branches:manage') ? [{ key: 'branches', label: 'Filiallar', icon: Building2 }] : []),
   ...(canResources.value ? [{ key: 'lab', label: "Laboratoriya me'yorlari", icon: FlaskConical }] : []),
   ...(canResources.value ? [{ key: 'resources', label: 'Kabinet va qabul turlari', icon: DoorOpen }] : []),

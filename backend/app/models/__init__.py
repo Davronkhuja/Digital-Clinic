@@ -5,6 +5,7 @@ from app.models.branch import Branch
 from app.models.cash_shift import CashMovement, CashShift
 from app.models.commission import CommissionEntry, CommissionPayout, CommissionRule, CommissionSettlement
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
+from app.models.export import ExportColumn, ExportFormat
 from app.models.icd10 import Icd10Code
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.lab import LabCorrection, LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
@@ -40,7 +41,7 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceBranchPrice", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
+    "LabCorrection", "ExportColumn", "ExportFormat", "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
     "StockCount", "StockCountLine", "StockItem", "StockMovement", "StockReceipt",
     "StockShortage", "StockTransfer", "StockTransferLine",
     "LabOrder", "LabOrderItem", "LabPanel", "LabPanelTest", "LabReferenceRange", "LabTest", "role_permissions", "ClinicSettings", "Staff",

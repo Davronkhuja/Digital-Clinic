@@ -5,6 +5,8 @@
       <p class="text-slate-500 text-sm mt-1">PDF va Excel hisobotlar generatsiyasi</p>
     </div>
 
+    <AccountingExport v-if="auth.can('exports:read')" />
+
     <div v-if="loadError" class="card">
       <EmptyState title="Hisobotlar ro'yxatini yuklab bo'lmadi" description="Serverga ulanishni tekshirib, qayta urinib ko'ring" action-label="Qayta urinish" @action="loadReports" />
     </div>
@@ -49,6 +51,9 @@ import { FileBarChart, DollarSign, Users, Calendar, FileDown, CheckCircle } from
 import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import AccountingExport from '@/components/AccountingExport.vue'
+import { useAuthStore } from '@/stores/auth'
+const auth = useAuthStore()
 
 const generating = ref(null)
 const generated = ref({})

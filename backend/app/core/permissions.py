@@ -43,6 +43,7 @@ PERMISSIONS: dict[str, str] = {
     "reports:read": "Hisobotlarni yuklab olish",
     "ai:use": "AI yordamchidan foydalanish",
     "messages:read": "Xabarlar logi va SMS hisobini ko'rish",
+    "exports:read": "Buxgalteriya eksporti (sotuvlar, to'lovlar, kassa smenalari, ombor harakatlari, shifokor foizlari): Excel va CSV",
     "audit:read": "Audit jurnalini ko'rish",
     "roles:manage": "Rollar va ruxsatlarni boshqarish",
 }

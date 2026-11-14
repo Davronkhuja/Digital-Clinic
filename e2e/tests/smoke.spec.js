@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { test, expect } from '@playwright/test'
 import { ADMIN, PATIENT, nextWorkday, waitForOtp } from './helpers.js'
 
@@ -350,7 +351,38 @@ test.describe('filial narxi', () => {
   })
 })
 
-test('12. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('eksport', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('12. eksport: Sozlamalarda ustun nomi va format, Hisobotlarda CSV yuklash', async ({ page }) => {
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Eksport', exact: true }).click()
+    await page.getByTestId('fmt-date').selectOption('dmy')
+    await page.getByTestId('fmt-decimal').selectOption(',')
+    await page.getByTestId('fmt-save').click()
+    await expect(page.getByText('Format saqlandi')).toBeVisible()
+    await page.getByTestId('map-header').first().fill('Data dokumenta')              // 1-ustun (Sana) qayta nomlandi
+    await page.getByTestId('map-save').click()
+    await expect(page.getByText('Ustun xaritasi saqlandi')).toBeVisible()
+
+    await page.goto('/reports')
+    await page.getByTestId('exp-format').selectOption('csv')
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('exp-download').click()])
+    expect(download.suggestedFilename()).toMatch(/^sales_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/)
+    const text = fs.readFileSync(await download.path(), 'utf8')
+    expect(text.replace(/^\uFEFF/, '').split('\r\n')[0].startsWith('Data dokumenta;')).toBeTruthy()      // yangi sarlavha va ';' ajratgich
+    // tozalash: standart ustunlar va format
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Eksport', exact: true }).click()
+    await page.getByRole('button', { name: 'Standartga qaytarish' }).click()
+    await page.getByTestId('fmt-date').selectOption('iso')
+    await page.getByTestId('fmt-decimal').selectOption('.')
+    await page.getByTestId('fmt-save').click()
+    await expect(page.getByText('Format saqlandi')).toBeVisible()
+  })
+})
+
+test('13. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

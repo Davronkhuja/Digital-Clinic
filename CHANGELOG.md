@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.22] - 2026-11-14
+### Added
+- 6-bosqich: buxgalteriya (1C) uchun universal eksport (rasmiy format hujjati yo'q): `GET /exports/{dataset}` (`sales` xizmat bo'yicha sotuvlar, `payments` usul bo'yicha to'lovlar, `cash_shifts` kassa smenalari, `stock_movements` ombor harakatlari, `commissions` shifokor foizlari). Excel (`.xlsx`: haqiqiy son va sana, sarlavha, qotirilgan qator, jami varag'i: xizmat bo'yicha / usul bo'yicha) va CSV (UTF-8 BOM, formula himoyasi). Davr (standart oxirgi 30 kun, eng ko'pi 400 kun), filial (faol; `all_branches=true` faqat `branches:all`). `exports:read` (administrator), har yuklash auditda. `openpyxl`.
+- Sozlamalar > Eksport: ustun xaritasi (sarlavha, tartib, yoqish/o'chirish; yoqilgan sarlavhalar takrorlanmasin, kamida bitta ustun) `GET/PUT/DELETE /settings/exports[/{dataset}]` va format (sana: ISO yoki kun.oy.yil; o'nlik nuqta/vergul; CSV ajratgich `;`, `,`, tab) `GET/PUT /settings/export-format`. Migratsiya 0045.
+- Frontend: Hisobotlarda "Buxgalteriya eksporti" kartasi, Sozlamalarda "Eksport" bo'limi; E2E: sozlash va CSV yuklash.
+
 ## [1.9.21] - 2026-11-14
 ### Added
 - Filial bo'yicha narx: `service_branch_prices` (xizmat x filial, asosiy narxdan farqli bo'lishi mumkin; QQS/MXIK xizmatniki). `PUT /services/{id}/branch-price` (faol filial uchun, `services:write`), `DELETE` (asosiy narxga qaytish), `GET /services/{id}/branch-prices` (filiallar bo'yicha). `GET /services` da `branch_price` va `effective_price` (faol filialda amal qiladigan narx). Migratsiya 0044.

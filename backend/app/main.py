@@ -21,6 +21,7 @@ from app.routers import (
     click,
     commissions,
     emr,
+    exports,
     finance,
     icd10,
     invoices,
@@ -100,5 +101,5 @@ def root():
 
 for module in (access, auth, branches, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
                reports, rooms, schedule, waitlist, icd10, lab, attachments, services, invoices, payments, payme, click,
-               commissions, shifts, messaging, notifications, public, public_booking, portal, warehouse):
+               commissions, shifts, exports, messaging, notifications, public, public_booking, portal, warehouse):
     app.include_router(module.router)
