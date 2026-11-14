@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.23] - 2026-11-14
+### Added
+- Tahliliy hisobotlar: `GET /reports/analytics/{kind}` (`revenue` daromad: kunlar, to'lov usuli, xizmatlar; `patient_flow` bemorlar oqimi: yangi, tashriflar, noyob va qaytgan bemorlar, yangi bemorlar manbasi; `doctor_load` shifokor yuklamasi: qabul holatlari, kelmay qolish %, band soat, filial jadvalidan ish soati va yuklama %; `no_show` kelmay qolish: haftalar, eslatma yuborilgan/yuborilmagan, shifokorlar). `format=json|xlsx|pdf`, davr (standart oxirgi 30 kun, eng ko'pi 400 kun), filial (faol; `all_branches=true` faqat `branches:all`); `reports:read`; Excel/PDF yuklash auditda. `GET /reports/analytics` turlar ro'yxati. Hammasi bazadan.
+- Frontend: Hisobotlar sahifasida "Tahliliy hisobotlar" (ko'rish, Excel, PDF). E2E: ko'rish va ikkala fayl yuklash.
+
 ## [1.9.22] - 2026-11-14
 ### Added
 - 6-bosqich: buxgalteriya (1C) uchun universal eksport (rasmiy format hujjati yo'q): `GET /exports/{dataset}` (`sales` xizmat bo'yicha sotuvlar, `payments` usul bo'yicha to'lovlar, `cash_shifts` kassa smenalari, `stock_movements` ombor harakatlari, `commissions` shifokor foizlari). Excel (`.xlsx`: haqiqiy son va sana, sarlavha, qotirilgan qator, jami varag'i: xizmat bo'yicha / usul bo'yicha) va CSV (UTF-8 BOM, formula himoyasi). Davr (standart oxirgi 30 kun, eng ko'pi 400 kun), filial (faol; `all_branches=true` faqat `branches:all`). `exports:read` (administrator), har yuklash auditda. `openpyxl`.

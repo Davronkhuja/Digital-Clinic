@@ -382,7 +382,25 @@ test.describe('eksport', () => {
   })
 })
 
-test('13. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('hisobotlar', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('13. tahliliy hisobotlar: ko\'rish, Excel va PDF yuklash', async ({ page }) => {
+    await page.goto('/reports')
+    await page.getByTestId('rep-kind').selectOption('doctor_load')
+    await page.getByTestId('rep-view').click()
+    await expect(page.getByTestId('rep-result')).toContainText('Shifokorlar bo\'yicha')
+    await expect(page.getByTestId('rep-result')).toContainText('Yuklama %')
+    for (const [id, ext] of [['rep-xlsx', 'xlsx'], ['rep-pdf', 'pdf']]) {
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId(id).click()])
+      expect(download.suggestedFilename()).toMatch(new RegExp(`^doctor_load_\\d{4}-\\d{2}-\\d{2}_\\d{4}-\\d{2}-\\d{2}\\.${ext}$`))
+      const head = fs.readFileSync(await download.path()).subarray(0, 4).toString('latin1')
+      expect(head).toBe(ext === 'pdf' ? '%PDF' : 'PK\u0003\u0004')         // xlsx: zip
+    }
+  })
+})
+
+test('14. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

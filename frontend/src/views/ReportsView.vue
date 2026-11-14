@@ -5,6 +5,8 @@
       <p class="text-slate-500 text-sm mt-1">PDF va Excel hisobotlar generatsiyasi</p>
     </div>
 
+    <AnalyticsReports />
+
     <AccountingExport v-if="auth.can('exports:read')" />
 
     <div v-if="loadError" class="card">
@@ -52,6 +54,7 @@ import api from '@/composables/useApi'
 import { useToast } from '@/composables/useToast'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import AccountingExport from '@/components/AccountingExport.vue'
+import AnalyticsReports from '@/components/AnalyticsReports.vue'
 import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 

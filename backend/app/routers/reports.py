@@ -1,14 +1,18 @@
+# ruff: noqa: E501
 import csv
 import io
+import json
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, require
 from app.db.session import get_db
-from app.services import audit, queries
+from app.services import audit, queries, report_builder
 
 router = APIRouter()
 
@@ -66,3 +70,33 @@ def download_report(report_id: str, request: Request, db: Session = Depends(get_
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{name}_{date.today().isoformat()}.csv"'},
     )
+
+
+# ---------- Tahliliy hisobotlar (v1.9.23) ----------
+
+@router.get("/reports/analytics", tags=["📝 Reports"], summary="Tahliliy hisobot turlari")
+def analytics_report_kinds(user: CurrentUser = Depends(require("reports:read"))):
+    return [{"kind": k, "title": t} for k, t in report_builder.KINDS.items()]
+
+
+@router.get("/reports/analytics/{kind}", tags=["📝 Reports"], summary="Tahliliy hisobot (JSON, Excel yoki PDF)", response_class=Response,
+            description="`kind`: revenue (daromad), patient_flow (bemorlar oqimi), doctor_load (shifokor yuklamasi), no_show (kelmay qolish). `format`: json (standart), "
+                        "xlsx, pdf. Davr (standart oxirgi 30 kun, eng ko'pi 400 kun) va filial bo'yicha; `all_branches=true` faqat `branches:all`. `reports:read`; "
+                        "yuklash auditda.")
+def analytics_report(kind: str, request: Request, file_format: str = Query("json", alias="format", pattern="^(json|xlsx|pdf)$"),
+                     date_from: Optional[date] = None, date_to: Optional[date] = None, all_branches: bool = False, db: Session = Depends(get_db),
+                     user: CurrentUser = Depends(require("reports:read"))):
+    if all_branches and "branches:all" not in user.permissions:
+        raise HTTPException(403, "Hamma filial hisoboti uchun ruxsat yo'q: branches:all")
+    report = report_builder.build(db, kind, None if all_branches else user.branch_id, date_from, date_to)
+    if file_format != "json":
+        audit.record_read(db, user, request, "report", None, {"analytics": kind, "format": file_format, "from": report["from"], "to": report["to"],
+                                                             "all_branches": all_branches})
+    if file_format == "xlsx":
+        return Response(report_builder.to_xlsx(report), media_type=report_builder.XLSX,
+                        headers={"Content-Disposition": f'attachment; filename="{kind}_{report["from"]}_{report["to"]}.xlsx"'})
+    if file_format == "pdf":
+        return Response(report_builder.to_pdf(report), media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="{kind}_{report["from"]}_{report["to"]}.pdf"'})
+    from fastapi.encoders import jsonable_encoder
+    return Response(json.dumps(jsonable_encoder(report, custom_encoder={Decimal: float}), ensure_ascii=False), media_type="application/json")
