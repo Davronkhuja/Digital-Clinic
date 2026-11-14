@@ -52,26 +52,36 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(
     title="Digital Clinic AI",
     description="""
-## 🏥 Digital Clinic AI — Healthcare Management Platform API
+## Digital Clinic: ochiq REST API
 
-Bu API raqamli klinika boshqaruv tizimi uchun mo'ljallangan.
-Barcha endpointlar haqida to'liq ma'lumot ushbu sahifada mavjud.
+Xususiy klinikalar boshqaruv tizimi (bemorlar, qabullar, EMR, laboratoriya, moliya, ombor, sug'urta, hisobotlar).
+Tashqi tizimlar (buxgalteriya, call-markaz, mobil ilova) shu API orqali ulanadi. To'liq qo'llanma: `docs/API.md`.
 
-### Asosiy bo'limlar:
-- **🔐 Auth** — Foydalanuvchi autentifikatsiyasi (login, register, token)
-- **👥 Patients** — Bemorlar boshqaruvi (CRUD)
-- **📅 Appointments** — Uchrashuvlar rejalashtirish
-- **📋 EMR** — Elektron tibbiy yozuvlar
-- **💰 Finance** — Moliyaviy operatsiyalar
-- **📊 Analytics** — Statistika va tahlil
-- **🤖 AI Assistant** — AI yordamchi (tibbiy savollarga javob)
-- **📝 Reports** — Hisobotlar generatsiyasi
-- **👔 Staff** — Xodimlar boshqaruvi
-- **⚙️ Settings** — Tizim sozlamalari
+### Autentifikatsiya
+`POST /auth/login` -> `access_token` (30 daqiqa) va `refresh_token` (7 kun, har safar aylantiriladi: `POST /auth/refresh`).
+Keyingi so'rovlarda `Authorization: Bearer <access_token>`. Ro'yxatdan o'tish yo'q: xodim va loginni administrator yaratadi (`POST /users`).
+Bemor portali alohida: telefon + OTP (`/portal/*`), xodim tokeni bilan aralashmaydi.
 
-### Autentifikatsiya:
-Ko'pgina endpointlar **Bearer Token** talab qiladi.
-Login qilingandan so'ng olingan tokenni `Authorization: Bearer <token>` headerida yuboring.
+### Ruxsatlar
+Har endpoint ruxsat talab qiladi (masalan `patients:read`, `finance:write`); rol ruxsatlari Sozlamalarda. Ruxsat yo'q: **403**.
+Token yo'q yoki yaroqsiz: **401**.
+
+### Filial
+Foydalanuvchi o'z filialida ishlaydi. `branches:all` ruxsati bor foydalanuvchi `X-Branch-Id: <filial id>` sarlavhasi bilan
+boshqa filialni tanlaydi.
+
+### Xatolar
+`{"detail": "..."}`. **404** topilmadi, **409** ziddiyat (band vaqt, yetmagan qoldiq, tasdiqlangan natijani o'zgartirish),
+**422** tekshiruv xatosi, **429** tezlik cheklovi (OTP).
+
+### Qiymatlar
+ID lar satr (UUID). Vaqt ISO 8601 (UTC, klinika vaqti Asia/Tashkent). Pul `numeric(14,2)`, valyuta so'm; miqdor 3 xonagacha.
+Bemor va moliya ma'lumotlarini o'qish/yozish auditga yoziladi.
+
+### Hisobotlar va eksport
+`/reports/analytics/{kind}` (JSON, `format=xlsx|pdf`), `/exports/{dataset}` (1C uchun universal eksport: Excel/CSV),
+`/insurance/registry` (sug'urta reyestri, Excel).
+Payme (`/payme`) va Click (`/click`) ochiq endpointlari provayderning o'z imzosi bilan himoyalangan.
     """,
     version=__version__,
     contact={

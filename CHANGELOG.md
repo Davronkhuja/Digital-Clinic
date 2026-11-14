@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.30] - 2026-11-14
+### Added
+- Ochiq REST API hujjati: `docs/API.md` (autentifikatsiya, ruxsatlar, filial sarlavhasi, xatolar, qiymat qoidalari, asosiy oqimlar, webhooklar) va `/docs`, `/redoc`, `/openapi.json` tavsifi yangilandi.
+- `test_openapi_docs.py`: sxema versiyasi, himoya sxemasi, har endpointda sarlavha va teg, asosiy yo'llar.
+
 ## [1.9.29] - 2026-11-14
 ### Added
 - Ko'rik xulosasi (AI): `POST /emr/{id}/ai-summary` (qoralama), `GET` (qoralama, tasdiqlangani, `can_review`), `POST .../{id}/approve` (tahrirlangan matn bilan) va `.../reject`. `AI_ENABLED=true`: lokal LLM (OpenAI-mos `LLM_BASE_URL`, `LLM_MODEL`; `LLM_REQUIRE_KEY=false` kalitsiz lokal serverlar uchun); so'rovga bemor ismi, telefoni, PINFL va manzili yuborilmaydi (faqat yosh, jins va klinik matn, retseptlar). Tashqi (lokal bo'lmagan: ochiq internet) LLM bemor ma'lumotini olmaydi (409; `LLM_ALLOW_EXTERNAL_PHI=true` ongli ruxsat). `AI_ENABLED=false`: statik demo shablon ("Demo rejim"), u tasdiqlanmaydi (409).
