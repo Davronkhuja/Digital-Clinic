@@ -66,3 +66,60 @@ class InsuranceContractService(BaseModel):
     contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurance_contracts.id", ondelete="CASCADE"), index=True)
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"))
     coverage_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=100, server_default="100")
+
+
+class PatientPolicy(BaseModel):
+    """Bemorning sug'urta polisi: kompaniya, shartnoma, raqam va muddat. Bir bemorda bir nechta polis bo'lishi mumkin."""
+
+    __tablename__ = "patient_policies"
+    __table_args__ = (
+        UniqueConstraint("insurer_id", "number"),
+        CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="dates_order"),
+    )
+
+    patient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("patients.id", ondelete="RESTRICT"), index=True)
+    insurer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurers.id", ondelete="RESTRICT"), index=True)
+    contract_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurance_contracts.id", ondelete="RESTRICT"), index=True)
+    number: Mapped[str] = mapped_column(String(60))
+    valid_from: Mapped[date] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class GuaranteeLetter(BaseModel):
+    """Kafolat xati: kompaniya shu polis egasining xizmatlarini ko'rsatilgan summa limitigacha to'lashga kafolat beradi. Fayl ilovasi (skan) ixtiyoriy.
+    Ishlatilgan summa shu xatga bog'langan hisob-fakturalardagi sug'urta ulushidan hisoblanadi. O'chirilmaydi, bekor qilinadi."""
+
+    __tablename__ = "guarantee_letters"
+    __table_args__ = (
+        UniqueConstraint("insurer_id", "number"),
+        CheckConstraint("amount_limit > 0", name="amount_limit_positive"),
+        CheckConstraint("valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from", name="dates_order"),
+        CheckConstraint("status IN ('Active', 'Cancelled')", name="status_values"),
+    )
+
+    insurer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurers.id", ondelete="RESTRICT"), index=True)
+    policy_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("patient_policies.id", ondelete="RESTRICT"), index=True)
+    number: Mapped[str] = mapped_column(String(60))
+    letter_date: Mapped[date] = mapped_column(Date)
+    amount_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(10), default="Active", server_default="Active")
+    cancel_reason: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    file_key: Mapped[str | None] = mapped_column(String(80))
+    file_name: Mapped[str | None] = mapped_column(String(200))
+    file_type: Mapped[str | None] = mapped_column(String(60))
+    file_size: Mapped[int | None] = mapped_column(Integer)
+
+
+class GuaranteeLetterService(BaseModel):
+    """Kafolat xati qamrab olgan xizmatlar (bo'sh ro'yxat: shartnoma bo'yicha qoplanadigan hamma xizmat)."""
+
+    __tablename__ = "guarantee_letter_services"
+    __table_args__ = (UniqueConstraint("letter_id", "service_id"),)
+
+    letter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("guarantee_letters.id", ondelete="CASCADE"), index=True)
+    service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"))

@@ -168,7 +168,7 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
   shifokor foizlari), Excel va CSV, davr va filial filtri, ustun xaritasi Sozlamalarda tahrirlanadi (keyin buxgalter bilan 1C ga moslanadi). Sug'urta: faqat ixtiyoriy tibbiy sug'urta (DMS), davlat jamg'armasi yo'q;
   sug'urta kompaniyasi -> shartnoma (muddat, chegirma, qoplanadigan xizmatlar, limitlar) -> bemor polisi (raqam, muddat, kompaniya) -> kafolat xati (raqam, sana, summa limiti, xizmatlar, fayl ilovasi);
   hisob-fakturada summa bemor va sug'urta ulushiga bo'linadi; oyiga kompaniya bo'yicha reyestr (Excel) va qarzdorlik hisobi. AI: `AI_ENABLED` orqali lokal LLM (OpenAI-mos), qayd xulosasi, shifokor tasdiqlamaguncha saqlanmaydi. Ochiq REST API hujjati.
-  Sug'urta bosqichlari: katalog (kompaniya, shartnoma) [v1.9.24 TAYYOR] -> bemor polisi va kafolat xati -> hisob-faktura bo'linishi -> kompaniya to'lovlari, reyestr (Excel), qarzdorlik -> frontend.
+  Sug'urta bosqichlari: katalog (kompaniya, shartnoma) [v1.9.24 TAYYOR] -> bemor polisi va kafolat xati [v1.9.25 TAYYOR] -> hisob-faktura bo'linishi -> kompaniya to'lovlari, reyestr (Excel), qarzdorlik -> frontend.
 
 ### 6-bosqich: Analitika va AI (v2.0.0)
 - Hisobotlar: daromad, bemor oqimi, shifokor yuklamasi, kelmay qolish; PDF/Excel va 1C eksporti.

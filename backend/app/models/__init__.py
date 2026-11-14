@@ -7,7 +7,14 @@ from app.models.commission import CommissionEntry, CommissionPayout, CommissionR
 from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
 from app.models.export import ExportColumn, ExportFormat
 from app.models.icd10 import Icd10Code
-from app.models.insurance import InsuranceContract, InsuranceContractService, Insurer
+from app.models.insurance import (
+    GuaranteeLetter,
+    GuaranteeLetterService,
+    InsuranceContract,
+    InsuranceContractService,
+    Insurer,
+    PatientPolicy,
+)
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.lab import LabCorrection, LabOrder, LabOrderItem, LabPanel, LabPanelTest, LabReferenceRange, LabTest
 from app.models.messaging import Message, MessageTemplate, OtpCode, PatientConsent, RateEvent, TelegramLink
@@ -42,7 +49,8 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceBranchPrice", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "InsuranceContract", "InsuranceContractService", "Insurer", "ExportColumn", "ExportFormat",
+    "LabCorrection", "GuaranteeLetter", "GuaranteeLetterService", "PatientPolicy",
+    "InsuranceContract", "InsuranceContractService", "Insurer", "ExportColumn", "ExportFormat",
     "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
     "StockCount", "StockCountLine", "StockItem", "StockMovement", "StockReceipt",
     "StockShortage", "StockTransfer", "StockTransferLine",

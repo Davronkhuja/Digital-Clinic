@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.25] - 2026-11-14
+### Added
+- Bemor polisi (`patient_policies`): `POST/GET /patients/{id}/policies` (`valid_only`), `GET /insurance/policies` (raqam, kompaniya, bemor bo'yicha qidirish), `PUT /insurance/policies/{id}`. Shartnoma faol bo'lishi shart; raqam kompaniya ichida noyob; `valid_now`: polis ham, shartnoma ham faol va muddat ichida. `insurance:write` (administrator, qabulxona).
+- Kafolat xati (`guarantee_letters`, qamrab olingan xizmatlar `guarantee_letter_services`): `POST/GET/PUT /insurance/guarantee-letters`, `POST .../{id}/cancel` (sabab majburiy, o'chirilmaydi). Raqam kompaniya ichida noyob; faqat amal qilayotgan polis bo'yicha; summa limiti, muddat; `used_amount`/`remaining` (keyingi versiyada hisob-faktura sug'urta ulushidan) va `state` (Active, Expired, Exhausted, Cancelled).
+- Kafolat xati skani: `POST/GET /insurance/guarantee-letters/{id}/file` (PDF, JPG, PNG; tur baytlar bo'yicha, `MAX_UPLOAD_MB`; qayta yuklansa almashtiriladi; yuklab olish auditda, `nosniff`). Migratsiya 0047.
+
 ## [1.9.24] - 2026-11-14
 ### Added
 - Sug'urta (faqat ixtiyoriy tibbiy sug'urta, DMS; davlat jamg'armasi yo'q): kompaniyalar `insurers` (STIR, aloqa, to'lov muddati kunlarda; nom registrsiz noyob, faolsizlantiriladi), shartnomalar `insurance_contracts` (raqam kompaniya ichida noyob, muddat, klinika narxiga chegirma %, hamma xizmat yoki qoplanadigan xizmatlar ro'yxati va qoplash foizi `insurance_contract_services`, bemor uchun yillik va bitta hisob-faktura bo'yicha sug'urta ulushi limitlari, kafolat xati talabi). `GET/POST/PUT /insurance/insurers`, `GET/POST/PUT /insurance/contracts[/{id}]` (xizmatlar ro'yxati to'liq almashtiriladi), audit.

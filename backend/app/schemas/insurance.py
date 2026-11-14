@@ -118,3 +118,106 @@ class ContractOut(BaseModel):
     is_active: bool
     notes: Optional[str] = None
     services: List[ContractServiceOut]
+
+
+class PolicyIn(BaseModel):
+    contract_id: str
+    number: str = Field(..., min_length=1, max_length=60, description="Polis raqami")
+    valid_from: date
+    valid_to: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _valid(self):
+        if self.valid_to and self.valid_to < self.valid_from:
+            raise ValueError("Tugash sanasi boshlanishdan oldin bo'lishi mumkin emas")
+        return self
+
+
+class PolicyUpdate(BaseModel):
+    number: Optional[str] = Field(None, min_length=1, max_length=60)
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+    is_active: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PolicyOut(BaseModel):
+    id: str
+    patient_id: str
+    patient: str
+    insurer_id: str
+    insurer: str
+    contract_id: str
+    contract: str
+    number: str
+    valid_from: date
+    valid_to: Optional[date] = None
+    is_active: bool
+    valid_now: bool = Field(..., description="Faol va bugungi sana muddat ichida (shartnoma ham faol va muddatda)")
+    discount_percent: Money
+    requires_guarantee: bool
+    notes: Optional[str] = None
+
+
+class LetterIn(BaseModel):
+    policy_id: str
+    number: str = Field(..., min_length=1, max_length=60)
+    letter_date: date
+    amount_limit: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+    service_ids: List[str] = Field(default_factory=list, description="Qamrab olingan xizmatlar (bo'sh: shartnoma bo'yicha hamma qoplanadigan xizmat)")
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _valid(self):
+        if self.valid_from and self.valid_to and self.valid_to < self.valid_from:
+            raise ValueError("Tugash sanasi boshlanishdan oldin bo'lishi mumkin emas")
+        if len(set(self.service_ids)) != len(self.service_ids):
+            raise ValueError("Xizmat ro'yxatda takrorlangan")
+        return self
+
+
+class LetterUpdate(BaseModel):
+    number: Optional[str] = Field(None, min_length=1, max_length=60)
+    letter_date: Optional[date] = None
+    amount_limit: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+    service_ids: Optional[List[str]] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class LetterCancelIn(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=300)
+
+
+class LetterServiceOut(BaseModel):
+    service_id: str
+    service: str
+
+
+class LetterOut(BaseModel):
+    id: str
+    number: str
+    insurer_id: str
+    insurer: str
+    policy_id: str
+    policy_number: str
+    patient_id: str
+    patient: str
+    letter_date: date
+    amount_limit: Money
+    used_amount: Money
+    remaining: Money
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+    status: str = Field(..., description="Active yoki Cancelled")
+    state: str = Field(..., description="Active, Expired (muddati o'tgan), Exhausted (limit tugagan) yoki Cancelled")
+    cancel_reason: Optional[str] = None
+    notes: Optional[str] = None
+    services: List[LetterServiceOut] = Field(default_factory=list)
+    has_file: bool
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
