@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.14] - 2026-11-14
+### Added
+- 5-bosqich "Shart"i e2e test bilan isbotlandi (`tests/test_e2e_stage5.py`): kirim (ikki partiya) -> sarf normasi -> tannarx avtomatik (o'rtacha tortilgan narx) -> to'liq to'lov FEFO bo'yicha sarf yozadi -> qoldiq va tannarx o'zgaradi (yangi kirim narxi ham) -> 30 kunlik ogohlantirish -> filialga ko'chirish (partiya, muddat, narx saqlanadi) -> ikkinchi filialda tannarx o'z ombor narxidan -> jurnal yaxlitligi.
+### Changed
+- CLAUDE.md: 5-bosqich tugadi, qarorlar va ochiq masalalar.
+
 ## [1.9.13] - 2026-11-13
 ### Added
 - Frontend: Dashboard'da "Hamma filial birga" tanlovi (`branches:all`): ko'rsatkichlar va haftalik kelmay qolish ulushi hamma filial bo'yicha (`all_branches=true`), aks holda faol filial.

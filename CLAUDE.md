@@ -145,10 +145,23 @@ eslatmali/eslatmasiz) `backend/tests/test_e2e_stage4.py` bilan isbotlangan.
   foiz to'lov hujjati (Draft/Approved/Paid), inkassatsiya (`finance:cash_withdrawal`), Click qaytarishi naqd/karta bilan.
 - Ochiq: haqiqiy SMS provayder adapteri va Telegram token. (Portal sahifasi v1.8.10, LabView tasdiqlash v1.8.9, Playwright e2e v1.8.11 da qilindi.)
 
-### 5-bosqich: Ombor va filiallar (v1.9.x)
-- Dori va sarf materiallar: kirim, qoldiq, minimal qoldiq ogohlantirishi, xizmatga bog'langan sarf, tannarx.
-- Filiallar: umumiy bemor bazasi, filial bo'yicha jadval, kassa va hisobot, foydalanuvchi filialga bog'lanadi.
-- **Shart:** xizmat tannarxi sarf materiallar bilan avtomatik hisoblanadi.
+### 5-bosqich: Ombor va filiallar (v1.9.x): TUGADI (v1.9.14)
+Ombor: katalog (`stock_items`, dori/sarf, minimal qoldiq), kirim hujjati va partiyalar (partiya raqami, yaroqlilik muddati, kirim narxi), harakatlar jurnali
+(faqat qo'shiladi), FEFO chiqim, hisobdan chiqarish, 30 kunlik yaroqlilik ogohlantirishi, xizmat sarf normasi va avtomatik tannarx, to'lovda avtomatik sarf,
+filiallar orasida ko'chirish hujjati. Filiallar: CRUD, foydalanuvchi filialga biriktiriladi, faol filialni almashtirish (`X-Branch-Id`), ro'yxatlar/kassa/ombor/hisobot
+filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Filiallar, narxnomada sarf normasi va tannarx, Dashboard (hamma filial, ombor kartasi).
+**Shart** (xizmat tannarxi sarf materiallar bilan avtomatik hisoblanadi) `backend/tests/test_e2e_stage5.py` bilan isbotlangan.
+- Qarorlar: katalog hamma filialga umumiy, qoldiq filial bo'yicha partiyalarda; miqdor `numeric(14,3)`, narx `numeric(14,2)`; harakatlar jurnali yig'indisi = partiya qoldig'i (testda tekshiriladi);
+  FEFO: muddati bo'yicha, muddatsiz oxirida, muddati o'tgan ishlatilmaydi, yetmasa 409 (qisman emas); kirimda muddati o'tgan tovar va kelajak sanasi rad etiladi.
+- Tannarx = norma x material narxi: ombordagi yaroqli qoldiqning o'rtacha tortilgan narxi, qoldiq yo'q bo'lsa oxirgi kirim narxi, kirim yo'q bo'lsa noma'lum (`complete=false`). Foyda QQS'siz narxdan.
+- Avtomatik sarf: hisob-faktura TO'LIQ to'langanda (`invoices.stock_consumed_at`, bir marta); qaytarish materialni qaytarmaydi. Ombor yetmasa to'lov to'xtamaydi: `stock_shortages`, kirimdan keyin `resolve`.
+- Ko'chirish: yuborilganda manba FEFO bo'yicha kamayadi (`Sent`), qabul qiluvchi filial `receive` qilsa o'z partiyasi (xuddi shu raqam, muddat, narx) ochiladi; qabulgacha yuboruvchi bekor qila oladi.
+- Filial: foydalanuvchi bitta filialda (`users.branch_id`, `staff.branch_id`); `X-Branch-Id` faqat `branches:all` (admin); bemor bazasi umumiy, bemor tarixi (`patient_id` bilan uchrashuv/EMR/lab) filialdan qat'i nazar ko'rinadi;
+  faolsizlantirish: asosiy filial, faol xodimi, ombor qoldig'i yoki hozirgi faol filial bo'lsa 409. Hisobotlar `all_branches=true` (faqat `branches:all`).
+- Ruxsatlar: `warehouse:read/write/transfer`, `branches:manage/all` (data migratsiya admin/hamshiraga beradi).
+- Ochiq / taxmin (tasdiqlash kerak): sarf to'liq to'lovda yoziladi (qisman to'lovda emas); qaytarilgan xizmat sarfi omborga qaytmaydi; ko'chirishda qisman qabul va tafovut yo'q (farq hisobdan chiqarish bilan);
+  shifokor bitta filialga tegishli (bir necha filialda ishlash uchun jadval kerak bo'ladi); onlayn yozilish va portal hali asosiy filialga bog'langan (filial tanlash yo'q);
+  inventarizatsiya (sanoq) va `Adjust` harakati yozilmagan; narxnomada filial bo'yicha alohida narx yo'q.
 
 ### 6-bosqich: Analitika va AI (v2.0.0)
 - Hisobotlar: daromad, bemor oqimi, shifokor yuklamasi, kelmay qolish; PDF/Excel va 1C eksporti.
