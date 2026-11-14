@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.28] - 2026-11-14
+### Added
+- Frontend: Sug'urta sahifasi (`/insurance`, menyuda "Sug'urta", `insurance:read`): kompaniyalar va shartnomalar (muddat, chegirma, limitlar, kafolat xati talabi, qoplanadigan xizmatlar yoki hamma xizmat), bemor polislari (bemorni qidirib), kafolat xatlari (limit, ishlatilgan, holat, skan yuklash/ochish, bekor qilish), qarzdorlik (kompaniya bo'yicha, muddat kesimi va ochiq hisob-fakturalar), kompaniya to'lovi kiritish va oylik reyestrni Excel yuklash. uz/en/ru menyu nomlari.
+- Kassa: hisob-faktura yaratishda bemorning amal qilayotgan polisi tanlanadi (kafolat xati bilan; sug'urtalangan hisob-fakturada qo'lda chegirma yashiriladi); hisob-faktura tafsilotida sug'urta va bemor ulushi, qator bo'yicha sug'urta summasi, "Bemor qoldig'i".
+- E2E: kompaniya, shartnoma, polis (UI), kassada bo'lingan hisob-faktura, kompaniya to'lovi va reyestr yuklash.
+
 ## [1.9.27] - 2026-11-14
 ### Added
 - Kompaniyadan kelgan to'lovlar (`insurer_payments`): `POST/GET /insurance/payments` (summa > 0, sana kelajakda emas, topshiriqnoma raqami; `insurance:manage`), `POST .../{id}/reverse` (sabab majburiy; o'chirilmaydi). Audit. Migratsiya 0049.

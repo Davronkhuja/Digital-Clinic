@@ -110,7 +110,7 @@
       <div :class="modalClass('max-w-2xl')">
         <h3 :class="titleClass">Yangi hisob-faktura</h3>
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="text-xs text-slate-400 block mb-1">Bemor *</label><input v-model="form.patient_name" class="input" placeholder="Aziza Karimova" /></div>
+          <div><label class="text-xs text-slate-400 block mb-1">Bemor *</label><input v-model="form.patient_name" class="input" placeholder="Aziza Karimova" data-testid="inv-patient" @change="loadPolicies" /></div>
           <div><label class="text-xs text-slate-400 block mb-1">Shifokor (ijrochi)</label>
             <select v-model="form.doctor_id" class="input"><option value="">—</option><option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option></select></div>
         </div>
@@ -118,13 +118,20 @@
           <div v-for="(l, i) in form.lines" :key="i" class="grid grid-cols-12 gap-2 items-center">
             <select v-model="l.service_id" class="input col-span-6"><option value="" disabled>Xizmat tanlang</option><option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }} — {{ fmt(s.price) }}</option></select>
             <input v-model.number="l.quantity" type="number" min="1" max="999" class="input col-span-2" />
-            <input v-if="canDiscount" v-model.number="l.discount_percent" type="number" min="0" max="100" step="0.01" class="input col-span-3" placeholder="chegirma %" />
+            <input v-if="canDiscount && !form.policy_id" v-model.number="l.discount_percent" type="number" min="0" max="100" step="0.01" class="input col-span-3" placeholder="chegirma %" />
             <button class="text-red-500 col-span-1" @click="form.lines.splice(i, 1)"><Trash2 class="w-4 h-4" /></button>
           </div>
           <button class="text-xs text-cyan-600" @click="form.lines.push({ service_id: '', quantity: 1, discount_percent: null })"><Plus class="w-3.5 h-3.5 inline" /> Xizmat qo'shish</button>
           <p v-if="!services.length" class="text-xs text-amber-600">Sotiladigan xizmat yo'q: Sozlamalar > Narxnoma da MXIK, package_code va QQS to'ldiring.</p>
         </div>
-        <div v-if="canDiscount" class="grid grid-cols-3 gap-3">
+        <div v-if="policies.length" class="grid grid-cols-2 gap-3 rounded-xl p-3" :class="dark ? 'bg-slate-800' : 'bg-cyan-50'" data-testid="inv-insurance">
+          <div><label class="text-xs text-slate-400 block mb-1">Sug'urta polisi</label>
+            <select v-model="form.policy_id" class="input" data-testid="inv-policy" @change="form.guarantee_letter_id = ''"><option value="">Sug'urtasiz (oddiy hisob-faktura)</option><option v-for="p in policies" :key="p.id" :value="p.id">{{ p.insurer }} · {{ p.number }}{{ p.discount_percent ? ` · chegirma ${p.discount_percent}%` : '' }}</option></select></div>
+          <div v-if="form.policy_id"><label class="text-xs text-slate-400 block mb-1">Kafolat xati {{ selectedPolicy?.requires_guarantee ? '*' : '' }}</label>
+            <select v-model="form.guarantee_letter_id" class="input" data-testid="inv-letter"><option value="">—</option><option v-for="g in letters" :key="g.id" :value="g.id">{{ g.number }} (qoldiq {{ fmt(g.remaining) }})</option></select></div>
+          <p v-if="form.policy_id" class="col-span-2 text-xs text-slate-500">Summa shartnoma bo'yicha bemor va sug'urta ulushiga bo'linadi (chegirma shartnomadan; qo'lda chegirma berilmaydi).</p>
+        </div>
+        <div v-if="canDiscount && !form.policy_id" class="grid grid-cols-3 gap-3">
           <div><label class="text-xs text-slate-400 block mb-1">Umumiy chegirma %</label><input v-model.number="form.discount_percent" type="number" min="0" max="100" step="0.01" class="input" /></div>
           <div class="col-span-2"><label class="text-xs text-slate-400 block mb-1">Chegirma sababi</label><input v-model="form.discount_reason" class="input" /></div>
         </div>
@@ -144,12 +151,13 @@
           <button class="text-slate-400" @click="detail = null"><X class="w-5 h-5" /></button>
         </div>
         <table class="w-full text-sm">
-          <thead><tr class="text-left text-xs text-slate-400"><th class="py-1">Xizmat</th><th>Soni</th><th class="text-right">Narx</th><th class="text-right">Chegirma</th><th class="text-right">Summa</th><th>Bajarildi</th></tr></thead>
+          <thead><tr class="text-left text-xs text-slate-400"><th class="py-1">Xizmat</th><th>Soni</th><th class="text-right">Narx</th><th class="text-right">Chegirma</th><th class="text-right">Summa</th><th v-if="detail.insurer_total > 0" class="text-right">Sug'urta</th><th>Bajarildi</th></tr></thead>
           <tbody>
             <tr v-for="l in detail.lines" :key="l.id" class="border-t" :class="dark ? 'border-slate-800' : 'border-slate-100'">
               <td class="py-1.5">{{ l.name }}<span class="block text-[10px] text-slate-400 font-mono">MXIK {{ l.mxik }} · QQS {{ l.vat_percent }}%</span></td>
               <td>{{ l.quantity }}</td><td class="text-right font-mono">{{ fmt(l.unit_price) }}</td>
               <td class="text-right font-mono">{{ fmt(l.line_discount + l.invoice_discount_share) }}</td><td class="text-right font-mono">{{ fmt(l.net_total) }}</td>
+              <td v-if="detail.insurer_total > 0" class="text-right font-mono text-cyan-600">{{ fmt(l.insurer_amount) }}</td>
               <td class="whitespace-nowrap">
                 <span v-if="l.performed_at" class="badge-green" :title="'Sarf ombordan yozilgan: ' + l.performed_at.slice(0, 16).replace('T', ' ')">Bajarildi</span>
                 <button v-else-if="canPerform" class="text-xs text-cyan-600 hover:underline" data-testid="perform-line" title="Xizmat bajarildi: sarf ombordan yoziladi" @click="perform(l, true)">Bajarildi deb belgilash</button>
@@ -161,7 +169,8 @@
         <div class="text-right text-sm space-y-0.5">
           <p>Chegirma: <span class="font-mono">{{ fmt(detail.discount_total) }}</span> <span v-if="detail.discount_reason" class="text-slate-400">({{ detail.discount_reason }})</span></p>
           <p>QQS: <span class="font-mono">{{ fmt(detail.vat_total) }}</span></p>
-          <p class="font-semibold">Jami: <span class="font-mono">{{ fmt(detail.total) }}</span> · Qoldiq: <span class="font-mono text-amber-600">{{ fmt(detail.balance) }}</span></p>
+          <p v-if="detail.insurer_total > 0" class="text-cyan-700" data-testid="inv-split">Sug'urta ({{ detail.insurer }}, polis {{ detail.policy_number }}): <span class="font-mono">{{ fmt(detail.insurer_total) }}</span> · Bemor ulushi: <span class="font-mono font-semibold">{{ fmt(detail.patient_total) }}</span></p>
+          <p class="font-semibold">Jami: <span class="font-mono">{{ fmt(detail.total) }}</span> · Bemor qoldig'i: <span class="font-mono text-amber-600">{{ fmt(detail.balance) }}</span></p>
         </div>
 
         <div>
@@ -277,18 +286,32 @@ async function loadInvoices() {
 // Yangi hisob-faktura
 const showCreate = ref(false), services = ref([]), doctors = ref([])
 const canDiscount = computed(() => auth.can('finance:discount'))
-const form = reactive({ patient_name: '', doctor_id: '', lines: [], discount_percent: null, discount_reason: '' })
+const form = reactive({ patient_name: '', doctor_id: '', lines: [], discount_percent: null, discount_reason: '', policy_id: '', guarantee_letter_id: '' })
+const policies = ref([]), letters = ref([])
+const selectedPolicy = computed(() => policies.value.find(p => p.id === form.policy_id))
+async function loadPolicies() {
+  policies.value = []; letters.value = []; form.policy_id = ''; form.guarantee_letter_id = ''
+  if (!auth.can('insurance:read') || form.patient_name.trim().length < 2) return
+  try {
+    const found = await fetchAll('/patients', { search: form.patient_name })
+    const patient = found.find(p => p.name.toLowerCase() === form.patient_name.trim().toLowerCase())
+    if (!patient) return
+    policies.value = (await api.get(`/patients/${patient.id}/policies`, { params: { valid_only: true } })).data
+    letters.value = (await api.get('/insurance/guarantee-letters', { params: { patient_id: patient.id, state: 'Active' } })).data
+  } catch { policies.value = []; letters.value = [] }
+}
 const estimate = computed(() => form.lines.reduce((sum, l) => sum + (services.value.find(s => s.id === l.service_id)?.price || 0) * (l.quantity || 0), 0))
-function openCreate() { Object.assign(form, { patient_name: '', doctor_id: '', lines: [{ service_id: '', quantity: 1, discount_percent: null }], discount_percent: null, discount_reason: '' }); showCreate.value = true }
+function openCreate() { Object.assign(form, { patient_name: '', doctor_id: '', lines: [{ service_id: '', quantity: 1, discount_percent: null }], discount_percent: null, discount_reason: '', policy_id: '', guarantee_letter_id: '' }); policies.value = []; letters.value = []; showCreate.value = true }
 async function createInvoice() {
   busy.value = true
   try {
     const found = await fetchAll('/patients', { search: form.patient_name })
     const patient = found.find(p => p.name.toLowerCase() === form.patient_name.trim().toLowerCase())
     if (!patient) { toast.error(`"${form.patient_name}" nomli bemor topilmadi`); return }
-    const lines = form.lines.filter(l => l.service_id).map(l => ({ service_id: l.service_id, quantity: l.quantity || 1, ...(l.discount_percent ? { discount_percent: l.discount_percent } : {}) }))
+    const lines = form.lines.filter(l => l.service_id).map(l => ({ service_id: l.service_id, quantity: l.quantity || 1, ...(l.discount_percent && !form.policy_id ? { discount_percent: l.discount_percent } : {}) }))
     await api.post('/invoices', { patient_id: patient.id, doctor_id: form.doctor_id || null, lines, issue: true,
-      ...(form.discount_percent ? { discount_percent: form.discount_percent } : {}), discount_reason: form.discount_reason || null })
+      ...(form.discount_percent && !form.policy_id ? { discount_percent: form.discount_percent } : {}), discount_reason: form.policy_id ? null : form.discount_reason || null,
+      ...(form.policy_id ? { policy_id: form.policy_id, guarantee_letter_id: form.guarantee_letter_id || null } : {}) })
     toast.success('Hisob-faktura chiqarildi')
     showCreate.value = false
     await loadInvoices()

@@ -400,7 +400,80 @@ test.describe('hisobotlar', () => {
   })
 })
 
-test('14. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('sug\'urta', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('14. sug\'urta: kompaniya, shartnoma, polis, kassada bo\'lingan hisob-faktura, kompaniya to\'lovi va reyestr', async ({ page, request }) => {
+    const stamp = Date.now()
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const patientName = `E2E Sugurta ${stamp}`
+    await request.post('/api/patients', { headers, data: { name: patientName, phone: '+998 90 555 66 77', gender: 'female', birth_date: '1990-01-01' } })
+    const svc = await (await request.post('/api/services', { headers, data: { name: `E2E Sugurta xizmati ${stamp}`, price: 200000, mxik: '09302001001000000', package_code: '1500364', vat_percent: 12 } })).json()
+    const insurerName = `E2E Kompaniya ${stamp}`
+
+    // Kompaniya va shartnoma (UI): hamma xizmat 50% qoplanadi
+    await page.goto('/insurance')
+    await page.getByTestId('ins-new-insurer').click()
+    await page.getByTestId('insurer-name').fill(insurerName)
+    await page.getByTestId('insurer-save').click()
+    await expect(page.getByText('Kompaniya saqlandi')).toBeVisible()
+    await page.getByTestId('ins-new-contract').click()
+    await page.getByTestId('ct-insurer').selectOption({ label: insurerName })
+    await page.getByTestId('ct-number').fill(`E2E-${stamp}`)
+    await page.getByTestId('ct-all').check()
+    await page.locator('[data-testid="ct-all"]').locator('xpath=ancestor::div[contains(@class,"grid")]').locator('input[type="number"]').last().fill('50')
+    await page.getByTestId('ct-save').click()
+    await expect(page.getByText('Shartnoma saqlandi')).toBeVisible()
+
+    // Polis (UI): bemorni qidirib tanlash
+    await page.getByTestId('ins-tab-policies').click()
+    await page.getByTestId('ins-new-policy').click()
+    await page.getByTestId('pol-patient-search').fill(patientName)
+    await page.getByTestId('pol-patient-hit').first().click()
+    await page.getByTestId('pol-contract').selectOption({ label: `${insurerName}: E2E-${stamp}` })
+    await page.getByTestId('pol-number').fill(`POL-${stamp}`)
+    await page.getByTestId('pol-save').click()
+    await expect(page.getByText('Polis saqlandi')).toBeVisible()
+
+    // Kassa: polis bilan hisob-faktura (200000: 50% sug'urta, 50% bemor)
+    await page.goto('/cashier')
+    const open = page.getByRole('button', { name: 'Smenani ochish' })
+    await expect(open.or(page.getByText('Smena ochiq'))).toBeVisible()
+    if (await open.isVisible()) { await open.click(); await page.locator('.modal-overlay').getByRole('button', { name: 'Ochish', exact: true }).click() }
+    await expect(page.getByText('Smena ochiq')).toBeVisible()
+    await page.getByRole('button', { name: 'Yangi hisob-faktura' }).click()
+    const modal = page.locator('.modal-overlay').last()
+    await modal.getByTestId('inv-patient').fill(patientName)
+    await modal.getByTestId('inv-patient').blur()
+    await expect(modal.getByTestId('inv-insurance')).toBeVisible()
+    await modal.getByTestId('inv-policy').selectOption({ label: `${insurerName} · POL-${stamp}` })
+    await modal.locator('select').filter({ hasText: 'Xizmat tanlang' }).first().selectOption({ value: svc.id })
+    await modal.getByRole('button', { name: 'Yaratish va chiqarish' }).click()
+    await expect(page.getByText('Hisob-faktura chiqarildi')).toBeVisible()
+    await page.getByPlaceholder('Raqam yoki bemor...').fill(patientName)
+    await page.getByRole('button', { name: 'Ochish', exact: true }).first().click()
+    await expect(page.getByTestId('inv-split')).toContainText(insurerName)
+    await expect(page.getByTestId('inv-split')).toContainText(/100[ ,\u00a0]?000/)         // sug'urta ulushi 100 000, bemor ulushi 100 000
+
+    // Qarzdorlik: kompaniya qarzi 100 000, to'lov kiritish va reyestr yuklash
+    await page.goto('/insurance')
+    await page.getByTestId('ins-tab-debts').click()
+    const row = page.getByTestId(`debt-${insurerName}`)
+    await expect(row).toContainText(/100[ ,\u00a0]?000/)
+    await row.getByTestId('ins-pay').click()
+    await page.getByTestId('pay-amount').fill('40000')
+    await page.getByTestId('pay-save').click()
+    await expect(page.getByText("To'lov yozildi")).toBeVisible()
+    await expect(page.getByTestId(`debt-${insurerName}`)).toContainText(/60[ ,\u00a0]?000/)   // qarz 100 000 - 40 000
+    await page.getByTestId('reg-insurer').selectOption({ label: insurerName })
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('reg-download').click()])
+    expect(download.suggestedFilename()).toMatch(/^reyestr_\d{4}-\d{2}\.xlsx$/)
+    expect(fs.readFileSync(await download.path()).subarray(0, 2).toString('latin1')).toBe('PK')
+  })
+})
+
+test('15. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

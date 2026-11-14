@@ -327,7 +327,7 @@ import {
   LayoutDashboard, Users, Calendar, FileText, DollarSign, BarChart3, Bot,
   FileBarChart, UserCog, CreditCard, Shield, Settings, Bell, PanelLeft,
   Globe, ChevronDown, Check, Sun, Moon, Pencil, LogOut, X, Camera, Trash2,
-  MessageSquare, Palette, FlaskConical, Warehouse, Landmark, Percent, MessageCircle
+  MessageSquare, Palette, FlaskConical, Warehouse, ShieldPlus, Landmark, Percent, MessageCircle
 } from 'lucide-vue-next'
 
 const auth        = useAuthStore()
@@ -440,6 +440,7 @@ const allMainNav = [
   { to: '/emr',          key: 'nav.emr',          icon: FileText, perm: 'emr:read' },
   { to: '/lab',          key: 'nav.lab',          icon: FlaskConical, perm: 'lab:read' },
   { to: '/warehouse',    key: 'nav.warehouse',    icon: Warehouse, perm: 'warehouse:read' },
+  { to: '/insurance',    key: 'nav.insurance',    icon: ShieldPlus, perm: 'insurance:read' },
   { to: '/messages',     key: 'nav.messages',     icon: MessageCircle, perm: 'messages:read' },
   { to: '/cashier',      key: 'nav.cashier',      icon: Landmark, perm: 'finance:read' },
   { to: '/commissions',  key: 'nav.commissions',  icon: Percent, perm: 'commissions:read' },
@@ -461,7 +462,7 @@ const systemNav = computed(() => visible(allSystemNav))
 
 const pageKeyMap = {
   '/': 'page.dashboard', '/patients': 'page.patients', '/appointments': 'page.appointments',
-  '/emr': 'page.emr', '/lab': 'page.lab', '/warehouse': 'page.warehouse', '/messages': 'page.messages', '/cashier': 'page.cashier', '/commissions': 'page.commissions', '/finance': 'page.finance', '/analytics': 'page.analytics',
+  '/emr': 'page.emr', '/lab': 'page.lab', '/warehouse': 'page.warehouse', '/insurance': 'page.insurance', '/messages': 'page.messages', '/cashier': 'page.cashier', '/commissions': 'page.commissions', '/finance': 'page.finance', '/analytics': 'page.analytics',
   '/ai': 'page.ai', '/reports': 'page.reports', '/staff': 'page.staff',
   '/subscription': 'page.subscription', '/security': 'page.security', '/settings': 'page.settings', '/chat': 'nav.chat',
 }
