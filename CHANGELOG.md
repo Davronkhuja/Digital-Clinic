@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.29] - 2026-11-14
+### Added
+- Ko'rik xulosasi (AI): `POST /emr/{id}/ai-summary` (qoralama), `GET` (qoralama, tasdiqlangani, `can_review`), `POST .../{id}/approve` (tahrirlangan matn bilan) va `.../reject`. `AI_ENABLED=true`: lokal LLM (OpenAI-mos `LLM_BASE_URL`, `LLM_MODEL`; `LLM_REQUIRE_KEY=false` kalitsiz lokal serverlar uchun); so'rovga bemor ismi, telefoni, PINFL va manzili yuborilmaydi (faqat yosh, jins va klinik matn, retseptlar). Tashqi (lokal bo'lmagan: ochiq internet) LLM bemor ma'lumotini olmaydi (409; `LLM_ALLOW_EXTERNAL_PHI=true` ongli ruxsat). `AI_ENABLED=false`: statik demo shablon ("Demo rejim"), u tasdiqlanmaydi (409).
+- Qoralama shifokor tasdiqlamaguncha tibbiy yozuvga kirmaydi; tasdiqlash/rad etish faqat ko'rik shifokori (`emr:write`); tahrir belgisi, asl matn saqlanadi; yangi qoralama eskisini rad etadi, yangi tasdiqlangan eskisini almashtiradi (`Superseded`). Hammasi auditda (EMR o'qish ham). `encounter_summaries`. Migratsiya 0050.
+- Frontend: ko'rik kartasida "AI xulosa" (qoralama yaratish, tahrir, tasdiqlash/rad etish; faqat ko'rik shifokorida tugmalar; demo belgisi). E2E: demo rejim.
+### Changed
+- `call_llm`: kalit faqat `LLM_REQUIRE_KEY=true` (standart) bo'lsa majburiy; kalit yo'q bo'lsa `Authorization` yuborilmaydi.
+
 ## [1.9.28] - 2026-11-14
 ### Added
 - Frontend: Sug'urta sahifasi (`/insurance`, menyuda "Sug'urta", `insurance:read`): kompaniyalar va shartnomalar (muddat, chegirma, limitlar, kafolat xati talabi, qoplanadigan xizmatlar yoki hamma xizmat), bemor polislari (bemorni qidirib), kafolat xatlari (limit, ishlatilgan, holat, skan yuklash/ochish, bekor qilish), qarzdorlik (kompaniya bo'yicha, muddat kesimi va ochiq hisob-fakturalar), kompaniya to'lovi kiritish va oylik reyestrni Excel yuklash. uz/en/ru menyu nomlari.

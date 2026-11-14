@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "llama-3.1-8b-instant"
     llm_timeout: float = 30
+    # Lokal LLM (vLLM/Ollama) kalitsiz ishlashi mumkin: LLM_REQUIRE_KEY=false. Qayd xulosasi (bemor ma'lumoti) faqat lokal/ichki
+    # tarmoq LLM'iga ketadi; tashqi xizmat uchun LLM_ALLOW_EXTERNAL_PHI=true (ongli qaror).
+    llm_require_key: bool = True
+    llm_allow_external_phi: bool = False
 
     @field_validator("jwt_secret")
     @classmethod

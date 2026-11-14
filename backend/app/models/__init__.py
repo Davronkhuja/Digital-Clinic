@@ -4,7 +4,7 @@ from app.models.audit import AuditLog, RefreshToken
 from app.models.branch import Branch
 from app.models.cash_shift import CashMovement, CashShift
 from app.models.commission import CommissionEntry, CommissionPayout, CommissionRule, CommissionSettlement
-from app.models.emr import Encounter, ExamTemplate, InnDrug, Prescription
+from app.models.emr import Encounter, EncounterSummary, ExamTemplate, InnDrug, Prescription
 from app.models.export import ExportColumn, ExportFormat
 from app.models.icd10 import Icd10Code
 from app.models.insurance import (
@@ -50,7 +50,7 @@ __all__ = [
     "InnDrug", "Attachment", "Service", "ServiceBranchPrice", "ServiceCategory", "Invoice", "InvoiceLine", "Payment", "PaymentRefund",
     "CommissionEntry", "CommissionPayout", "CommissionRule", "CommissionSettlement", "CashShift", "CashMovement",
     "Message", "MessageTemplate", "OtpCode", "PatientConsent", "RateEvent", "TelegramLink",
-    "LabCorrection", "GuaranteeLetter", "GuaranteeLetterService", "PatientPolicy", "InsurerPayment",
+    "LabCorrection", "EncounterSummary", "GuaranteeLetter", "GuaranteeLetterService", "PatientPolicy", "InsurerPayment",
     "InsuranceContract", "InsuranceContractService", "Insurer", "ExportColumn", "ExportFormat",
     "Notification", "NotificationRead", "ServiceMaterial", "StockBatch",
     "StockCount", "StockCountLine", "StockItem", "StockMovement", "StockReceipt",

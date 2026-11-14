@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from typing import List, Optional  # noqa: F401
 
 from pydantic import BaseModel, EmailStr, Field  # noqa: F401
@@ -29,3 +30,30 @@ class AIResponse(BaseModel):
     demo: bool = False
     suggestions: List[str]
     disclaimer: str
+
+
+class SummaryOut(BaseModel):
+    id: str
+    status: str
+    source: str = Field(..., description="llm yoki demo (statik shablon)")
+    demo: bool
+    model: Optional[str] = None
+    text: str
+    original_text: str
+    edited: bool
+    generated_by: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    created_at: str
+
+
+class SummaryState(BaseModel):
+    ai_enabled: bool
+    can_review: bool = Field(False, description="Joriy foydalanuvchi shu ko'rikning shifokori (emr:write): tasdiqlay yoki rad eta oladi")
+    draft: Optional[SummaryOut] = None
+    approved: Optional[SummaryOut] = Field(None, description="Oxirgi tasdiqlangan xulosa (tibbiy yozuvga kirgan)")
+    disclaimer: str
+
+
+class SummaryApproveIn(BaseModel):
+    text: Optional[str] = Field(None, min_length=10, max_length=4000, description="Shifokor tahrir qilgan matn (bo'sh: qoralama o'zgarishsiz)")

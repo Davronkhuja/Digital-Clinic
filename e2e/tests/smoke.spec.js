@@ -473,7 +473,33 @@ test.describe('sug\'urta', () => {
   })
 })
 
-test('15. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
+test.describe('ai', () => {
+  test.use({ storageState: 'auth.json' })
+
+  test('15. ko\'rik kartasida AI xulosa: demo rejimda qoralama yaratiladi, ko\'rik shifokori bo\'lmagan tasdiqlay olmaydi', async ({ page, request }) => {
+    const stamp = Date.now()
+    const login = await request.post('/api/auth/login', { data: ADMIN })
+    const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }
+    const name = `E2E AI Bemor ${stamp}`
+    const patient = await (await request.post('/api/patients', { headers, data: { name, phone: '+998 90 444 55 66', gender: 'male', birth_date: '1985-05-05' } })).json()
+    const rec = await request.post('/api/emr', { headers, data: { patient_id: patient.id, doctor: DOCTOR, diagnosis: 'E2E tashxis', prescription: '-', complaints: 'E2E shikoyat', visit_date: new Date().toISOString().slice(0, 10) } })
+    expect(rec.ok()).toBeTruthy()
+
+    await page.goto('/emr')
+    await expect(page.getByText(name)).toBeVisible()
+    await page.getByTitle(/DMED/).first().click()                                          // eng yangi yozuv (ro'yxat yangidan boshlanadi)
+    const box = page.getByTestId('ai-summary')
+    await expect(box).toBeVisible()
+    await box.getByTestId('ai-generate').click()
+    await expect(box.getByTestId('ai-draft')).toContainText('Demo rejim')
+    await expect(box.getByTestId('ai-text')).toHaveValue(/E2E shikoyat/)
+    await expect(box.getByTestId('ai-approve')).toHaveCount(0)                                // admin ko'rik shifokori emas: tasdiqlay olmaydi
+    await expect(box.getByTestId('ai-text')).toBeDisabled()
+    await expect(box.getByTestId('ai-approved')).toHaveCount(0)                               // yozuvga kirmagan
+  })
+})
+
+test('16. portal: OTP, ikki til, qabullar, hisoblar, tahlillar (PDF), qabulni bekor qilish', async ({ page, request }) => {
   // Tahlil: tasdiqlangan natija API orqali tayyorlanadi (portal faqat shifokor tasdiqlaganini ko'rsatadi)
   const login = await request.post('/api/auth/login', { data: ADMIN })
   const headers = { Authorization: `Bearer ${(await login.json()).access_token}` }

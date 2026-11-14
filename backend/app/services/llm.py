@@ -36,12 +36,12 @@ DEMO_ANALYSIS = (
 
 def call_llm(messages: list, temperature: float, max_tokens: int) -> str:
     """LLM'ga so'rov yuboradi; xatolarni mos HTTP statuslarga o'giradi."""
-    if not settings.llm_api_key:
+    if settings.llm_require_key and not settings.llm_api_key:
         raise HTTPException(status_code=503, detail="AI xizmati sozlanmagan (settings.llm_api_key)")
     try:
         res = httpx.post(
             f"{settings.llm_base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+            headers={"Authorization": f"Bearer {settings.llm_api_key}"} if settings.llm_api_key else {},
             json={"model": settings.llm_model, "messages": messages,
                   "temperature": temperature, "max_tokens": max_tokens, "stream": False},
             timeout=settings.llm_timeout,

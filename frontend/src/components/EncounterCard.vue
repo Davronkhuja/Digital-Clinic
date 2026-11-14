@@ -50,6 +50,23 @@
             <span class="w-24 text-xs text-slate-400 font-mono">{{ l.reference || '—' }}<span v-if="l.ref_verified === false" class="ml-1 badge-yellow text-[9px]" title="Namuna me'yor">namuna</span></span>
           </div>
         </section>
+        <section v-if="ai && (ai.approved || ai.draft || auth.can('ai:use'))" data-testid="ai-summary" class="space-y-2">
+          <h4 :class="['text-xs uppercase tracking-wider font-semibold', dark ? 'text-slate-500' : 'text-slate-400']">AI xulosa</h4>
+          <div v-if="ai.approved" class="rounded-xl p-3 text-sm" :class="dark ? 'bg-slate-800' : 'bg-emerald-50'" data-testid="ai-approved">
+            <p class="whitespace-pre-wrap">{{ ai.approved.text }}</p>
+            <p class="text-xs text-slate-400 mt-1">Shifokor tasdiqlagan{{ ai.approved.edited ? ' (tahrirlangan)' : '' }} · {{ ai.approved.reviewed_at?.slice(0, 10) }}</p>
+          </div>
+          <div v-if="ai.draft" class="rounded-xl p-3 space-y-2 border border-amber-300" data-testid="ai-draft">
+            <p class="text-xs text-amber-700"><span v-if="ai.draft.demo" class="badge-yellow mr-1">Demo rejim</span>Qoralama: shifokor tasdiqlamaguncha tibbiy yozuvga kirmaydi. {{ ai.disclaimer }}</p>
+            <textarea v-model="draftText" rows="5" class="input text-sm" :disabled="!ai.can_review" data-testid="ai-text"></textarea>
+            <p v-if="!ai.can_review" class="text-xs text-slate-400">Xulosani faqat ko'rik shifokori tasdiqlaydi yoki rad etadi.</p>
+            <div v-if="ai.can_review" class="flex gap-2 justify-end">
+              <button class="btn-secondary text-sm" :disabled="aiBusy" data-testid="ai-reject" @click="rejectDraft">Rad etish</button>
+              <button class="btn-primary text-sm" :disabled="aiBusy || ai.draft.demo" :title="ai.draft.demo ? 'Demo matn tasdiqlanmaydi' : ''" data-testid="ai-approve" @click="approveDraft">Tasdiqlash va saqlash</button>
+            </div>
+          </div>
+          <button v-if="auth.can('ai:use')" class="btn-secondary text-sm" :disabled="aiBusy" data-testid="ai-generate" @click="generateDraft">{{ ai.draft ? 'Qayta yaratish' : 'AI xulosa qoralamasini yaratish' }}</button>
+        </section>
       </div>
 
       <div v-if="card" :class="['flex items-center gap-3 flex-wrap px-6 py-4 border-t flex-shrink-0', dark ? 'border-slate-800' : 'border-slate-200']">
@@ -96,9 +113,29 @@ const allText = computed(() => {
   return lines.join('\n')
 })
 
+const ai = ref(null), draftText = ref(''), aiBusy = ref(false)
+function setAi(state) { ai.value = state; draftText.value = state.draft?.text || '' }
+async function loadAi() { try { setAi((await api.get(`/emr/${props.recordId}/ai-summary`)).data) } catch { ai.value = null } }
+async function generateDraft() {
+  aiBusy.value = true
+  try { setAi((await api.post(`/emr/${props.recordId}/ai-summary`)).data) } catch (e) { toast.error(e, "Xulosa qoralamasini yaratib bo'lmadi") } finally { aiBusy.value = false }
+}
+async function approveDraft() {
+  aiBusy.value = true
+  try {
+    setAi((await api.post(`/emr/${props.recordId}/ai-summary/${ai.value.draft.id}/approve`, { text: draftText.value })).data)
+    toast.success('Xulosa tasdiqlandi va yozuvga saqlandi')
+  } catch (e) { toast.error(e, "Tasdiqlab bo'lmadi") } finally { aiBusy.value = false }
+}
+async function rejectDraft() {
+  aiBusy.value = true
+  try { setAi((await api.post(`/emr/${props.recordId}/ai-summary/${ai.value.draft.id}/reject`)).data); toast.success('Qoralama rad etildi') } catch (e) { toast.error(e, "Rad etib bo'lmadi") } finally { aiBusy.value = false }
+}
+
 async function load() {
   loading.value = true
   error.value = false
+  loadAi()
   try { card.value = (await api.get(`/emr/${props.recordId}/card`)).data } catch (e) {
     error.value = true
     toast.error(e, "Kartani yuklab bo'lmadi")

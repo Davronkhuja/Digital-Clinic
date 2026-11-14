@@ -1,7 +1,8 @@
+# ruff: noqa: E501
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -80,3 +81,26 @@ class InnDrug(VerifiedMixin, BaseModel):
     inn: Mapped[str] = mapped_column(String(200))
     group_uz: Mapped[str | None] = mapped_column(String(200))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+
+class EncounterSummary(BranchScoped, BaseModel):
+    """Ko'rikning AI xulosasi: qoralama (Draft) shifokor tasdiqlamaguncha tibbiy yozuvga kirmaydi. Tasdiqlansa (Approved) shifokor tahriri bilan saqlanadi,
+    keyingi tasdiqlangani eskisini almashtiradi (Superseded). Demo (statik) matn tasdiqlanmaydi. O'chirilmaydi."""
+
+    __tablename__ = "encounter_summaries"
+    __table_args__ = (
+        Index("ix_encounter_summaries_encounter", "encounter_id", "created_at"),
+        CheckConstraint("status IN ('Draft', 'Approved', 'Rejected', 'Superseded')", name="status_values"),
+        CheckConstraint("source IN ('llm', 'demo')", name="source_values"),
+    )
+
+    encounter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("encounters.id", ondelete="RESTRICT"))
+    text: Mapped[str] = mapped_column(Text)
+    original_text: Mapped[str] = mapped_column(Text)              # modeldan kelgan matn (tahrirdan oldin)
+    status: Mapped[str] = mapped_column(String(10), default="Draft", server_default="Draft")
+    source: Mapped[str] = mapped_column(String(5))
+    model: Mapped[str | None] = mapped_column(String(100))
+    generated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
