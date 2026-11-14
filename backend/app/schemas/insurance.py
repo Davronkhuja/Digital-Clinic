@@ -1,0 +1,120 @@
+# ruff: noqa: E501
+from datetime import date
+from decimal import Decimal
+from typing import Annotated, List, Optional
+
+from pydantic import BaseModel, Field, model_validator
+
+from app.schemas.common import Money
+
+Pct = Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)]
+PctPos = Annotated[Decimal, Field(gt=0, le=100, max_digits=5, decimal_places=2)]
+Amount = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
+
+
+class InsurerIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200, examples=["Kapital Sug'urta"])
+    tin: Optional[str] = Field(None, max_length=20, description="STIR (INN)")
+    phone: Optional[str] = Field(None, max_length=40)
+    email: Optional[str] = Field(None, max_length=200)
+    address: Optional[str] = Field(None, max_length=300)
+    contact_person: Optional[str] = Field(None, max_length=200)
+    payment_days: int = Field(30, ge=0, le=365, description="Reyestrdan keyin necha kunda to'laydi")
+    is_active: bool = True
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class InsurerUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    tin: Optional[str] = Field(None, max_length=20)
+    phone: Optional[str] = Field(None, max_length=40)
+    email: Optional[str] = Field(None, max_length=200)
+    address: Optional[str] = Field(None, max_length=300)
+    contact_person: Optional[str] = Field(None, max_length=200)
+    payment_days: Optional[int] = Field(None, ge=0, le=365)
+    is_active: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class InsurerOut(BaseModel):
+    id: str
+    name: str
+    tin: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    contact_person: Optional[str] = None
+    payment_days: int
+    is_active: bool
+    notes: Optional[str] = None
+    contracts: int = Field(0, description="Shartnomalar soni")
+
+
+class ContractServiceIn(BaseModel):
+    service_id: str
+    coverage_percent: PctPos = Decimal(100)
+
+
+class ContractIn(BaseModel):
+    insurer_id: str
+    number: str = Field(..., min_length=1, max_length=60)
+    valid_from: date
+    valid_to: Optional[date] = None
+    discount_percent: Pct = Decimal(0)
+    coverage_all: bool = False
+    default_coverage_percent: PctPos = Decimal(100)
+    annual_limit: Optional[Amount] = Field(None, description="Bemor uchun kalendar yil bo'yicha sug'urta ulushi limiti (UZS)")
+    per_visit_limit: Optional[Amount] = Field(None, description="Bitta hisob-fakturadagi sug'urta ulushi limiti (UZS)")
+    requires_guarantee: bool = False
+    is_active: bool = True
+    notes: Optional[str] = Field(None, max_length=1000)
+    services: List[ContractServiceIn] = Field(default_factory=list, description="Qoplanadigan xizmatlar (coverage_all=false bo'lsa)")
+
+    @model_validator(mode="after")
+    def _valid(self):
+        if self.valid_to and self.valid_to < self.valid_from:
+            raise ValueError("Tugash sanasi boshlanishdan oldin bo'lishi mumkin emas")
+        if self.coverage_all and self.services:
+            raise ValueError("coverage_all=true bo'lsa xizmatlar ro'yxati bo'sh bo'lishi kerak (hamma xizmat qoplanadi)")
+        if len({s.service_id for s in self.services}) != len(self.services):
+            raise ValueError("Xizmat ro'yxatda takrorlangan")
+        return self
+
+
+class ContractUpdate(BaseModel):
+    number: Optional[str] = Field(None, min_length=1, max_length=60)
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
+    discount_percent: Optional[Pct] = None
+    coverage_all: Optional[bool] = None
+    default_coverage_percent: Optional[PctPos] = None
+    annual_limit: Optional[Amount] = None
+    per_visit_limit: Optional[Amount] = None
+    requires_guarantee: Optional[bool] = None
+    is_active: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+    services: Optional[List[ContractServiceIn]] = Field(None, description="To'liq ro'yxat almashtiriladi")
+
+
+class ContractServiceOut(BaseModel):
+    service_id: str
+    service: str
+    coverage_percent: Money
+
+
+class ContractOut(BaseModel):
+    id: str
+    insurer_id: str
+    insurer: str
+    number: str
+    valid_from: date
+    valid_to: Optional[date] = None
+    discount_percent: Money
+    coverage_all: bool
+    default_coverage_percent: Money
+    annual_limit: Optional[Money] = None
+    per_visit_limit: Optional[Money] = None
+    requires_guarantee: bool
+    is_active: bool
+    notes: Optional[str] = None
+    services: List[ContractServiceOut]

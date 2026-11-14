@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [1.9.24] - 2026-11-14
+### Added
+- Sug'urta (faqat ixtiyoriy tibbiy sug'urta, DMS; davlat jamg'armasi yo'q): kompaniyalar `insurers` (STIR, aloqa, to'lov muddati kunlarda; nom registrsiz noyob, faolsizlantiriladi), shartnomalar `insurance_contracts` (raqam kompaniya ichida noyob, muddat, klinika narxiga chegirma %, hamma xizmat yoki qoplanadigan xizmatlar ro'yxati va qoplash foizi `insurance_contract_services`, bemor uchun yillik va bitta hisob-faktura bo'yicha sug'urta ulushi limitlari, kafolat xati talabi). `GET/POST/PUT /insurance/insurers`, `GET/POST/PUT /insurance/contracts[/{id}]` (xizmatlar ro'yxati to'liq almashtiriladi), audit.
+- Ruxsatlar: `insurance:read` (administrator, kassir, qabulxona), `insurance:write` (administrator, qabulxona: polis va kafolat xati), `insurance:manage` (administrator: kompaniya, shartnoma, to'lov, reyestr). Migratsiya 0046.
+
 ## [1.9.23] - 2026-11-14
 ### Added
 - Tahliliy hisobotlar: `GET /reports/analytics/{kind}` (`revenue` daromad: kunlar, to'lov usuli, xizmatlar; `patient_flow` bemorlar oqimi: yangi, tashriflar, noyob va qaytgan bemorlar, yangi bemorlar manbasi; `doctor_load` shifokor yuklamasi: qabul holatlari, kelmay qolish %, band soat, filial jadvalidan ish soati va yuklama %; `no_show` kelmay qolish: haftalar, eslatma yuborilgan/yuborilmagan, shifokorlar). `format=json|xlsx|pdf`, davr (standart oxirgi 30 kun, eng ko'pi 400 kun), filial (faol; `all_branches=true` faqat `branches:all`); `reports:read`; Excel/PDF yuklash auditda. `GET /reports/analytics` turlar ro'yxati. Hammasi bazadan.

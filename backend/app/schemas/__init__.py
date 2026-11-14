@@ -7,6 +7,7 @@ from app.schemas.common import *  # noqa: F401,F403
 from app.schemas.emr import *  # noqa: F401,F403
 from app.schemas.enums import *  # noqa: F401,F403
 from app.schemas.finance import *  # noqa: F401,F403
+from app.schemas.insurance import *  # noqa: F401,F403
 from app.schemas.invoices import *  # noqa: F401,F403
 from app.schemas.lab import *  # noqa: F401,F403
 from app.schemas.messaging import *  # noqa: F401,F403

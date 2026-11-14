@@ -44,6 +44,9 @@ PERMISSIONS: dict[str, str] = {
     "ai:use": "AI yordamchidan foydalanish",
     "messages:read": "Xabarlar logi va SMS hisobini ko'rish",
     "exports:read": "Buxgalteriya eksporti (sotuvlar, to'lovlar, kassa smenalari, ombor harakatlari, shifokor foizlari): Excel va CSV",
+    "insurance:read": "Sug'urta: kompaniyalar, shartnomalar, polislar va kafolat xatlarini ko'rish",
+    "insurance:write": "Sug'urta: bemor polisi va kafolat xatini kiritish",
+    "insurance:manage": "Sug'urta: kompaniya va shartnomalarni boshqarish, kompaniya to'lovlari, reyestr va qarzdorlik",
     "audit:read": "Audit jurnalini ko'rish",
     "roles:manage": "Rollar va ruxsatlarni boshqarish",
 }
@@ -63,14 +66,14 @@ ROLES: dict[str, tuple[str, list[str]]] = {
     ]),
     "receptionist": ("Qabulxona", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "services:read", "messages:read", "staff:read", "settings:read",
+        "services:read", "messages:read", "staff:read", "settings:read", "insurance:read", "insurance:write",
     ]),
     "cashier": ("Kassir", [
-        "patients:read", "appointments:read", "finance:read", "finance:write", "finance:discount", "services:read",
+        "patients:read", "appointments:read", "finance:read", "finance:write", "finance:discount", "services:read", "insurance:read",
         "staff:read", "settings:read", "analytics:read", "reports:read",
     ]),
     "senior_receptionist": ("Katta registrator", [
         "patients:read", "patients:write", "patients:merge", "appointments:read", "appointments:write",
-        "appointments:override", "services:read", "messages:read", "staff:read", "settings:read",
+        "appointments:override", "services:read", "messages:read", "staff:read", "settings:read", "insurance:read", "insurance:write",
     ]),
 }
