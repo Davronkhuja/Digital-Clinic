@@ -168,7 +168,7 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
   shifokor foizlari), Excel va CSV, davr va filial filtri, ustun xaritasi Sozlamalarda tahrirlanadi (keyin buxgalter bilan 1C ga moslanadi). Sug'urta: faqat ixtiyoriy tibbiy sug'urta (DMS), davlat jamg'armasi yo'q;
   sug'urta kompaniyasi -> shartnoma (muddat, chegirma, qoplanadigan xizmatlar, limitlar) -> bemor polisi (raqam, muddat, kompaniya) -> kafolat xati (raqam, sana, summa limiti, xizmatlar, fayl ilovasi);
   hisob-fakturada summa bemor va sug'urta ulushiga bo'linadi; oyiga kompaniya bo'yicha reyestr (Excel) va qarzdorlik hisobi. AI: `AI_ENABLED` orqali lokal LLM (OpenAI-mos), qayd xulosasi, shifokor tasdiqlamaguncha saqlanmaydi [v1.9.29 TAYYOR: `encounter_summaries`, shaxsiy ma'lumot yuborilmaydi, tashqi LLM bemor ma'lumotini olmaydi, demo matn tasdiqlanmaydi]. Ochiq REST API hujjati [v1.9.30 TAYYOR: `docs/API.md`, OpenAPI tavsifi].
-  Sug'urta bosqichlari: katalog (kompaniya, shartnoma) [v1.9.24 TAYYOR] -> bemor polisi va kafolat xati [v1.9.25 TAYYOR] -> hisob-faktura bo'linishi [v1.9.26 TAYYOR: `invoices.insurer_total`, qator `insurer_amount`; to'lov bemor ulushiga; sug'urta ulushi kompaniya qarzi; shifokor foizi hozircha faqat bemor to'lovidan] -> kompaniya to'lovlari, reyestr (Excel), qarzdorlik [v1.9.27 TAYYOR] -> frontend [v1.9.28 TAYYOR: `/insurance`, kassada polis].
+  Sug'urta bosqichlari: katalog (kompaniya, shartnoma) [v1.9.24 TAYYOR] -> bemor polisi va kafolat xati [v1.9.25 TAYYOR] -> hisob-faktura bo'linishi [v1.9.26 TAYYOR: `invoices.insurer_total`, qator `insurer_amount`; to'lov bemor ulushiga; sug'urta ulushi kompaniya qarzi; shifokor foizi v2.0.1 gacha faqat bemor to'lovidan edi] -> kompaniya to'lovlari, reyestr (Excel), qarzdorlik [v1.9.27 TAYYOR] -> frontend [v1.9.28 TAYYOR: `/insurance`, kassada polis].
 
 ### 6-bosqich: Analitika va AI (v2.0.0): TUGADI (v2.0.0)
 **Shart** (hisobotlar, 1C eksporti, sug'urta bo'linishi/qarzi/reyestri va AI xulosa bitta zanjirda) `backend/tests/test_e2e_stage6.py` bilan isbotlangan.
@@ -182,7 +182,8 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 
 ## Ochiq masalalar
 
-- **6-bosqich taxminlari:** shifokor foizi faqat bemor to'lovidan (sug'urta ulushidan hisoblanmaydi); sug'urta reyestri har so'rovda hisoblanadi (saqlangan hujjat yo'q); lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
+- **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori; (4) GitHub Actions Node 24 versiyalari. Keyin 7-bosqich (production, v2.1.x).
+- **6-bosqich taxminlari:** sug'urta reyestri har so'rovda hisoblanadi (saqlangan hujjat yo'q); lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
 
 - **3-bosqich real kalit/hujjat kutadi (hozir mock/test):** (1) Payme merchant ID va kalit: sandbox'da sinash, `PAYME_UNITS_CODE=796` (dona) taxmin;
   (2) Click service_id/merchant_id/secret: sandbox'da sinash, Click to'lovini qaytarish (reverse) API yozilmagan; (3) fiskal chek: real virtual kassa

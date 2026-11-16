@@ -56,7 +56,8 @@ class EntryOut(BaseModel):
     doctor: str
     service: str
     invoice_number: str
-    payment_id: str
+    payment_id: Optional[str] = None
+    source: str = "Patient"
     refund_id: Optional[str] = None
     rule_kind: CommissionKind
     rule_percent: Optional[Money] = None

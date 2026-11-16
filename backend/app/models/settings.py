@@ -22,6 +22,9 @@ class ClinicSettings(BranchScoped, BaseModel):
     discount_limit_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("10"), server_default="10")
     # Shifokor foizi asosi (qoidada ko'rsatilmasa): NetOfVat = chegirmadan keyin, QQS'siz; WithVat = QQS bilan
     commission_base: Mapped[str] = mapped_column(String(10), default="NetOfVat", server_default="NetOfVat")
+    # Foiz hisoblanadigan summa: FullAmount = xizmatning to'liq summasi (bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach);
+    # PatientOnly = faqat bemor to'lovidan
+    commission_scope: Mapped[str] = mapped_column(String(11), default="FullAmount", server_default="FullAmount")
     # Xabarlar: tungi vaqtda (klinika vaqti) yuborilmaydi, ertalabga qoldiriladi
     quiet_start_hour: Mapped[int] = mapped_column(Integer, default=21, server_default="21")
     quiet_end_hour: Mapped[int] = mapped_column(Integer, default=8, server_default="8")

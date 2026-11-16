@@ -45,14 +45,21 @@ def update_settings(data: ClinicSettings, db: Session = Depends(get_db),
 class FinanceSettings(BaseModel):
     commission_base: Literal["NetOfVat", "WithVat"] = Field(
         "NetOfVat", description="Foiz asosi: chegirmadan keyin QQS'siz (standart) yoki QQS bilan")
+    commission_scope: Literal["FullAmount", "PatientOnly"] = Field(
+        "FullAmount", description="Foiz summasi: xizmatning to'liq summasi (sug'urta ulushi kompaniya to'lagach) yoki faqat bemor to'lovi")
     discount_limit_percent: Money = Field(..., ge=0, le=100, max_digits=5, decimal_places=2,
                                             description="Kassir (finance:discount) bera oladigan eng katta chegirma, %")
+
+
+def _fin(row) -> dict:
+    return {"discount_limit_percent": row.discount_limit_percent, "commission_base": row.commission_base,
+            "commission_scope": row.commission_scope}
 
 
 @router.get("/settings/finance", tags=["⚙️ Settings"], response_model=FinanceSettings, summary="Moliya sozlamalari")
 def get_finance_settings(db: Session = Depends(get_db), user: CurrentUser = Depends(require("settings:read"))):
     row = _row(db, user)
-    return {"discount_limit_percent": row.discount_limit_percent, "commission_base": row.commission_base}
+    return _fin(row)
 
 
 @router.put("/settings/finance", tags=["⚙️ Settings"], response_model=FinanceSettings, summary="Moliya sozlamalarini yangilash",
@@ -60,13 +67,16 @@ def get_finance_settings(db: Session = Depends(get_db), user: CurrentUser = Depe
 def update_finance_settings(data: FinanceSettings, request: Request, db: Session = Depends(get_db),
                             user: CurrentUser = Depends(require("settings:write"))):
     row = _row(db, user)
-    old = row.discount_limit_percent, row.commission_base
+    old = row.discount_limit_percent, row.commission_base, row.commission_scope
     row.discount_limit_percent, row.commission_base = data.discount_limit_percent, data.commission_base
+    if "commission_scope" in data.model_fields_set:                     # yuborilmasa o'zgarmaydi
+        row.commission_scope = data.commission_scope
     audit.record(db, user, request, "update", "settings", row.id, {
         "discount_limit_percent": {"from": str(old[0]), "to": str(data.discount_limit_percent)},
-        "commission_base": {"from": old[1], "to": data.commission_base}})
+        "commission_base": {"from": old[1], "to": data.commission_base},
+        "commission_scope": {"from": old[2], "to": row.commission_scope}})
     db.commit()
-    return {"discount_limit_percent": row.discount_limit_percent, "commission_base": row.commission_base}
+    return _fin(row)
 
 
 class MessagingSettings(BaseModel):

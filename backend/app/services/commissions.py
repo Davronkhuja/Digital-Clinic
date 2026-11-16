@@ -4,11 +4,12 @@ Hamma summa Decimal/numeric(14,2). Asos: to'lov ulushi (qatorlarga `allocate` bi
 import uuid
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import CommissionEntry, CommissionRule, Invoice, InvoiceLine, Payment, PaymentRefund
+from app.models import CommissionEntry, CommissionRule, InsurerPayment, Invoice, InvoiceLine, Payment, PaymentRefund
 from app.schemas.enums import CommissionBase, CommissionEntryKind, CommissionKind
 from app.services import app_settings
 from app.services.invoicing import allocate
@@ -59,6 +60,57 @@ def accrue(db: Session, payment: Payment, inv: Invoice) -> list[CommissionEntry]
                                 branch_id=payment.branch_id, created_by=payment.created_by)
         db.add(entry)
         out.append(entry)
+    db.flush()
+    return out
+
+
+def reconcile_insurer(db: Session, insurer_id: uuid.UUID, trigger: InsurerPayment, actor_id: uuid.UUID | None) -> list[CommissionEntry]:
+    """Sug'urta ulushidan foiz: kompaniya to'lagan (FIFO taqsimlangan) summa uchun. Har qator uchun "maqsad" (to'langan ulushdan foiz) bilan
+    avval yozilgan Insurer yozuvlari yig'indisi farqi yoziladi: to'lov kelsa accrual (+), bekor qilinsa reversal (-). Idempotent.
+    `PatientOnly` sozlamada hisoblanmaydi. Qoida birinchi yozuvdan nusxalanadi (keyin o'zgarsa eski hisob buzilmaydi)."""
+    from app.services.insurance import fifo_allocations
+    today = clinic_today()
+    out = []
+    for inv, allocated in fifo_allocations(db, insurer_id):
+        if app_settings.commission_scope(db, inv.branch_id) != "FullAmount":
+            continue
+        lines = [ln for ln in db.scalars(select(InvoiceLine).where(InvoiceLine.invoice_id == inv.id).order_by(InvoiceLine.position))
+                 if (ln.insurer_amount or ZERO) > 0]
+        left = allocated
+        for i, ln in enumerate(lines):
+            share = left if i == len(lines) - 1 else q2(allocated * ln.insurer_amount / inv.insurer_total)
+            share = min(share, left)
+            left -= share
+            if not ln.doctor_id:
+                continue
+            prev = db.scalars(select(CommissionEntry).where(CommissionEntry.invoice_line_id == ln.id, CommissionEntry.source == "Insurer")
+                              .order_by(CommissionEntry.created_at)).all()
+            first = prev[0] if prev else None
+            if first:
+                rule = SimpleNamespace(kind=first.rule_kind, percent=first.rule_percent, fixed_amount=first.rule_fixed, id=first.rule_id)
+                kind = first.base_kind
+            else:
+                rule = resolve_rule(db, ln.doctor_id, ln.service_id, today)
+                if not rule or share <= 0:
+                    continue
+                kind = rule.base or CommissionBase(app_settings.commission_base(db, inv.branch_id))
+            vat = q2(share * ln.vat_percent / (100 + ln.vat_percent))
+            target_base = share - vat if kind == CommissionBase.net_of_vat else share
+            if rule.kind == CommissionKind.percent:
+                target = q2(target_base * rule.percent / 100)
+            else:
+                target = q2(q2(rule.fixed_amount * ln.quantity) * share / ln.net_total) if ln.net_total else ZERO
+            d_amount = target - q2(sum((e.amount for e in prev), ZERO))
+            d_base = target_base - q2(sum((e.base_amount for e in prev), ZERO))
+            if d_amount == 0 and d_base == 0:
+                continue
+            accrual = d_amount > 0 or (d_amount == 0 and d_base > 0)
+            entry = CommissionEntry(kind=CommissionEntryKind.accrual if accrual else CommissionEntryKind.reversal, source="Insurer", doctor_id=ln.doctor_id,
+                                    service_id=ln.service_id, payment_id=None, insurer_payment_id=trigger.id, invoice_line_id=ln.id,
+                                    rule_id=rule.id, rule_kind=rule.kind, rule_percent=rule.percent, rule_fixed=rule.fixed_amount, base_kind=kind,
+                                    base_amount=d_base, amount=d_amount, entry_date=today, branch_id=inv.branch_id, created_by=actor_id)
+            db.add(entry)
+            out.append(entry)
     db.flush()
     return out
 

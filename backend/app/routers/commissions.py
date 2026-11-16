@@ -16,7 +16,7 @@ from app.models import (
     CommissionRule,
     CommissionSettlement,
     Invoice,
-    Payment,
+    InvoiceLine,
     Service,
     Staff,
     Transaction,
@@ -108,7 +108,7 @@ def list_entries(request: Request, month: str = Query(..., examples=["2026-11"])
     doctor_id = _scope_doctor(user, doctor_id)
     stmt = (select(CommissionEntry, Staff.full_name, Service.name, Invoice.number)
             .join(Staff, CommissionEntry.doctor_id == Staff.id).join(Service, CommissionEntry.service_id == Service.id)
-            .join(Payment, CommissionEntry.payment_id == Payment.id).join(Invoice, Payment.invoice_id == Invoice.id)
+            .join(InvoiceLine, CommissionEntry.invoice_line_id == InvoiceLine.id).join(Invoice, InvoiceLine.invoice_id == Invoice.id)
             .where(CommissionEntry.entry_date >= start, CommissionEntry.entry_date < end, Staff.branch_id == user.branch_id)
             .order_by(CommissionEntry.entry_date, CommissionEntry.created_at))
     if doctor_id:
@@ -116,7 +116,7 @@ def list_entries(request: Request, month: str = Query(..., examples=["2026-11"])
     rows = db.execute(stmt).all()
     audit.record_read(db, user, request, "commission", details={"month": month, "count": len(rows)})
     return [{"id": str(e.id), "kind": e.kind, "doctor_id": str(e.doctor_id), "doctor": doc, "service": svc, "invoice_number": num,
-             "payment_id": str(e.payment_id), "refund_id": str(e.refund_id) if e.refund_id else None, "rule_kind": e.rule_kind,
+             "payment_id": str(e.payment_id) if e.payment_id else None, "source": e.source, "refund_id": str(e.refund_id) if e.refund_id else None, "rule_kind": e.rule_kind,
              "rule_percent": e.rule_percent, "rule_fixed": e.rule_fixed, "base_kind": e.base_kind, "base_amount": e.base_amount, "amount": e.amount,
              "entry_date": e.entry_date, "settled": e.settlement_id is not None} for e, doc, svc, num in rows]
 

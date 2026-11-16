@@ -51,7 +51,8 @@ def create_branch(data: BranchIn, request: Request, db: Session = Depends(get_db
         branch_id=branch.id, clinic_name=base.clinic_name if base else "Digital Clinic", address=branch.address, phone=branch.phone,
         email=base.email if base else None, currency=base.currency if base else "UZS", timezone=base.timezone if base else "Asia/Tashkent",
         language=base.language if base else "uz", discount_limit_percent=base.discount_limit_percent if base else 10,
-        commission_base=base.commission_base if base else "NetOfVat", quiet_start_hour=base.quiet_start_hour if base else 21,
+        commission_base=base.commission_base if base else "NetOfVat",
+        commission_scope=base.commission_scope if base else "FullAmount", quiet_start_hour=base.quiet_start_hour if base else 21,
         quiet_end_hour=base.quiet_end_hour if base else 8, created_by=user.id))
     audit.record(db, user, request, "create", "branch", branch.id, {"name": branch.name})
     db.commit()

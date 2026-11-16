@@ -19,6 +19,14 @@
         </select>
         <p class="text-xs text-slate-400 mt-1">Qoidada asos aniq ko'rsatilmagan bo'lsa shu qo'llanadi. O'zgarish faqat keyingi to'lovlardan hisoblanadigan foizga ta'sir qiladi; hisoblangan yozuvlar o'zgarmaydi.</p>
       </div>
+      <div>
+        <label class="text-sm font-medium block mb-1" :class="dark ? 'text-slate-300' : 'text-slate-700'">Shifokor foizi qaysi summadan</label>
+        <select v-model="form.commission_scope" class="input w-72">
+          <option value="FullAmount">Xizmatning to'liq summasidan</option>
+          <option value="PatientOnly">Faqat bemor to'lovidan</option>
+        </select>
+        <p class="text-xs text-slate-400 mt-1">To'liq summa: bemor ulushidan foiz to'lov paytida, sug'urta ulushidan esa kompaniya to'lagach hisoblanadi (to'lov bekor qilinsa teskari yoziladi). Faqat bemor to'lovidan: sug'urta ulushidan foiz yozilmaydi.</p>
+      </div>
       <div class="flex justify-end"><button class="btn-primary text-sm" :disabled="saving" @click="save">Saqlash</button></div>
     </template>
   </div>
@@ -33,7 +41,7 @@ import { useThemeStore } from '@/stores/theme'
 const toast = useToast()
 const theme = useThemeStore()
 const dark = computed(() => theme.isDark)
-const form = reactive({ discount_limit_percent: 10, commission_base: 'NetOfVat' })
+const form = reactive({ discount_limit_percent: 10, commission_base: 'NetOfVat', commission_scope: 'FullAmount' })
 const error = ref(false), saving = ref(false)
 
 async function load() {

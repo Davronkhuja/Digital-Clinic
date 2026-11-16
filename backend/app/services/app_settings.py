@@ -19,6 +19,11 @@ def discount_limit(db: Session, branch_id: uuid.UUID) -> Decimal:
     return row.discount_limit_percent if row else DEFAULT_DISCOUNT_LIMIT
 
 
+def commission_scope(db: Session, branch_id: uuid.UUID) -> str:
+    row = clinic_row(db, branch_id)
+    return row.commission_scope if row else "FullAmount"
+
+
 def commission_base(db: Session, branch_id: uuid.UUID) -> str:
     row = clinic_row(db, branch_id)
     return row.commission_base if row else "NetOfVat"

@@ -163,6 +163,25 @@ def _month_end(d: date) -> date:
     return nxt - timedelta(days=1)
 
 
+def fifo_allocations(db: Session, insurer_id: uuid.UUID) -> list[tuple]:
+    """[(hisob-faktura, unga FIFO bo'yicha taqsimlangan kompaniya to'lovi)]: `receivables` bilan bir xil tartib va qoida."""
+    from sqlalchemy import func
+
+    from app.models import Invoice
+    from app.schemas.enums import InvoiceStatus
+    invoices = db.scalars(select(Invoice).where(
+        Invoice.insurer_id == insurer_id, Invoice.insurer_total > 0,
+        Invoice.status.in_([InvoiceStatus.issued, InvoiceStatus.partially_paid, InvoiceStatus.paid])).order_by(Invoice.issued_at, Invoice.number)).all()
+    left = Decimal(db.scalar(select(func.coalesce(func.sum(InsurerPayment.amount), 0)).where(
+        InsurerPayment.insurer_id == insurer_id, InsurerPayment.reversed_at.is_(None))))
+    out = []
+    for inv in invoices:
+        allocated = min(left, inv.insurer_total)
+        left -= allocated
+        out.append((inv, allocated))
+    return out
+
+
 def receivables(db: Session, insurer_id: uuid.UUID, today: date | None = None) -> dict:
     """Kompaniya qarzi: bekor qilinmagan, chiqarilgan hisob-fakturalardagi sug'urta ulushi (hamma filial) minus kompaniya to'lovlari.
     To'lovlar eng eski hisob-fakturalarga (FIFO) taqsimlanadi. To'lov muddati = hisob-faktura oyi oxiri + kompaniyaning to'lov kunlari."""

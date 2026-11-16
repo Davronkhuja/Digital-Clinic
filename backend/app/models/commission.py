@@ -48,11 +48,18 @@ class CommissionEntry(BranchScoped, BaseModel):
     """Foiz yozuvi: to'lov `Paid` bo'lganda `Accrual` (+), qaytarishda `Reversal` (-, proporsional). Qoida nusxalanadi."""
 
     __tablename__ = "commission_entries"
+    __table_args__ = (
+        CheckConstraint("source IN ('Patient', 'Insurer')", name="source_value"),
+        CheckConstraint("(source = 'Patient' AND payment_id IS NOT NULL) OR (source = 'Insurer' AND insurer_payment_id IS NOT NULL)", name="source_payment"),
+    )
 
     kind: Mapped[CommissionEntryKind] = mapped_column(enum_col(CommissionEntryKind, "kind", 9))
     doctor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("staff.id", ondelete="RESTRICT"), index=True)
     service_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="RESTRICT"))
-    payment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="RESTRICT"), index=True)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="RESTRICT"), index=True)  # Patient manbasi
+    # Insurer manbasi: sug'urta ulushidan foiz kompaniya to'lovi (yoki bekor qilinishi) paytida qoldiq bo'yicha tuzatiladi
+    insurer_payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("insurer_payments.id", ondelete="RESTRICT"), index=True)
+    source: Mapped[str] = mapped_column(String(7), default="Patient", server_default="Patient")
     refund_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_refunds.id", ondelete="RESTRICT"))
     invoice_line_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoice_lines.id", ondelete="RESTRICT"))
     accrual_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("commission_entries.id", ondelete="RESTRICT"))

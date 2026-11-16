@@ -45,7 +45,7 @@ from app.schemas import (
     ReverseIn,
 )
 from app.services import attachments as att
-from app.services import audit
+from app.services import audit, commissions
 from app.services import insurance as ins
 from app.services.lookup import get_patient_or_404
 from app.services.periods import clinic_today
@@ -476,7 +476,9 @@ def create_insurer_payment(data: InsurerPaymentIn, request: Request, db: Session
                        branch_id=user.branch_id, created_by=user.id)
     db.add(p)
     db.flush()
-    audit.record(db, user, request, "create", "insurer_payment", p.id, {"insurer": insurer.name, "amount": str(p.amount), "reference": p.reference})
+    entries = commissions.reconcile_insurer(db, insurer.id, p, user.id)
+    audit.record(db, user, request, "create", "insurer_payment", p.id, {"insurer": insurer.name, "amount": str(p.amount), "reference": p.reference,
+                                                                        "commission_entries": len(entries)})
     db.commit()
     return payment_out(db, p)
 
@@ -500,7 +502,10 @@ def reverse_insurer_payment(payment_id: uuid.UUID, data: ReverseIn, request: Req
         raise HTTPException(409, "To'lov allaqachon bekor qilingan")
     from datetime import UTC, datetime
     p.reversed_at, p.reverse_reason = datetime.now(UTC), data.reason.strip()
-    audit.record(db, user, request, "update", "insurer_payment", p.id, {"reversed": True, "reason": p.reverse_reason, "amount": str(p.amount)})
+    db.flush()
+    entries = commissions.reconcile_insurer(db, p.insurer_id, p, user.id)
+    audit.record(db, user, request, "update", "insurer_payment", p.id, {"reversed": True, "reason": p.reverse_reason, "amount": str(p.amount),
+                                                                        "commission_entries": len(entries)})
     db.commit()
     return payment_out(db, p)
 
