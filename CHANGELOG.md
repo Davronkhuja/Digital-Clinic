@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.1.0] - 2026-11-16
+7-bosqich (production'ga tayyorgarlik) boshlandi.
+### Added
+- `docker-compose.prod.yml`: tashqariga faqat Caddy (80/443) ochiq; backend, frontend, db, redis host portiga chiqmaydi; kod volume'i yo'q; hamma xizmatda healthcheck, `restart: always`, resurs limitlari (cpu/xotira), `APP_ENV=production`, `SEED_DEMO=false`, CORS va `PUBLIC_BASE_URL` `https://${DOMAIN}`dan.
+- `deploy/Caddyfile`: Caddy reverse proxy va avtomatik HTTPS (Let's Encrypt; `DOMAIN=localhost` bo'lsa ichki sertifikat). `.env.example` ga production bo'limi (`DOMAIN`, `ACME_EMAIL`, `UVICORN_WORKERS`, `HTTP_PORT`, `HTTPS_PORT`, `TRUSTED_PROXIES`).
+- `entrypoint.sh`: `UVICORN_WORKERS` (standart 1).
+
 ## [2.0.3] - 2026-11-16
 ### Added
 - Sug'urta reyestri hujjat bo'ldi (kompaniya + oy + filial): `Draft` (jonli hisob) -> `Sent` (qatorlar qotadi, Excel fayli Storage'ga SHA-256 bilan saqlanadi, o'zgarmaydi) -> `Reconciled` (kompaniya to'lovi bilan solishtirilgan). Endpointlar: `POST/GET /insurance/registries`, `GET .../{id}`, `POST .../{id}/send`, `GET .../{id}/file`, `POST .../{id}/reconcile`. Jadvallar `insurance_registries`, `insurance_registry_lines`. Migratsiya 0052.

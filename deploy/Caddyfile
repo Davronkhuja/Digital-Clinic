@@ -1,0 +1,12 @@
+# Caddy: avtomatik HTTPS (Let's Encrypt). DOMAIN va ACME_EMAIL .env dan olinadi (docker-compose.prod.yml).
+# DOMAIN=localhost bo'lsa Caddy o'zining ichki sertifikatini beradi (lokal sinov).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	# Hamma narsa frontend (nginx) ga: u statik fayllarni beradi va /api/ ni backend'ga yo'naltiradi.
+	# Backend portlari tashqariga ochilmagan.
+	reverse_proxy frontend:80
+}
