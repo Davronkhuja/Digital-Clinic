@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     link_secret: str = ""  # imzolangan havolalar kaliti; bo'sh bo'lsa jwt_secret dan olinadi
 
+    # Kuzatuv: LOG_FORMAT=json|text (bo'sh: productionda json, aks holda text), LOG_LEVEL; SENTRY_DSN (ixtiyoriy, PII yuborilmaydi);
+    # METRICS_TOKEN berilsa GET /metrics (Bearer) ochiladi, bo'sh bo'lsa o'chiq
+    log_format: str = ""
+    log_level: str = "INFO"
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    metrics_token: str = ""
+
     # AI
     ai_enabled: bool = False
     llm_base_url: str = "https://api.groq.com/openai/v1"
@@ -89,6 +97,10 @@ class Settings(BaseSettings):
             if self.mock_sms_outbox:
                 raise ValueError("Production'da MOCK_SMS_OUTBOX ishlatib bo'lmaydi")
         return self
+
+    @property
+    def json_logs(self) -> bool:
+        return (self.log_format or ("json" if self.is_production else "text")).strip().lower() == "json"
 
     @property
     def is_production(self) -> bool:

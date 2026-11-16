@@ -4,12 +4,16 @@ Digital Clinic AI - FastAPI Backend
 API hujjatlari: /docs (Swagger UI) yoki /redoc
 """
 import logging
+import time
+import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.core.config import settings
+from app.core.logging_setup import setup_logging
+from app.core.observability import init_sentry
 from app.routers import (
     access,
     ai,
@@ -29,6 +33,7 @@ from app.routers import (
     lab,
     messaging,
     notifications,
+    ops,
     patients,
     payme,
     payments,
@@ -47,7 +52,9 @@ from app.routers import (
 )
 from app.routers import settings as settings_router
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
+init_sentry()
+access_log = logging.getLogger("app.access")
 
 app = FastAPI(
     title="Digital Clinic AI",
@@ -104,6 +111,24 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def access_logger(request: Request, call_next):
+    """Har so'rovga bitta jurnal yozuvi: usul, marshrut shabloni (query va yo'l parametrlari YO'Q), status, vaqt, so'rov ID."""
+    rid = request.headers.get("x-request-id", "")[:64] or uuid.uuid4().hex
+    started = time.perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        response.headers["X-Request-ID"] = rid
+        return response
+    finally:
+        route = request.scope.get("route")
+        if request.url.path not in ("/health", "/ready"):
+            access_log.info("request", extra={"request_id": rid, "method": request.method, "route": getattr(route, "path", "unmatched"),
+                                              "status": status, "duration_ms": round((time.perf_counter() - started) * 1000, 1)})
+
+
 @app.get("/", tags=["Root"], summary="API sog'ligi tekshiruvi")
 def root():
     """API ishlayotganini tekshirish uchun endpoint."""
@@ -112,5 +137,5 @@ def root():
 
 for module in (access, auth, branches, security, patients, appointments, emr, finance, analytics, ai, staff, settings_router,
                reports, rooms, schedule, waitlist, icd10, lab, attachments, services, invoices, payments, payme, click,
-               commissions, shifts, exports, insurance, messaging, notifications, public, public_booking, portal, warehouse):
+               commissions, shifts, exports, insurance, messaging, notifications, ops, public, public_booking, portal, warehouse):
     app.include_router(module.router)

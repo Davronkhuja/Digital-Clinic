@@ -183,6 +183,7 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 ## 7-bosqich: production (v2.1.x), jarayonda
 - `docker-compose.prod.yml` (Caddy HTTPS, backend tashqariga ochilmaydi, limitlar), `deploy/Caddyfile` [v2.1.0]. Prod backend `APP_ENV=production` da zaif sirlar, `SEED_DEMO=true`, http originlar, `SMS_BACKEND=mock` bilan ishga tushmaydi (`config.production_problems`) [v2.1.1].
 - **Production SMS:** haqiqiy provayder adapteri yo'q (hujjat/kalit kutilmoqda), shuning uchun `SMS_BACKEND=disabled` (xabar `Failed`, portalda telefon bilan kirish 503). Real provayder qo'shilganda shu rejim almashtiriladi.
+- Kuzatuv [v2.1.2]: JSON log PII'siz (`core/logging_setup.py`, marshrut shabloni, so'rov ID), `/health`, `/ready` (baza), `/metrics` (`METRICS_TOKEN`, Celery navbati), ixtiyoriy Sentry.
 - Yangi sozlama qo'shsangiz `.env.example` ga ham yozing (test tekshiradi).
 
 ## Ochiq masalalar

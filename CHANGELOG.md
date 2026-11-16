@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.1.2] - 2026-11-16
+### Added
+- Tuzilmali JSON log (`LOG_FORMAT`, productionda standart): har so'rovga bitta yozuv (usul, marshrut SHABLONI, status, vaqt, `request_id`); query, yo'l parametrlari, tana va sarlavhalar yozilmaydi; qo'shimcha himoya: email, telefon, uzun raqam (PINFL) va JWT yashiriladi. `X-Request-ID` qabul qilinadi/qaytariladi. uvicorn access logi o'chirildi.
+- `GET /health` (jarayon tirik), `GET /ready` (baza ishlamasa 503; Redis holati maydonda), `GET /metrics` (Prometheus, `METRICS_TOKEN` bilan; Celery navbat uzunligi, Redis holati, xabarlar holati va kechikkan navbatdagi xabarlar). nginx `/api/metrics` ni tashqariga bermaydi. Docker healthcheck `/health`.
+- Ixtiyoriy Sentry (`SENTRY_DSN`): PII yuborilmaydi (`send_default_pii=False`, so'rov tanasi va sarlavhalar olib tashlanadi). `sentry-sdk==2.19.2`.
+- Test: `test_observability.py`.
+
 ## [2.1.1] - 2026-11-16
 ### Added
 - Production qo'riqchisi: `APP_ENV=production` da zaif/standart `JWT_SECRET`, DB paroli, `ADMIN_PASSWORD` (kamida 32/12/12 belgi, "password", "admin", "clinic" kabi so'zsiz, xilma-xil), `SEED_DEMO=true`, http:// `CORS_ORIGINS`/`PUBLIC_BASE_URL` va `SMS_BACKEND=mock` bilan backend ishga tushmaydi; hamma muammo bir xabarda.
