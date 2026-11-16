@@ -151,5 +151,59 @@ class InsurerPayment(BranchScoped, BaseModel):
     paid_on: Mapped[date] = mapped_column(Date)
     reference: Mapped[str | None] = mapped_column(String(100))      # to'lov topshiriqnomasi raqami
     notes: Mapped[str | None] = mapped_column(Text)
+    registry_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("insurance_registries.id", ondelete="RESTRICT"), index=True)
     reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reverse_reason: Mapped[str | None] = mapped_column(String(300))
+
+
+class InsuranceRegistry(BranchScoped, BaseModel):
+    """Oylik reyestr hujjati (kompaniya + oy + filial): Draft (jonli hisob) -> Sent (qotgan nusxa, Excel fayli saqlanadi, o'zgarmaydi) -> Reconciled
+    (kompaniya to'lovi bilan solishtirilgan). Yuborilgandan keyin o'zgargan hisob-faktura qatori keyingi reyestrga tuzatish qatori bo'lib tushadi."""
+
+    __tablename__ = "insurance_registries"
+    __table_args__ = (
+        UniqueConstraint("insurer_id", "month", "branch_id"),
+        CheckConstraint("status IN ('Draft', 'Sent', 'Reconciled')", name="status_value"),
+    )
+
+    insurer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurers.id", ondelete="RESTRICT"), index=True)
+    month: Mapped[date] = mapped_column(Date)                       # oyning 1-kuni
+    number: Mapped[str] = mapped_column(String(40), unique=True)
+    status: Mapped[str] = mapped_column(String(10), default="Draft", server_default="Draft")
+    insurer_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))   # Sent dan keyin qotgan
+    patient_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    lines_count: Mapped[int | None] = mapped_column(Integer)
+    invoices_count: Mapped[int | None] = mapped_column(Integer)
+    file_key: Mapped[str | None] = mapped_column(String(80))
+    file_name: Mapped[str | None] = mapped_column(String(200))
+    file_size: Mapped[int | None] = mapped_column(Integer)
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reconciled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reconcile_note: Mapped[str | None] = mapped_column(String(500))
+    paid_at_reconcile: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+
+
+class InsuranceRegistryLine(BaseModel):
+    """Yuborilgan reyestrning qotgan qatori. `Correction`: avval yuborilgan qatorga nisbatan farq (musbat yoki manfiy)."""
+
+    __tablename__ = "insurance_registry_lines"
+    __table_args__ = (CheckConstraint("kind IN ('Original', 'Correction')", name="kind_value"),)
+
+    registry_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("insurance_registries.id", ondelete="RESTRICT"), index=True)
+    invoice_line_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("invoice_lines.id", ondelete="RESTRICT"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))
+    line_date: Mapped[date] = mapped_column(Date)
+    invoice_number: Mapped[str] = mapped_column(String(30))
+    patient: Mapped[str] = mapped_column(String(200))
+    policy: Mapped[str | None] = mapped_column(String(50))
+    letter: Mapped[str | None] = mapped_column(String(50))
+    contract: Mapped[str | None] = mapped_column(String(50))
+    service: Mapped[str] = mapped_column(String(300))
+    qty: Mapped[int] = mapped_column(Integer)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    insurer_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    patient_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    branch: Mapped[str] = mapped_column(String(200))

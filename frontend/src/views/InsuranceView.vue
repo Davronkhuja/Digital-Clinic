@@ -76,7 +76,19 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
             <div class="col-span-2"><label class="lbl">Kompaniya</label><select v-model="reg.insurer_id" class="input" data-testid="reg-insurer"><option v-for="i in insurers" :key="i.id" :value="i.id">{{ i.name }}</option></select></div>
             <div><label class="lbl">Oy</label><input v-model="reg.month" type="month" class="input" data-testid="reg-month" /></div>
-            <button class="btn-primary" :disabled="!reg.insurer_id" data-testid="reg-download" @click="downloadRegistry">Reyestrni yuklash</button>
+            <button class="btn-secondary" :disabled="!reg.insurer_id" data-testid="reg-download" @click="downloadRegistry">Tezkor yuklash</button>
+            <button class="btn-primary" :disabled="!reg.insurer_id || busy" data-testid="reg-create" @click="createRegistry">Reyestr hujjatini ochish</button>
+          </div>
+          <p class="text-xs text-slate-400">Hujjat: qoralama (jonli) → yuborilgan (qotadi, Excel saqlanadi) → solishtirilgan. Yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori bo'lib tushadi.</p>
+          <div class="table-container rounded-none border-0">
+            <table class="table text-sm" data-testid="reg-docs"><thead><tr><th>Raqam</th><th>Kompaniya</th><th>Oy</th><th>Holat</th><th class="text-right">Sug'urta ulushi</th><th class="text-right">To'langan</th><th class="text-right">Qoldiq</th><th></th></tr></thead>
+              <tbody><tr v-for="r in registries" :key="r.id" :data-testid="`reg-doc-${r.number}`"><td class="font-mono">{{ r.number }}</td><td>{{ r.insurer }}</td><td>{{ r.month }}</td>
+                <td><span :class="['badge', regClass[r.status]]">{{ regLabel[r.status] }}</span><span v-if="r.corrections" class="text-xs text-amber-600 ml-1">tuzatish: {{ r.corrections }}</span></td>
+                <td class="text-right font-mono">{{ fmt(r.insurer_total) }}</td><td class="text-right font-mono">{{ fmt(r.paid) }}</td><td class="text-right font-mono">{{ fmt(r.balance) }}</td>
+                <td class="whitespace-nowrap"><button class="text-xs text-cyan-600 hover:underline mr-2" @click="downloadRegistryDoc(r)">Excel</button>
+                  <button v-if="r.status === 'Draft'" class="text-xs text-cyan-600 hover:underline" data-testid="reg-send" @click="sendRegistry(r)">Yuborish</button>
+                  <button v-if="r.status === 'Sent'" class="text-xs text-cyan-600 hover:underline" data-testid="reg-reconcile" @click="reconcileRegistry(r)">Solishtirish</button></td></tr>
+                <tr v-if="!registries.length"><td colspan="8" class="text-center text-slate-400 py-4">Reyestr hujjati yo'q</td></tr></tbody></table>
           </div>
         </div>
       </div>
@@ -151,6 +163,8 @@
           <div><label class="lbl">Summa *</label><input v-model.number="payForm.amount" type="number" min="1" step="0.01" class="input" data-testid="pay-amount" /></div>
           <div><label class="lbl">Sana</label><input v-model="payForm.paid_on" type="date" :max="today" class="input" /></div>
           <div class="col-span-2"><label class="lbl">Topshiriqnoma raqami</label><input v-model="payForm.reference" class="input" /></div>
+          <div v-if="sentOf(payForm.insurer_id).length" class="col-span-2"><label class="lbl">Reyestrga bog'lash (ixtiyoriy)</label>
+            <select v-model="payForm.registry_id" class="input" data-testid="pay-registry"><option value="">Bog'lamaslik</option><option v-for="r in sentOf(payForm.insurer_id)" :key="r.id" :value="r.id">{{ r.number }} (qoldiq {{ fmt(r.balance) }})</option></select></div>
         </div>
         <div class="flex justify-end gap-2"><button class="btn-secondary" @click="modal = ''">Bekor</button><button class="btn-primary" :disabled="busy" data-testid="pay-save" @click="savePayment">Saqlash</button></div></div>
     </div>
@@ -188,7 +202,9 @@ const letterClass = { Active: 'badge-green', Expired: 'badge-yellow', Exhausted:
 
 const tab = ref('insurers'), modal = ref(''), busy = ref(false)
 const insurers = ref([]), contracts = ref([]), services = ref([]), policies = ref([]), letters = ref([]), debts = ref([]), debtDetail = ref(null)
-const policySearch = ref('')
+const policySearch = ref(''), registries = ref([])
+const regLabel = { Draft: 'Qoralama', Sent: 'Yuborilgan', Reconciled: 'Solishtirilgan' }
+const regClass = { Draft: 'badge-slate', Sent: 'badge-yellow', Reconciled: 'badge-green' }
 const contractsOf = id => contracts.value.filter(c => c.insurer_id === id)
 
 async function loadCatalog() {
@@ -204,7 +220,10 @@ async function loadPolicies() {
     letters.value = (await api.get('/insurance/guarantee-letters')).data
   } catch (e) { toast.error(e, "Polislarni yuklab bo'lmadi") }
 }
-async function loadDebts() { try { debts.value = (await api.get('/insurance/debts')).data } catch (e) { toast.error(e, "Qarzdorlikni yuklab bo'lmadi") } }
+async function loadDebts() {
+  try { debts.value = (await api.get('/insurance/debts')).data; if (canManage.value) await loadRegistries() } catch (e) { toast.error(e, "Qarzdorlikni yuklab bo'lmadi") }
+}
+async function loadRegistries() { registries.value = (await api.get('/insurance/registries')).data }
 watch(tab, t => { if (t === 'policies') loadPolicies(); if (t === 'debts') loadDebts() })
 
 // Kompaniya
@@ -279,15 +298,36 @@ async function cancelLetter(g) {
 }
 
 // Qarz, to'lov, reyestr
-const payForm = reactive({ insurer_id: '', insurer: '', amount: null, paid_on: today, reference: '' })
-function openPayment(d) { Object.assign(payForm, { insurer_id: d.insurer_id, insurer: d.insurer, amount: null, paid_on: today, reference: '' }); modal.value = 'payment' }
+const payForm = reactive({ insurer_id: '', insurer: '', amount: null, paid_on: today, reference: '', registry_id: '' })
+const sentOf = id => registries.value.filter(r => r.insurer_id === id && r.status === 'Sent')
+function openPayment(d) { Object.assign(payForm, { insurer_id: d.insurer_id, insurer: d.insurer, amount: null, paid_on: today, reference: '', registry_id: '' }); modal.value = 'payment' }
 async function savePayment() {
   busy.value = true
-  try { await api.post('/insurance/payments', { insurer_id: payForm.insurer_id, amount: payForm.amount, paid_on: payForm.paid_on || null, reference: payForm.reference || null }); toast.success("To'lov yozildi"); modal.value = ''; await loadDebts() }
+  try { await api.post('/insurance/payments', { insurer_id: payForm.insurer_id, amount: payForm.amount, paid_on: payForm.paid_on || null, reference: payForm.reference || null, registry_id: payForm.registry_id || null }); toast.success("To'lov yozildi"); modal.value = ''; await loadDebts() }
   catch (e) { toast.error(e, "To'lovni yozib bo'lmadi") } finally { busy.value = false }
 }
 async function openDebt(d) { try { debtDetail.value = (await api.get(`/insurance/debts/${d.insurer_id}`)).data } catch (e) { toast.error(e, "Qarz tafsilotini yuklab bo'lmadi") } }
 const reg = reactive({ insurer_id: '', month: today.slice(0, 7) })
+async function createRegistry() {
+  busy.value = true
+  try { await api.post('/insurance/registries', { insurer_id: reg.insurer_id, month: reg.month }); toast.success('Reyestr hujjati ochildi'); await loadRegistries() }
+  catch (e) { toast.error(e, "Reyestrni ochib bo'lmadi") } finally { busy.value = false }
+}
+async function sendRegistry(r) {
+  if (!window.confirm(`${r.number} yuboriladi: qatorlar qotadi va o'zgarmaydi. Davom etasizmi?`)) return
+  try { await api.post(`/insurance/registries/${r.id}/send`); toast.success('Reyestr yuborildi'); await loadRegistries() } catch (e) { toast.error(e, "Yuborib bo'lmadi") }
+}
+async function reconcileRegistry(r) {
+  let note = null
+  if (r.balance > 0) { note = window.prompt(`To'lov ${fmt(r.balance)} so'mga kam. Farq sababi:`); if (!note || note.trim().length < 5) return }
+  try { await api.post(`/insurance/registries/${r.id}/reconcile`, { note }); toast.success('Reyestr solishtirildi'); await loadRegistries() } catch (e) { toast.error(e, "Solishtirib bo'lmadi") }
+}
+async function downloadRegistryDoc(r) {
+  try {
+    const { data } = await api.get(`/insurance/registries/${r.id}/file`, { responseType: 'blob' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(data); a.download = `${r.number}.xlsx`; document.body.appendChild(a); a.click(); a.remove()
+  } catch (e) { toast.error(e, "Faylni yuklab bo'lmadi") }
+}
 async function downloadRegistry() {
   try {
     const { data } = await api.get('/insurance/registry', { params: { insurer_id: reg.insurer_id, month: reg.month, format: 'xlsx' }, responseType: 'blob' })

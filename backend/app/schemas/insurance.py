@@ -1,5 +1,6 @@
 # ruff: noqa: E501
 from datetime import date
+from datetime import date as date_t
 from decimal import Decimal
 from typing import Annotated, List, Optional
 
@@ -229,6 +230,7 @@ class InsurerPaymentIn(BaseModel):
     paid_on: Optional[date] = Field(None, description="To'lov sanasi (standart: bugun; kelajak sanasi mumkin emas)")
     reference: Optional[str] = Field(None, max_length=100, description="To'lov topshiriqnomasi raqami")
     notes: Optional[str] = Field(None, max_length=1000)
+    registry_id: Optional[str] = Field(None, description="Yuborilgan (Sent) reyestrga bog'lash (xuddi shu kompaniya)")
 
 
 class InsurerPaymentOut(BaseModel):
@@ -239,6 +241,7 @@ class InsurerPaymentOut(BaseModel):
     paid_on: date
     reference: Optional[str] = None
     notes: Optional[str] = None
+    registry_id: Optional[str] = None
     reversed: bool
     reverse_reason: Optional[str] = None
     created_at: str
@@ -280,3 +283,54 @@ class DebtOut(BaseModel):
     overdue: Money = Field(..., description="Muddati o'tgan qarz")
     aging: AgingOut
     open_invoices: List[OpenInvoiceOut]
+
+
+class RegistryCreateIn(BaseModel):
+    insurer_id: str
+    month: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$", examples=["2026-11"])
+
+
+class RegistryReconcileIn(BaseModel):
+    note: Optional[str] = Field(None, max_length=500, description="To'lov reyestr summasidan kam bo'lsa majburiy (farq sababi)")
+
+
+class RegistryRow(BaseModel):
+    invoice_line_id: str
+    kind: str
+    date: date_t
+    invoice: str
+    patient: str
+    policy: Optional[str] = None
+    letter: Optional[str] = None
+    contract: Optional[str] = None
+    service: str
+    qty: int
+    line_total: Money
+    insurer_amount: Money
+    patient_amount: Money
+    branch: str
+
+
+class RegistryOut(BaseModel):
+    id: str
+    number: str
+    insurer_id: str
+    insurer: str
+    month: str
+    status: str
+    insurer_total: Money
+    patient_total: Money
+    lines_count: int
+    invoices_count: int
+    corrections: int
+    paid: Money
+    balance: Money
+    file_name: Optional[str] = None
+    file_sha256: Optional[str] = None
+    sent_at: Optional[str] = None
+    reconciled_at: Optional[str] = None
+    reconcile_note: Optional[str] = None
+
+
+class RegistryDetail(RegistryOut):
+    rows: List[RegistryRow]

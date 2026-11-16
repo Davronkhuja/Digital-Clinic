@@ -19,6 +19,7 @@ from app.models import (
     GuaranteeLetterService,
     InsuranceContract,
     InsuranceContractService,
+    InsuranceRegistry,
     Insurer,
     InsurerPayment,
     Patient,
@@ -42,11 +43,16 @@ from app.schemas import (
     PolicyIn,
     PolicyOut,
     PolicyUpdate,
+    RegistryCreateIn,
+    RegistryDetail,
+    RegistryOut,
+    RegistryReconcileIn,
     ReverseIn,
 )
 from app.services import attachments as att
 from app.services import audit, commissions
 from app.services import insurance as ins
+from app.services import insurance_registry as reg_svc
 from app.services.lookup import get_patient_or_404
 from app.services.periods import clinic_today
 from app.services.storage import get_storage
@@ -460,7 +466,7 @@ def download_letter_file(letter_id: uuid.UUID, request: Request, db: Session = D
 
 def payment_out(db: Session, p: InsurerPayment) -> dict:
     return {"id": str(p.id), "insurer_id": str(p.insurer_id), "insurer": db.get(Insurer, p.insurer_id).name, "amount": p.amount, "paid_on": p.paid_on, "reference": p.reference,
-            "notes": p.notes, "reversed": p.reversed_at is not None, "reverse_reason": p.reverse_reason, "created_at": p.created_at.isoformat()}
+            "notes": p.notes, "registry_id": str(p.registry_id) if p.registry_id else None, "reversed": p.reversed_at is not None, "reverse_reason": p.reverse_reason, "created_at": p.created_at.isoformat()}
 
 
 @router.post("/insurance/payments", tags=[TAG], response_model=InsurerPaymentOut, status_code=201, summary="Kompaniyadan kelgan to'lovni yozish",
@@ -472,8 +478,15 @@ def create_insurer_payment(data: InsurerPaymentIn, request: Request, db: Session
     paid_on = data.paid_on or clinic_today()
     if paid_on > clinic_today():
         raise HTTPException(422, "To'lov sanasi kelajakda bo'lishi mumkin emas")
+    registry = None
+    if data.registry_id:
+        registry = db.get(InsuranceRegistry, _uuid(data.registry_id, "registry_id"))
+        if not registry or registry.insurer_id != insurer.id:
+            raise HTTPException(422, "Reyestr topilmadi yoki boshqa kompaniyaniki")
+        if registry.status != "Sent":
+            raise HTTPException(409, "To'lovni faqat yuborilgan (Sent) reyestrga bog'lash mumkin")
     p = InsurerPayment(insurer_id=insurer.id, amount=data.amount, paid_on=paid_on, reference=(data.reference or "").strip() or None, notes=data.notes,
-                       branch_id=user.branch_id, created_by=user.id)
+                       registry_id=registry.id if registry else None, branch_id=user.branch_id, created_by=user.id)
     db.add(p)
     db.flush()
     entries = commissions.reconcile_insurer(db, insurer.id, p, user.id)
@@ -500,6 +513,8 @@ def reverse_insurer_payment(payment_id: uuid.UUID, data: ReverseIn, request: Req
         raise HTTPException(404, "To'lov topilmadi")
     if p.reversed_at is not None:
         raise HTTPException(409, "To'lov allaqachon bekor qilingan")
+    if p.registry_id and db.get(InsuranceRegistry, p.registry_id).status == "Reconciled":
+        raise HTTPException(409, "To'lov solishtirilgan (Reconciled) reyestrga bog'langan: bekor qilib bo'lmaydi")
     from datetime import UTC, datetime
     p.reversed_at, p.reverse_reason = datetime.now(UTC), data.reason.strip()
     db.flush()
@@ -556,3 +571,123 @@ def registry(request: Request, insurer_id: uuid.UUID, month: str = Query(..., pa
     from app.services.exports import XLSX
     return Response(ins.registry_xlsx(db, head, rows, summary, user.branch_id if not all_branches else None), media_type=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{number}.xlsx"'})
+
+
+# ---------- Reyestr hujjati: Draft -> Sent (qotgan, Excel saqlanadi) -> Reconciled ----------
+
+def _registry(db: Session, registry_id: uuid.UUID, user: CurrentUser) -> InsuranceRegistry:
+    reg = db.get(InsuranceRegistry, registry_id)
+    if not reg or (reg.branch_id != user.branch_id and "branches:all" not in user.permissions):
+        raise HTTPException(404, "Reyestr topilmadi")
+    return reg
+
+
+def registry_out(db: Session, reg: InsuranceRegistry, rows: list[dict] | None = None, with_rows: bool = False) -> dict:
+    rows = rows if rows is not None else reg_svc.rows_of(db, reg)
+    head = reg_svc.head_of(db, reg, rows)
+    paid = reg_svc.paid_total(db, reg.id)
+    out = {"id": str(reg.id), "number": reg.number, "insurer_id": str(reg.insurer_id), "insurer": head["insurer"], "month": head["month"], "status": reg.status,
+           "insurer_total": head["insurer_total"], "patient_total": head["patient_total"], "lines_count": head["lines"], "invoices_count": head["invoices"],
+           "corrections": head["corrections"], "paid": paid, "balance": head["insurer_total"] - paid, "file_name": reg.file_name, "file_sha256": reg.file_sha256,
+           "sent_at": reg.sent_at.isoformat() if reg.sent_at else None, "reconciled_at": reg.reconciled_at.isoformat() if reg.reconciled_at else None,
+           "reconcile_note": reg.reconcile_note}
+    if with_rows:
+        out["rows"] = [{**r, "invoice_line_id": str(r["invoice_line_id"])} for r in rows]
+    return out
+
+
+@router.post("/insurance/registries", tags=[TAG], response_model=RegistryDetail, status_code=201, summary="Reyestr hujjatini ochish (Draft)",
+             description="Kompaniya + oy + faol filial uchun bitta hujjat. Draft: qatorlar jonli hisoblanadi (oy oxirigacha chiqarilgan va hali yuborilmagan qatorlar + "
+                         "avval yuborilgan qatorlarga tuzatishlar). `insurance:manage`.")
+def create_registry(data: RegistryCreateIn, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:manage"))):
+    insurer = db.get(Insurer, _uuid(data.insurer_id, "insurer_id"))
+    if not insurer:
+        raise HTTPException(422, "Kompaniya topilmadi")
+    first = reg_svc.month_first(data.month)
+    reg = InsuranceRegistry(insurer_id=insurer.id, month=first, number=reg_svc.make_number(insurer.id, first, user.branch_id), status="Draft",
+                            branch_id=user.branch_id, created_by=user.id)
+    db.add(reg)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Bu kompaniya va oy uchun reyestr allaqachon ochilgan")
+    audit.record(db, user, request, "create", "insurance_registry_doc", reg.id, {"number": reg.number, "insurer": insurer.name, "month": data.month})
+    db.commit()
+    return registry_out(db, reg, with_rows=True)
+
+
+@router.get("/insurance/registries", tags=[TAG], response_model=List[RegistryOut], summary="Reyestr hujjatlari")
+def list_registries(insurer_id: Optional[uuid.UUID] = None, status: Optional[str] = Query(None, pattern="^(Draft|Sent|Reconciled)$"),
+                    db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:read"))):
+    stmt = select(InsuranceRegistry).where(InsuranceRegistry.branch_id == user.branch_id).order_by(InsuranceRegistry.month.desc(), InsuranceRegistry.number)
+    if insurer_id:
+        stmt = stmt.where(InsuranceRegistry.insurer_id == insurer_id)
+    if status:
+        stmt = stmt.where(InsuranceRegistry.status == status)
+    return [registry_out(db, r) for r in db.scalars(stmt)]
+
+
+@router.get("/insurance/registries/{registry_id}", tags=[TAG], response_model=RegistryDetail, summary="Reyestr hujjati qatorlari bilan",
+            description="Draft: jonli hisob; Sent/Reconciled: qotgan nusxa (o'zgarmaydi). `Correction` qatorlari avval yuborilgan qatordan farqni ko'rsatadi.")
+def get_registry(registry_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:read"))):
+    reg = _registry(db, registry_id, user)
+    audit.record_read(db, user, request, "insurance_registry_doc", reg.id, {"number": reg.number, "status": reg.status})
+    return registry_out(db, reg, with_rows=True)
+
+
+@router.post("/insurance/registries/{registry_id}/send", tags=[TAG], response_model=RegistryDetail, summary="Reyestrni yuborish (qotirish)",
+             description="Draft -> Sent: qatorlar qotadi, Excel fayli saqlanadi (SHA-256 bilan) va hujjat o'zgarmaydi. Bo'sh reyestr yuborilmaydi (409). "
+                         "Keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori bo'lib tushadi. `insurance:manage`.")
+def send_registry(registry_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:manage"))):
+    from datetime import UTC, datetime
+    reg = _registry(db, registry_id, user)
+    if reg.status != "Draft":
+        raise HTTPException(409, "Reyestr allaqachon yuborilgan")
+    rows = reg_svc.live_rows(db, reg.insurer_id, reg.month, reg.branch_id)
+    if not rows:
+        raise HTTPException(409, "Reyestrda qator yo'q: yuborib bo'lmaydi")
+    xlsx = reg_svc.xlsx_of(db, reg, rows)
+    key = f"{uuid.uuid4().hex}.xlsx"
+    get_storage().save(key, xlsx)
+    reg_svc.freeze(db, reg, rows, xlsx, key, user.id, datetime.now(UTC))
+    audit.record(db, user, request, "update", "insurance_registry_doc", reg.id, {"number": reg.number, "status": "Sent", "lines": reg.lines_count,
+                                                                                 "insurer_total": str(reg.insurer_total), "sha256": reg.file_sha256})
+    db.commit()
+    return registry_out(db, reg, with_rows=True)
+
+
+@router.get("/insurance/registries/{registry_id}/file", tags=[TAG], summary="Reyestr Excel fayli (yuborilgan: saqlangan nusxa; Draft: hozirgi holat)",
+            response_class=Response)
+def registry_file(registry_id: uuid.UUID, request: Request, db: Session = Depends(get_db), user: CurrentUser = Depends(require("insurance:manage"))):
+    from app.services.exports import XLSX
+    reg = _registry(db, registry_id, user)
+    if reg.status == "Draft":
+        content = reg_svc.xlsx_of(db, reg, reg_svc.live_rows(db, reg.insurer_id, reg.month, reg.branch_id))
+    else:
+        storage = get_storage()
+        if not storage.exists(reg.file_key):
+            raise HTTPException(410, "Fayl saqlashda topilmadi")
+        content = b"".join(storage.open(reg.file_key))
+    audit.record_read(db, user, request, "insurance_registry_doc", reg.id, {"number": reg.number, "status": reg.status, "download": True})
+    return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{reg.number}.xlsx"', "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/insurance/registries/{registry_id}/reconcile", tags=[TAG], response_model=RegistryDetail, summary="Reyestrni solishtirish (Reconciled)",
+             description="Sent -> Reconciled: bog'langan kompaniya to'lovlari reyestr summasiga yetgan bo'lsa; kam bo'lsa farq sababi (`note`) majburiy. "
+                         "Solishtirilgan reyestr va unga bog'langan to'lovlar o'zgarmaydi. `insurance:manage`.")
+def reconcile_registry(registry_id: uuid.UUID, data: RegistryReconcileIn, request: Request, db: Session = Depends(get_db),
+                       user: CurrentUser = Depends(require("insurance:manage"))):
+    from datetime import UTC, datetime
+    reg = _registry(db, registry_id, user)
+    if reg.status != "Sent":
+        raise HTTPException(409, "Faqat yuborilgan (Sent) reyestr solishtiriladi")
+    paid = reg_svc.paid_total(db, reg.id)
+    note = (data.note or "").strip() or None
+    if paid < reg.insurer_total and (not note or len(note) < 5):
+        raise HTTPException(422, f"To'lov reyestr summasidan kam ({paid} / {reg.insurer_total}): farq sababini `note` da yozing")
+    reg.status, reg.reconciled_at, reg.reconciled_by, reg.reconcile_note, reg.paid_at_reconcile = "Reconciled", datetime.now(UTC), user.id, note, paid
+    audit.record(db, user, request, "update", "insurance_registry_doc", reg.id, {"number": reg.number, "status": "Reconciled", "paid": str(paid),
+                                                                                 "insurer_total": str(reg.insurer_total), "note": note})
+    db.commit()
+    return registry_out(db, reg, with_rows=True)

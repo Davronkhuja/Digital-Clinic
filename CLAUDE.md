@@ -182,8 +182,8 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 
 ## Ochiq masalalar
 
-- **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori; (4) GitHub Actions Node 24 versiyalari [v2.0.2 TAYYOR]. Keyin 7-bosqich (production, v2.1.x).
-- **6-bosqich taxminlari:** sug'urta reyestri har so'rovda hisoblanadi (saqlangan hujjat yo'q); lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
+- **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori [v2.0.3 TAYYOR: `insurance_registries`, `insurance_registry_lines`, `/insurance/registries*`]; (4) GitHub Actions Node 24 versiyalari [v2.0.2 TAYYOR]. Keyin 7-bosqich (production, v2.1.x).
+- **6-bosqich taxminlari:** lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
 
 - **3-bosqich real kalit/hujjat kutadi (hozir mock/test):** (1) Payme merchant ID va kalit: sandbox'da sinash, `PAYME_UNITS_CODE=796` (dona) taxmin;
   (2) Click service_id/merchant_id/secret: sandbox'da sinash, Click to'lovini qaytarish (reverse) API yozilmagan; (3) fiskal chek: real virtual kassa

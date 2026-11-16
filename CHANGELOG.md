@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.0.3] - 2026-11-16
+### Added
+- Sug'urta reyestri hujjat bo'ldi (kompaniya + oy + filial): `Draft` (jonli hisob) -> `Sent` (qatorlar qotadi, Excel fayli Storage'ga SHA-256 bilan saqlanadi, o'zgarmaydi) -> `Reconciled` (kompaniya to'lovi bilan solishtirilgan). Endpointlar: `POST/GET /insurance/registries`, `GET .../{id}`, `POST .../{id}/send`, `GET .../{id}/file`, `POST .../{id}/reconcile`. Jadvallar `insurance_registries`, `insurance_registry_lines`. Migratsiya 0052.
+- Kompaniya to'lovi reyestrga bog'lanadi (`registry_id`, faqat `Sent`); `Reconciled` reyestrga bog'langan to'lov bekor qilinmaydi (409). Solishtirishda to'lov kam bo'lsa farq sababi (`note`) majburiy.
+- Yuborilgandan keyin o'zgargan (masalan bekor qilingan) hisob-faktura keyingi reyestrga musbat/manfiy tuzatish qatori (`Correction`) bo'lib tushadi; kech chiqarilgan hisob-faktura keyingi reyestrga asl qator bo'ladi.
+- Frontend: Sug'urta > Qarzdorlik va reyestr: reyestr hujjatlari ro'yxati (ochish, yuborish, solishtirish, Excel), to'lov oynasida reyestrga bog'lash. Eski `GET /insurance/registry` (tezkor ko'rinish) saqlandi. E2E: reyestr yuborish.
+
 ## [2.0.2] - 2026-11-16
 ### Changed
 - CI: GitHub Actions versiyalari Node 24 ni qo'llaydiganlariga yangilandi (`checkout@v7`, `setup-python@v7`, `setup-node@v7`, `upload-artifact@v7`, `build-push-action@v7`, `setup-buildx-action@v4`).

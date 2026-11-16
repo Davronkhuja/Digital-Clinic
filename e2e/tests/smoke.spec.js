@@ -470,6 +470,15 @@ test.describe('sug\'urta', () => {
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('reg-download').click()])
     expect(download.suggestedFilename()).toMatch(/^reyestr_\d{4}-\d{2}\.xlsx$/)
     expect(fs.readFileSync(await download.path()).subarray(0, 2).toString('latin1')).toBe('PK')
+    // reyestr hujjati: ochish -> yuborish (qotadi) -> Excel saqlangan nusxa
+    await page.getByTestId('reg-create').click()
+    await expect(page.getByText('Reyestr hujjati ochildi')).toBeVisible()
+    const doc = page.getByTestId('reg-docs').locator('tr', { hasText: insurerName })
+    await expect(doc).toContainText('Qoralama')
+    page.once('dialog', d => d.accept())
+    await doc.getByTestId('reg-send').click()
+    await expect(page.getByText('Reyestr yuborildi')).toBeVisible()
+    await expect(page.getByTestId('reg-docs').locator('tr', { hasText: insurerName })).toContainText('Yuborilgan')
   })
 })
 
