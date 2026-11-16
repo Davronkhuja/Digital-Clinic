@@ -94,6 +94,16 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.app_env.strip().lower() == "production"
 
+    @model_validator(mode="after")
+    def _production_guard(self):
+        """Production'da zaif/standart sirlar (JWT_SECRET, DB va admin paroli), demo seed va http originlar bilan ishga tushmaydi."""
+        if self.app_env.strip().lower() != "production":
+            return self
+        problems = production_problems(self)
+        if problems:
+            raise ValueError("Production sozlamalari xavfsiz emas: " + "; ".join(problems))
+        return self
+
     @field_validator("cors_origins")
     @classmethod
     def _no_wildcard(cls, v: str) -> str:
@@ -109,6 +119,47 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+WEAK_WORDS = (
+    "changeme", "change-me", "change_me", "password", "secret", "example", "default", "123456", "qwerty", "admin", "clinic", "postgres",
+    "demo", "your-", "todo", "test", "xxxx", "0000",
+)
+
+
+def weak_secret(value: str, min_len: int) -> str | None:
+    """Zaiflik sababi yoki None. Tasodifiy hex/base64 kalitlar o'tadi; standart so'zli, takrorlanuvchi yoki qisqa qiymatlar o'tmaydi."""
+    low = value.lower()
+    if len(value) < min_len:
+        return f"kamida {min_len} belgi bo'lishi kerak"
+    if any(w in low for w in WEAK_WORDS):
+        return "standart yoki taxmin qilinadigan so'z bor"
+    if len(set(value)) < 8:
+        return "belgilar xilma-xil emas"
+    return None
+
+
+def production_problems(s: "Settings") -> list[str]:
+    from sqlalchemy.engine import make_url
+    out = []
+    if (why := weak_secret(s.jwt_secret, 32)):
+        out.append(f"JWT_SECRET: {why} (openssl rand -hex 32)")
+    try:
+        db_pass = make_url(s.database_url).password or ""
+    except Exception:
+        db_pass = ""
+    if (why := weak_secret(db_pass, 12)):
+        out.append(f"POSTGRES_PASSWORD: {why} (openssl rand -hex 16)")
+    if s.admin_password and (why := weak_secret(s.admin_password, 12)):
+        out.append(f"ADMIN_PASSWORD: {why}")
+    if s.seed_demo:
+        out.append("SEED_DEMO=true productionda taqiqlangan (demo hisoblar ochiq parol bilan)")
+    bad = [o for o in s.cors_origin_list if not o.startswith("https://")]
+    if bad:
+        out.append(f"CORS_ORIGINS faqat https bo'lishi kerak: {', '.join(bad)}")
+    if not s.public_base_url.startswith("https://"):
+        out.append("PUBLIC_BASE_URL https:// bilan boshlanishi kerak")
+    return out
 
 
 @lru_cache

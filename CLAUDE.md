@@ -180,6 +180,11 @@ Ochiq API qo'llanmasi: `docs/API.md`. Joriy versiya `VERSION` da; keyingi ish: r
 
 Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; oxirida "Shart"ni test yoki skript bilan isbotlab hisobot.
 
+## 7-bosqich: production (v2.1.x), jarayonda
+- `docker-compose.prod.yml` (Caddy HTTPS, backend tashqariga ochilmaydi, limitlar), `deploy/Caddyfile` [v2.1.0]. Prod backend `APP_ENV=production` da zaif sirlar, `SEED_DEMO=true`, http originlar, `SMS_BACKEND=mock` bilan ishga tushmaydi (`config.production_problems`) [v2.1.1].
+- **Production SMS:** haqiqiy provayder adapteri yo'q (hujjat/kalit kutilmoqda), shuning uchun `SMS_BACKEND=disabled` (xabar `Failed`, portalda telefon bilan kirish 503). Real provayder qo'shilganda shu rejim almashtiriladi.
+- Yangi sozlama qo'shsangiz `.env.example` ga ham yozing (test tekshiradi).
+
 ## Ochiq masalalar
 
 - **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori [v2.0.3 TAYYOR: `insurance_registries`, `insurance_registry_lines`, `/insurance/registries*`]; (4) GitHub Actions Node 24 versiyalari [v2.0.2 TAYYOR]. Keyin 7-bosqich (production, v2.1.x).

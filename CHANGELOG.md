@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.1.1] - 2026-11-16
+### Added
+- Production qo'riqchisi: `APP_ENV=production` da zaif/standart `JWT_SECRET`, DB paroli, `ADMIN_PASSWORD` (kamida 32/12/12 belgi, "password", "admin", "clinic" kabi so'zsiz, xilma-xil), `SEED_DEMO=true`, http:// `CORS_ORIGINS`/`PUBLIC_BASE_URL` va `SMS_BACKEND=mock` bilan backend ishga tushmaydi; hamma muammo bir xabarda.
+- `SMS_BACKEND=disabled`: haqiqiy provayder ulanmaguncha production rejimi. Xabar `Failed` (sabab bilan) yoziladi, `POST /public/otp/request` 503 "SMS xizmati sozlanmagan" qaytaradi.
+- Test: `test_production_guard.py` (qo'riqchi, disabled SMS, `.env.example` har bir sozlamani o'z ichiga oladi).
+
 ## [2.1.0] - 2026-11-16
 7-bosqich (production'ga tayyorgarlik) boshlandi.
 ### Added

@@ -53,6 +53,8 @@ def request_ip(request: Request) -> str:
 
 
 def send_code(db: Session, ip: str, phone: str, purpose: str, branch_id, language: str = "uz") -> None:
+    if settings.sms_backend == "disabled":                              # kod yuborib bo'lmaydi: bemorni bekorga kuttirmaymiz
+        raise HTTPException(503, "SMS xizmati sozlanmagan: telefon orqali kirish hozircha mavjud emas")
     if _blocked(db, phone):
         raise _block_error()
     rate_check(db, ip, "otp_ip", *IP_LIMIT)

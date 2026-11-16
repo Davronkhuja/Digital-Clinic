@@ -60,6 +60,14 @@ class MockSmsAdapter:
         return SendResult(f"MOCKSMS-{uuid.uuid4().hex[:10]}")
 
 
+class DisabledSmsAdapter:
+    """SMS_BACKEND=disabled: provayder ulanmagan. Hech narsa yuborilmaydi; xabar `Failed` (sabab bilan) yoziladi, ilova ishlashda davom etadi.
+    Production'da haqiqiy provayder adapteri (hujjat va kalit bilan) qo'shilguncha shu rejim."""
+
+    def send(self, to: str, text: str) -> SendResult:
+        raise SendError("SMS provayder sozlanmagan (SMS_BACKEND=disabled)")
+
+
 class MockTelegramAdapter:
     SENT: list[tuple[str, str]] = []
 
@@ -89,9 +97,9 @@ def get_adapter(channel: Channel) -> ChannelAdapter:
         if channel == Channel.sms:
             if settings.is_production and settings.sms_backend == "mock":
                 raise RuntimeError("Production'da SMS_BACKEND=mock taqiqlangan")
-            if settings.sms_backend != "mock":
-                raise RuntimeError(f"Noma'lum SMS_BACKEND: {settings.sms_backend} (hozircha faqat mock; mahalliy provayder adapteri hujjat va kalit bilan)")
-            _adapters[channel] = MockSmsAdapter()
+            if settings.sms_backend not in ("mock", "disabled"):
+                raise RuntimeError(f"Noma'lum SMS_BACKEND: {settings.sms_backend} (mock yoki disabled; mahalliy provayder adapteri hujjat va kalit bilan)")
+            _adapters[channel] = DisabledSmsAdapter() if settings.sms_backend == "disabled" else MockSmsAdapter()
         else:
             _adapters[channel] = TelegramBotAdapter() if settings.telegram_bot_token else MockTelegramAdapter()
     return _adapters[channel]
