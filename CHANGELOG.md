@@ -2,6 +2,10 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.0.2] - 2026-11-16
+### Changed
+- CI: GitHub Actions versiyalari Node 24 ni qo'llaydiganlariga yangilandi (`checkout@v7`, `setup-python@v7`, `setup-node@v7`, `upload-artifact@v7`, `build-push-action@v7`, `setup-buildx-action@v4`).
+
 ## [2.0.1] - 2026-11-16
 ### Changed
 - Shifokor foizi standarti "xizmatning to'liq summasidan" (`commission_scope=FullAmount`): bemor ulushidan foiz to'lov paytida, sug'urta ulushidan esa kompaniya to'lagandan keyin (FIFO bo'yicha to'langan ulushga) hisoblanadi. Kompaniya to'lovi bekor qilinsa foiz teskari yoziladi (idempotent tuzatish: maqsad - yozilgan). Sozlamalar > Moliya da "Faqat bemor to'lovidan" (`PatientOnly`) varianti qoldi; `PUT /settings/finance` da `commission_scope` yuborilmasa o'zgarmaydi.

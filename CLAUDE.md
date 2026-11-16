@@ -182,7 +182,7 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 
 ## Ochiq masalalar
 
-- **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori; (4) GitHub Actions Node 24 versiyalari. Keyin 7-bosqich (production, v2.1.x).
+- **Qarorlar (foydalanuvchi, 2026-11-16), v2.0.x:** (2) shifokor foizi standart "to'liq summadan": bemor ulushidan darhol, sug'urta ulushidan kompaniya to'lagach (`commission_scope`, `PatientOnly` varianti qoldi) [v2.0.1 TAYYOR]; (3) sug'urta reyestri hujjat: draft -> sent (o'zgarmas, Excel saqlanadi) -> reconciled, kompaniya to'lovi reyestrga bog'lanadi, yuborilgandan keyin o'zgargan hisob-faktura keyingi reyestrga tuzatish qatori; (4) GitHub Actions Node 24 versiyalari [v2.0.2 TAYYOR]. Keyin 7-bosqich (production, v2.1.x).
 - **6-bosqich taxminlari:** sug'urta reyestri har so'rovda hisoblanadi (saqlangan hujjat yo'q); lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
 
 - **3-bosqich real kalit/hujjat kutadi (hozir mock/test):** (1) Payme merchant ID va kalit: sandbox'da sinash, `PAYME_UNITS_CODE=796` (dona) taxmin;
@@ -203,7 +203,6 @@ Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; ox
 - Sozlamalar (Klinika "Saqlash"), sessiyani bekor qilish va parol o'zgartirish UI'lari qo'lda tekshirilmoqda (backend testlangan, UI to'liq sinalmagan).
 - Dashboard'da AI sahifasiga olib boradigan tugma yo'q (menyuda "AI" bor).
 - Push `.github/workflows/ci.yml` o'zgarishi bilan rad etilgan edi (`workflow` scope yo'q, v1.5.19 lokal): foydalanuvchi `gh auth refresh -h github.com -s workflow` bajargach push qilinadi.
-- GitHub Actions'da Node 20 deprecation ogohlantirishi bor (action versiyalarini keyin yangilash).
 - Prettier yo'q (faqat eslint). `v1.5.5` API'ni buzgan edi (MAJOR bo'lishi kerak edi), `v1.5.x` raqamlash saqlandi.
 - Uchrashuvda bemor hali ism bo'yicha topiladi (`AppointmentsView`); bir vaqtga ikkita qabul cheklovi 2-bosqichda.
 - Audit eksporti yo'q. Refresh token bekor qilinsa ham amaldagi access token <=30 daqiqa ishlaydi.
