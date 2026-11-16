@@ -22,7 +22,7 @@ Xususiy klinikalar uchun boshqaruv tizimi (bemorlar, uchrashuvlar, EMR, moliya, 
 1. **Bitta band = bitta commit = bitta versiya (SemVer). Bir nechta bandni bitta commitga birlashtirma** (mashina sekin yoki testlar uzoq bo'lsa ham:
    har band alohida testlanadi, commit qilinadi, tag qo'yiladi). v1.7.10-v1.8.7 bitta commit bo'lib chiqqan va push qilingan: uni qayta yozma, faqat takrorlama.
    Xato tuzatish PATCH, yangi imkoniyat yoki ichki qayta qurish MINOR,
-   API'ni buzadigan o'zgarish MAJOR. Joriy bosqichlar uchun raqamlash: 1-bosqich v1.5.x, 2-bosqich v1.6.x, 3: v1.7.x, 4: v1.8.x, 5: v1.9.x, 6: v2.0.0
+   API'ni buzadigan o'zgarish MAJOR. Joriy bosqichlar uchun raqamlash (6-bosqich v2.0.0 bilan tugadi; keyingi o'zgarishlar v2.0.x/v2.1.0): 1-bosqich v1.5.x, 2-bosqich v1.6.x, 3: v1.7.x, 4: v1.8.x, 5: v1.9.x, 6: v2.0.0
    (hujjatdagi v1.3-v2.0 raqamlariga qaralmaydi). Joriy versiya: `VERSION` faylida.
 2. Versiya uch joyda bir vaqtda: `VERSION`, `frontend/package.json`, `backend/app/__init__.py` (`__version__`):
    `scripts/bump-version.sh X.Y.Z`. FastAPI `version=` shu o'zgaruvchidan o'qiydi.
@@ -170,7 +170,9 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
   hisob-fakturada summa bemor va sug'urta ulushiga bo'linadi; oyiga kompaniya bo'yicha reyestr (Excel) va qarzdorlik hisobi. AI: `AI_ENABLED` orqali lokal LLM (OpenAI-mos), qayd xulosasi, shifokor tasdiqlamaguncha saqlanmaydi [v1.9.29 TAYYOR: `encounter_summaries`, shaxsiy ma'lumot yuborilmaydi, tashqi LLM bemor ma'lumotini olmaydi, demo matn tasdiqlanmaydi]. Ochiq REST API hujjati [v1.9.30 TAYYOR: `docs/API.md`, OpenAPI tavsifi].
   Sug'urta bosqichlari: katalog (kompaniya, shartnoma) [v1.9.24 TAYYOR] -> bemor polisi va kafolat xati [v1.9.25 TAYYOR] -> hisob-faktura bo'linishi [v1.9.26 TAYYOR: `invoices.insurer_total`, qator `insurer_amount`; to'lov bemor ulushiga; sug'urta ulushi kompaniya qarzi; shifokor foizi hozircha faqat bemor to'lovidan] -> kompaniya to'lovlari, reyestr (Excel), qarzdorlik [v1.9.27 TAYYOR] -> frontend [v1.9.28 TAYYOR: `/insurance`, kassada polis].
 
-### 6-bosqich: Analitika va AI (v2.0.0)
+### 6-bosqich: Analitika va AI (v2.0.0): TUGADI (v2.0.0)
+**Shart** (hisobotlar, 1C eksporti, sug'urta bo'linishi/qarzi/reyestri va AI xulosa bitta zanjirda) `backend/tests/test_e2e_stage6.py` bilan isbotlangan.
+Ochiq API qo'llanmasi: `docs/API.md`. Joriy versiya `VERSION` da; keyingi ish: real kalitlar (quyidagi Ochiq masalalar).
 - Hisobotlar: daromad, bemor oqimi, shifokor yuklamasi, kelmay qolish; PDF/Excel va 1C eksporti.
 - AI_ENABLED=true bo'lganda lokal LLM bilan qayd xulosasi; shifokor tasdiqlamaguncha saqlanmaydi.
 - Sug'urta kompaniyalari: polis, kafolat xati, oylik hisob.
@@ -179,6 +181,8 @@ filial bo'yicha. Frontend: Ombor sahifasi, filial almashtirgich, Sozlamalar > Fi
 Har bosqich: bitta band = bitta commit = bitta versiya, CHANGELOG, tag, push; oxirida "Shart"ni test yoki skript bilan isbotlab hisobot.
 
 ## Ochiq masalalar
+
+- **6-bosqich taxminlari:** shifokor foizi faqat bemor to'lovidan (sug'urta ulushidan hisoblanmaydi); sug'urta reyestri har so'rovda hisoblanadi (saqlangan hujjat yo'q); lokal LLM (`LLM_BASE_URL`) sinab ko'rilmagan, testlar soxta javob bilan; 1C ustun xaritasi buxgalter bilan moslanadi.
 
 - **3-bosqich real kalit/hujjat kutadi (hozir mock/test):** (1) Payme merchant ID va kalit: sandbox'da sinash, `PAYME_UNITS_CODE=796` (dona) taxmin;
   (2) Click service_id/merchant_id/secret: sandbox'da sinash, Click to'lovini qaytarish (reverse) API yozilmagan; (3) fiskal chek: real virtual kassa

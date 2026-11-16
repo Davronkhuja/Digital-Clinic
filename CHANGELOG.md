@@ -2,6 +2,13 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versiyalash: [SemVer](https://semver.org/).
 
+## [2.0.0] - 2026-11-16
+6-bosqich (Analitika va AI) tugadi.
+### Added
+- `test_e2e_stage6.py`: bosqich "Shart"i: sug'urtali hisob-faktura (bemor va kompaniya ulushi), daromad hisoboti (JSON/Excel/PDF), 1C eksporti (Excel/CSV), kompaniya qarzi va oylik reyestr, kompaniya to'lovi, AI xulosa (demo tasdiqlanmaydi, qoralama faqat ko'rik shifokori tasdiqlagach yozuvga kiradi).
+### Changed
+- Versiya 2.0.0: 6-bosqich yakunlandi, API buzilmagan (v1.9.x ga mos).
+
 ## [1.9.30] - 2026-11-14
 ### Added
 - Ochiq REST API hujjati: `docs/API.md` (autentifikatsiya, ruxsatlar, filial sarlavhasi, xatolar, qiymat qoidalari, asosiy oqimlar, webhooklar) va `/docs`, `/redoc`, `/openapi.json` tavsifi yangilandi.
